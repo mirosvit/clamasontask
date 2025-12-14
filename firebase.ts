@@ -1,4 +1,4 @@
-import * as firebaseApp from "firebase/app";
+import { initializeApp } from "firebase/app";
 import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 
 // Your web app's Firebase configuration for sklad-ulohy
@@ -12,7 +12,7 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = firebaseApp.initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
 
 // Export the database for use in the application
 export const db = getFirestore(app);
