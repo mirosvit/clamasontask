@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import './index.css'; // Dôležité pre načítanie Tailwind štýlov
 import { LanguageProvider } from './components/LanguageContext';
 
 const rootElement = document.getElementById('root');
@@ -10,7 +11,6 @@ if (!rootElement) {
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // FIX: Corrected property access for serviceWorker.
     navigator.serviceWorker.register('/sw.js')
       .then(registration => {
         console.log('SW registered: ', registration);
