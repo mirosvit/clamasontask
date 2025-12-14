@@ -1,0 +1,20 @@
+{
+  "name": "Clamason Task Manager",
+  "short_name": "TASK MANAGER",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#0d9488",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2821/2821898.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2821/2821898.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
