@@ -7,7 +7,7 @@ import AnalyticsTab from './AnalyticsTab';
 import MissingItemsTab from './MissingItemsTab';
 import LogisticsCenterTab from './LogisticsCenterTab'; // NEW IMPORT
 import PermissionsTab from './PermissionsTab';
-import { UserData, DBItem, PartRequest, BreakSchedule, SystemBreak, BOMItem, BOMRequest, Role, Permission, Task, Notification, PriorityLevel, SystemConfig } from '../App';
+import { UserData, DBItem, PartRequest, BreakSchedule, SystemBreak, BOMItem, BOMRequest, Role, Permission, Task, Notification as AppNotification, PriorityLevel, SystemConfig } from '../App';
 import { useLanguage } from './LanguageContext';
 
 declare var XLSX: any;
@@ -76,7 +76,7 @@ interface PartSearchScreenProps {
   onDeleteRole: (id: string) => void;
   onUpdatePermission: (permissionId: string, roleName: string, hasPermission: boolean) => void;
   onVerifyAdminPassword: (password: string) => boolean;
-  notifications: Notification[];
+  notifications: AppNotification[];
   onClearNotification: (id: string) => void;
   installPrompt: any;
   onInstallApp: () => void;
@@ -204,7 +204,8 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
 
   const requestNotificationPermission = async () => {
     if ('Notification' in window) {
-      const permission = await Notification.requestPermission();
+      // Use the global window.Notification object
+      const permission = await window.Notification.requestPermission();
       if (permission === 'granted') {
         console.log('Push notification permission granted.');
       }

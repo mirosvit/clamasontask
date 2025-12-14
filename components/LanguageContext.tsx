@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { translations } from '../data/locales';
 
@@ -27,7 +28,9 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const t = (key: keyof typeof translations['sk'], params?: Record<string, string | number>) => {
-    let text = translations[language][key] || key;
+    // Cast to any to avoid TypeScript indexing errors on the union type
+    const dict: any = translations[language];
+    let text = dict[key] || key;
     if (params) {
       Object.entries(params).forEach(([k, v]) => {
         text = text.replace(`{${k}}`, String(v));

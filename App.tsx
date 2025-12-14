@@ -350,11 +350,13 @@ const App: React.FC = () => {
 
   const refreshSmartData = async (inputServerVersion?: number) => {
       try {
-          let serverVersion = inputServerVersion;
-          if (serverVersion === undefined) {
+          let serverVersion: number;
+          if (inputServerVersion !== undefined) {
+              serverVersion = inputServerVersion;
+          } else {
               const metaRef = doc(db, 'metadata', 'system');
               const metaSnap = await getDoc(metaRef);
-              serverVersion = metaSnap.exists() ? metaSnap.data().dataVersion : 0;
+              serverVersion = metaSnap.exists() ? (metaSnap.data()?.dataVersion ?? 0) : 0;
           }
           
           const localVersion = parseInt(localStorage.getItem('cached_data_version') || '-1');
