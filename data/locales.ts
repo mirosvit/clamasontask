@@ -1,11 +1,9 @@
 
 export const translations = {
   sk: {
-    // ... existing ...
     tab_inventory: "Inventúra",
     perm_tab_inventory: "Viditeľnosť: Inventúra",
     inventory_title: "Prehľad zablokovaných úloh (Inventúra)",
-    // ... rest of translations (copying from provided file to maintain integrity)
     login_title: "Clamason Task Manager",
     login_subtitle: "Zadajte svoje prihlasovacie údaje",
     username: "Užívateľské meno",
@@ -198,8 +196,8 @@ export const translations = {
     reason_hint: "Tieto dôvody sa zobrazia operátorovi, keď označí tovar ako chýbajúci.",
     reason_added_success: "Dôvod pridaný.",
     sect_log_ops: "5. Typy Operácií (Logistika)",
-    new_op_place: "Nová operácia (napr. PRESUN)",
-    op_hint: "Tieto možnosti sa zobrazia pri zadávaní logistickej úlohy.",
+    new_op_place: "Nový dôvod...",
+    op_hint: "Tieto dôvody sa zobrazia operátorovi, keď označí tovar ako chýbajúci.",
     op_added_success: "Operácia pridaná.",
     sect_maint: "6. Údržba dát",
     maint_desc: "Ak je aplikácia pomalá, môžete presunúť staré dokončené úlohy do archívu.",
@@ -378,13 +376,15 @@ export const translations = {
     log_th_status: "Stav",
     log_th_completed_by: "Dokončil",
     log_sheet_name: "Logistický Prehľad",
+    group_by_wp: "Zoskupiť podľa pracoviska",
+    filter_type_all: "Všetky",
+    filter_type_prod: "Výroba",
+    filter_type_log: "Logistika",
   },
   en: {
-    // ... existing ...
     tab_inventory: "Inventory",
     perm_tab_inventory: "View: Inventory",
     inventory_title: "Blocked Tasks Overview (Inventory)",
-    // ... (rest of the EN translations omitted for brevity but should be maintained)
     login_title: "Clamason Task Manager",
     login_subtitle: "Enter your credentials",
     username: "Username",
@@ -577,8 +577,8 @@ export const translations = {
     reason_hint: "These reasons appear when operator marks item as missing.",
     reason_added_success: "Reason added.",
     sect_log_ops: "5. Logistics Operations",
-    new_op_place: "New operation (e.g. TRANSFER)",
-    op_hint: "These options appear when creating a logistics task.",
+    new_op_place: "New reason...",
+    op_hint: "These reasons appear when operator marks item as missing.",
     op_added_success: "Operation added.",
     sect_maint: "6. Data Maintenance",
     maint_desc: "If app is slow, move old completed tasks to archive.",
@@ -757,5 +757,9 @@ export const translations = {
     log_th_status: "Status",
     log_th_completed_by: "Completed By",
     log_sheet_name: "Logistics Overview",
+    group_by_wp: "Group by workplace",
+    filter_type_all: "All",
+    filter_type_prod: "Production",
+    filter_type_log: "Logistics",
   }
 };

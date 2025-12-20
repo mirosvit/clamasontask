@@ -156,6 +156,10 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // New States for Task Filters
+  const [taskTypeFilter, setTaskTypeFilter] = useState<'ALL' | 'PRODUCTION' | 'LOGISTICS'>('ALL');
+  const [groupByWorkplace, setGroupByWorkplace] = useState(false);
+
   const [bomParentQuery, setBomParentQuery] = useState('');
   const [bomQuantity, setBomQuantity] = useState('');
   const [bomSelectedWorkplace, setBomSelectedWorkplace] = useState<string | null>(null);
@@ -258,7 +262,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
         alert(t('select_bom_workplace'));
         return;
     }
-    onAddTask(childPart, bomSelectedWorkplace, qty.toString(), 'pcs', 'NORMAL', 'logistics');
+    onAddTask(childPart, bomSelectedWorkplace, qty.toString(), 'pcs', 'NORMAL', 'production');
     setClickedBOMTasks(prev => new Set(prev).add(childPart));
   };
 
@@ -473,10 +477,82 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
           
           {activeTab === 'tasks' && hasPermission('perm_tab_tasks') && (
             <div className="animate-fade-in pb-20">
-              <div className="mb-4 flex justify-center">
-                  <input type="text" value={taskSearchQuery} onChange={e => setTaskSearchQuery(e.target.value)} className="w-full max-w-md px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all" placeholder={t('task_search_placeholder')} />
+              <div className="mb-4 flex flex-col md:flex-row items-center justify-between gap-4 bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg">
+                  <div className="relative w-full md:w-80">
+                      <input 
+                        type="text" 
+                        value={taskSearchQuery} 
+                        onChange={e => setTaskSearchQuery(e.target.value)} 
+                        className="w-full pl-10 pr-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all" 
+                        placeholder={t('task_search_placeholder')} 
+                      />
+                      <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
+                  </div>
+                  
+                  <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
+                      {/* Task Type Filter */}
+                      {hasPermission('perm_logistics_mode') && (
+                          <div className="flex bg-gray-900 p-1 rounded-lg border border-gray-700 shadow-inner">
+                              <button 
+                                onClick={() => setTaskTypeFilter('ALL')} 
+                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${taskTypeFilter === 'ALL' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
+                              >
+                                {t('filter_type_all')}
+                              </button>
+                              <button 
+                                onClick={() => setTaskTypeFilter('PRODUCTION')} 
+                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${taskTypeFilter === 'PRODUCTION' ? 'bg-teal-600/20 text-teal-400' : 'text-gray-500 hover:text-gray-300'}`}
+                              >
+                                {t('filter_type_prod')}
+                              </button>
+                              <button 
+                                onClick={() => setTaskTypeFilter('LOGISTICS')} 
+                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${taskTypeFilter === 'LOGISTICS' ? 'bg-sky-600/20 text-sky-400' : 'text-gray-500 hover:text-gray-300'}`}
+                              >
+                                {t('filter_type_log')}
+                              </button>
+                          </div>
+                      )}
+
+                      {/* Grouping Toggle */}
+                      <label className="flex items-center gap-3 cursor-pointer select-none">
+                          <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('group_by_wp')}</span>
+                          <div className="relative inline-flex items-center">
+                              <input 
+                                type="checkbox" 
+                                checked={groupByWorkplace} 
+                                onChange={() => setGroupByWorkplace(!groupByWorkplace)} 
+                                className="sr-only peer"
+                              />
+                              <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                          </div>
+                      </label>
+                  </div>
               </div>
-              <TaskList currentUser={currentUserRole} currentUserName={currentUser} tasks={tasks.filter(t => { const q = taskSearchQuery.toLowerCase(); return (t.partNumber && t.partNumber.toLowerCase().includes(q)) || (t.text && t.text.toLowerCase().includes(q)) || (t.workplace && t.workplace.toLowerCase().includes(q)); })} onToggleTask={onToggleTask} onEditTask={onEditTask} onDeleteTask={onDeleteTask} onToggleMissing={onToggleMissing} onSetInProgress={onSetInProgress} onToggleBlock={onToggleBlock} onToggleManualBlock={onToggleManualBlock} onMarkAsIncorrect={onMarkAsIncorrect} onAddNote={onAddNote} onReleaseTask={onReleaseTask} missingReasons={missingReasons} hasPermission={hasPermission} />
+
+              <TaskList 
+                currentUser={currentUserRole} 
+                currentUserName={currentUser} 
+                tasks={tasks.filter(t => { 
+                    const q = taskSearchQuery.toLowerCase(); 
+                    const matchesSearch = (t.partNumber && t.partNumber.toLowerCase().includes(q)) || (t.text && t.text.toLowerCase().includes(q)) || (t.workplace && t.workplace.toLowerCase().includes(q));
+                    const matchesType = taskTypeFilter === 'ALL' || t.type === taskTypeFilter.toLowerCase();
+                    return matchesSearch && matchesType;
+                })} 
+                onToggleTask={onToggleTask} 
+                onEditTask={onEditTask} 
+                onDeleteTask={onDeleteTask} 
+                onToggleMissing={onToggleMissing} 
+                onSetInProgress={onSetInProgress} 
+                onToggleBlock={onToggleBlock} 
+                onToggleManualBlock={onToggleManualBlock} 
+                onMarkAsIncorrect={onMarkAsIncorrect} 
+                onAddNote={onAddNote} 
+                onReleaseTask={onReleaseTask} 
+                missingReasons={missingReasons} 
+                hasPermission={hasPermission} 
+                groupByWorkplace={groupByWorkplace}
+              />
             </div>
           )}
 
@@ -487,8 +563,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
               <div className="h-full animate-fade-in pb-20">
                   <div className="max-w-7xl mx-auto">
                       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                          
-                          {/* PANEL VSTUPOV (Ľavá strana) */}
                           <div className="lg:col-span-4 space-y-6">
                               <div className="bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-700">
                                   <div className="flex items-center gap-3 mb-6">
@@ -540,7 +614,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                                           {t('bom_calc_btn')}
                                       </button>
 
-                                      {/* Report Button pre chýbajúci BOM */}
                                       {bomParentQuery && bomResults.length === 0 && (
                                           <button 
                                               onClick={handleRequestNewBOM}
@@ -557,7 +630,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                                   </div>
                               </div>
 
-                              {/* SUMMARY CARDS (Štatistiky) */}
                               {bomResults.length > 0 && (
                                   <div className="grid grid-cols-2 gap-4">
                                       <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
@@ -572,7 +644,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                               )}
                           </div>
 
-                          {/* PANEL VÝSLEDKOV (Pravá strana) */}
                           <div className="lg:col-span-8">
                               {bomResults.length > 0 ? (
                                   <div className="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 overflow-hidden flex flex-col h-full">
@@ -648,7 +719,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                                   </div>
                               )}
                           </div>
-
                       </div>
                   </div>
               </div>
