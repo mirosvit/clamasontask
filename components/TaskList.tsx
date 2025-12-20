@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Task, PriorityLevel, DBItem } from '../App';
@@ -395,12 +394,22 @@ const TaskList: React.FC<TaskListProps> = (props) => {
                                             </button>
                                         )}
                                         {!isInventoryMode && !isManualBlocked && props.hasPermission('perm_btn_copy') && (
-                                            <button onClick={() => handleCopyPart(task.id, task.partNumber || '')} className={`w-16 h-16 flex items-center justify-center rounded-lg transition-all active:scale-95 shadow-lg border ${copiedId === task.id ? 'bg-green-600 border-green-500 text-white' : 'bg-blue-600 border-blue-500 text-white hover:bg-blue-500'}`} title={t('btn_copy')}>
+                                            <button 
+                                                onClick={() => task.isInProgress && handleCopyPart(task.id, task.partNumber || '')} 
+                                                disabled={!task.isInProgress}
+                                                className={`w-16 h-16 flex items-center justify-center rounded-lg transition-all shadow-lg border ${!task.isInProgress ? 'bg-gray-700 text-gray-500 border-gray-600 cursor-not-allowed opacity-50' : (copiedId === task.id ? 'bg-green-600 border-green-500 text-white' : 'bg-blue-600 border-blue-500 text-white hover:bg-blue-500 active:scale-95')}`} 
+                                                title={t('btn_copy')}
+                                            >
                                                 {copiedId === task.id ? <span className="font-bold text-xs">OK</span> : <CopyIcon className="w-8 h-8" />}
                                             </button>
                                         )}
                                         {!isInventoryMode && !isManualBlocked && props.hasPermission('perm_btn_missing') && (
-                                            <button onClick={(e) => handleMissingClick(task, e)} className={`w-16 h-16 flex items-center justify-center rounded-xl transition-all active:scale-95 shadow-lg border ${task.isMissing ? 'bg-red-800 text-white border-red-500' : 'bg-red-600 text-white hover:bg-red-500 border-red-500'}`} title={t('perm_btn_missing')}>
+                                            <button 
+                                                onClick={(e) => task.isInProgress && handleMissingClick(task, e)} 
+                                                disabled={!task.isInProgress}
+                                                className={`w-16 h-16 flex items-center justify-center rounded-xl transition-all shadow-lg border ${!task.isInProgress ? 'bg-gray-700 text-gray-500 border-gray-600 cursor-not-allowed opacity-50' : (task.isMissing ? 'bg-red-800 text-white border-red-500' : 'bg-red-600 text-white hover:bg-red-500 border-red-500 active:scale-95')}`} 
+                                                title={t('perm_btn_missing')}
+                                            >
                                                 <ExclamationIcon className="w-10 h-10" />
                                             </button>
                                         )}
