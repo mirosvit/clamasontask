@@ -1,6 +1,4 @@
 
-
-
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Role, Permission } from '../App'; 
@@ -36,7 +34,7 @@ const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, permissions, onA
       },
       {
           name: 'perm_group_actions',
-          perms: ['perm_btn_finish', 'perm_btn_edit', 'perm_btn_delete', 'perm_btn_resolve', 'perm_btn_missing', 'perm_btn_copy', 'perm_btn_return', 'perm_btn_note', 'perm_btn_incorrect', 'perm_btn_lock', 'perm_view_fullscreen', 'perm_play_sound', 'perm_push_notification', 'perm_view_passwords']
+          perms: ['perm_btn_finish', 'perm_btn_edit', 'perm_btn_delete', 'perm_btn_resolve', 'perm_btn_missing', 'perm_btn_copy', 'perm_btn_return', 'perm_btn_note', 'perm_btn_incorrect', 'perm_btn_lock', 'perm_btn_block_new', 'perm_view_fullscreen', 'perm_play_sound', 'perm_push_notification', 'perm_view_passwords']
       },
       {
           name: 'perm_group_mgmt',

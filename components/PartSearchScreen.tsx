@@ -25,7 +25,9 @@ interface PartSearchScreenProps {
   onToggleMissing: (id: string, reason?: string) => void; 
   onSetInProgress: (id: string) => void;
   onToggleBlock: (id: string) => void; 
+  onToggleManualBlock: (id: string) => void;
   onAddNote: (id: string, note: string) => void;
+  onDeleteMissingItem: (id: string) => void;
   onReleaseTask: (id: string) => void;
   users: UserData[];
   onAddUser: (user: UserData) => void;
@@ -55,7 +57,6 @@ interface PartSearchScreenProps {
   onRejectPartRequest: (id: string) => void;
   onArchiveTasks: () => Promise<{ success: boolean; count?: number; error?: string; message?: string }>;
   onFetchArchivedTasks: () => Promise<Task[]>;
-  onDeleteMissingItem: (id: string) => void;
   breakSchedules: BreakSchedule[];
   systemBreaks: SystemBreak[];
   isBreakActive: boolean;
@@ -93,7 +94,7 @@ const FullscreenIcon: React.FC<{ className?: string }> = ({ className }) => (
 
 const ExitFullscreenIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4l6 6m0 0v-4m0 4h-4M20 4l-6 6m0 0v-4m0 4h4M20 20l-6-6m0 0v4m0-4h4M4 20l6-6m0 0v4m0-4h-4" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4l6 6m0 0v-4m0-4h-4M20 4l-6 6m0 0v-4m0 4h4M20 20l-6-6m0 0v4m0-4h4M4 20l6-6m0 0v-4m0-4h-4" />
     </svg>
 );
 
@@ -127,7 +128,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   const { 
     currentUser, currentUserRole, onLogout, tasks, onAddTask, roles, permissions,
     notifications, onClearNotification, installPrompt, onInstallApp, parts, workplaces,
-    onToggleTask, onEditTask, onDeleteTask, onToggleMissing, onSetInProgress, onToggleBlock, onMarkAsIncorrect, onAddNote, onReleaseTask, missingReasons,
+    onToggleTask, onEditTask, onDeleteTask, onToggleMissing, onSetInProgress, onToggleBlock, onToggleManualBlock, onMarkAsIncorrect, onAddNote, onReleaseTask, missingReasons,
     users, onAddUser, onUpdatePassword, onUpdateUserRole, onDeleteUser,
     onAddPart, onBatchAddParts, onDeletePart, onDeleteAllParts,
     onAddWorkplace, onBatchAddWorkplaces, onDeleteWorkplace, onDeleteAllWorkplaces,
@@ -725,9 +726,18 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                 currentUserName={currentUser}
                 tasks={tasks.filter(t => {
                    const q = taskSearchQuery.toLowerCase();
-                   return (t.partNumber && t.partNumber.toLowerCase().includes(q)) || 
-                          (t.text && t.text.toLowerCase().includes(q)) ||
-                          (t.workplace && t.workplace.toLowerCase().includes(q));
+                   const matchesSearch = (t.partNumber && t.partNumber.toLowerCase().includes(q)) || 
+                                         (t.text && t.text.toLowerCase().includes(q)) ||
+                                         (t.workplace && t.workplace.toLowerCase().includes(q));
+                   
+                   if (!matchesSearch) return false;
+
+                   // Visibility Rule for Blocked Tasks: Only visible to those who can manage manual blocks
+                   if (t.isManualBlocked && !hasPermission('perm_btn_block_new')) {
+                       return false;
+                   }
+
+                   return true;
                 })}
                 onToggleTask={onToggleTask}
                 onEditTask={onEditTask}
@@ -735,6 +745,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                 onToggleMissing={onToggleMissing}
                 onSetInProgress={onSetInProgress}
                 onToggleBlock={onToggleBlock}
+                onToggleManualBlock={onToggleManualBlock}
                 onMarkAsIncorrect={onMarkAsIncorrect}
                 onAddNote={onAddNote}
                 onReleaseTask={onReleaseTask}
@@ -796,7 +807,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                 onInstallApp={onInstallApp}
                 systemConfig={systemConfig}
                 onUpdateSystemConfig={onUpdateSystemConfig}
-                dbLoadWarning={dbLoadWarning} // ADDED
+                dbLoadWarning={dbLoadWarning} 
             />
           )}
 
@@ -837,7 +848,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                           {t('bom_calc_btn')}
                       </button>
 
-                      {/* WORKPLACE SELECTOR FOR TASK CREATION */}
                       {filteredBomItems.length > 0 && (
                           <div className="mb-6 p-4 bg-gray-900 rounded-lg border border-teal-800">
                                <label className="block text-teal-400 text-sm font-bold mb-2 uppercase tracking-wide flex items-center gap-2">

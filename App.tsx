@@ -66,9 +66,10 @@ export interface Task {
   startedAt?: number; 
   completedAt?: number; 
   note?: string;
-  isBlocked?: boolean;
+  isBlocked?: boolean; // For Inventory
+  isManualBlocked?: boolean; // For new manual block feature
   inventoryHistory?: InventorySession[];
-  type?: 'production' | 'logistics'; // NEW FIELD for task type
+  type?: 'production' | 'logistics'; 
 }
 
 export interface Notification {
@@ -263,21 +264,17 @@ const App: React.FC = () => {
 
   // Tasks - Realtime
   useEffect(() => {
-    // NOTE: In a high-volume production app, this should be limited (e.g. limit(500) or where('createdAt' > 30days)).
-    // For now, we rely on the Archive function to keep this collection small.
     const q = query(collection(db, 'tasks')); 
     
     return onSnapshot(q, (snapshot) => {
       const newTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
       
-      // Monitoring: Warn if collection gets too big
       if (newTasks.length > 500) {
           setDbLoadWarning(true);
       } else {
           setDbLoadWarning(false);
       }
 
-      // Sound Notification Logic
       if (!isFirstLoad.current) {
           snapshot.docChanges().forEach((change) => {
               if (change.type === 'added') {
@@ -304,6 +301,14 @@ const App: React.FC = () => {
             const timeB = b.completedAt || b.createdAt || 0;
             return timeB - timeA; 
         }
+
+        // --- ACTIVE TASKS SORTING ---
+        
+        // Manual Blocked tasks should be at the absolute bottom of the active list
+        const aManBlocked = a.isManualBlocked ? 1 : 0;
+        const bManBlocked = b.isManualBlocked ? 1 : 0;
+        if (aManBlocked !== bManBlocked) return aManBlocked - bManBlocked;
+
         const pA = priorityOrder[a.priority || 'NORMAL'];
         const pB = priorityOrder[b.priority || 'NORMAL'];
         if (pA !== pB) return pA - pB;
@@ -362,10 +367,8 @@ const App: React.FC = () => {
           const localVersion = parseInt(localStorage.getItem('cached_data_version') || '-1');
           let loadedFromCache = false;
 
-          // 2. Try Cache if versions match
           if (serverVersion === localVersion && localVersion !== -1) {
               try {
-                  console.log("📦 Loading Heavy Data (Parts/BOM) from Cache...");
                   const cParts = localStorage.getItem('cached_parts');
                   const cBom = localStorage.getItem('cached_bom');
 
@@ -380,8 +383,6 @@ const App: React.FC = () => {
           }
 
           if (!loadedFromCache) {
-              console.log(`☁️ Fetching Heavy Data from Cloud (v${serverVersion})...`);
-              
               const pSnap = await getDocs(query(collection(db, 'parts'), orderBy('value')));
               const bSnap = await getDocs(query(collection(db, 'bom_items'), orderBy('parentPart')));
               
@@ -393,7 +394,6 @@ const App: React.FC = () => {
 
               localStorage.setItem('cached_parts', JSON.stringify(newParts));
               localStorage.setItem('cached_bom', JSON.stringify(newBOM));
-              
               localStorage.setItem('cached_data_version', serverVersion.toString());
           }
       } catch (e) {
@@ -401,13 +401,11 @@ const App: React.FC = () => {
       }
   };
 
-  // Initial Fetch & Listener for Metadata (Smart Realtime for Parts/BOM)
   useEffect(() => {
       const metaRef = doc(db, 'metadata', 'system');
       const unsubscribe = onSnapshot(metaRef, (snap) => {
           if (snap.exists()) {
               const data = snap.data();
-              // JITTER: Add random delay (0-10s) to prevent "Thundering Herd" when version changes
               const jitter = Math.floor(Math.random() * 10000); 
               setTimeout(() => {
                   refreshSmartData(data.dataVersion);
@@ -419,12 +417,10 @@ const App: React.FC = () => {
       return () => unsubscribe();
   }, []);
   
-  // Realtime needed for Requests (Admin/Mgmt stuff)
   useEffect(() => { const q = query(collection(db, 'part_requests')); return onSnapshot(q, s => setPartRequests(s.docs.map(d => ({id:d.id, ...d.data()} as PartRequest)))); }, []);
   useEffect(() => { const q = query(collection(db, 'bom_requests')); return onSnapshot(q, s => setBomRequests(s.docs.map(d => ({id:d.id, ...d.data()} as BOMRequest)))); }, []);
-  useEffect(() => { const q = query(collection(db, 'notifications')); return onSnapshot(q, s => setNotifications(s.docs.map(d => ({id:d.id, ...d.data()} as Notification)))); }, []);
+  useEffect(() => { return onSnapshot(collection(db, 'notifications'), s => setNotifications(s.docs.map(d => ({id:d.id, ...d.data()} as Notification)))); }, []);
   
-  // System breaks
   useEffect(() => { 
       const q = query(collection(db, 'system_breaks')); 
       return onSnapshot(q, s => {
@@ -434,7 +430,6 @@ const App: React.FC = () => {
       }); 
   }, []);
 
-  // Break Logic
   useEffect(() => {
       if (!breakSchedules.length) return;
       const checkTime = () => {
@@ -460,53 +455,6 @@ const App: React.FC = () => {
       return () => clearInterval(interval);
   }, [breakSchedules, isBreakActive, systemBreaks]);
 
-  const seedDatabase = async () => {
-      const uSnap = await getDocs(collection(db, 'users'));
-      if (uSnap.empty) {
-          await addDoc(collection(db, 'users'), { username: 'USER', password: '123', role: 'USER' });
-          await addDoc(collection(db, 'users'), { username: 'ADMIN', password: '321', role: 'ADMIN' });
-      }
-      
-      const rSnap = await getDocs(collection(db, 'roles'));
-      if (rSnap.empty) {
-          const batch = writeBatch(db);
-          const roleDefs = [
-              { name: 'ADMIN', isSystem: true },
-              { name: 'USER', isSystem: true },
-              { name: 'LEADER', isSystem: true }
-          ];
-          const roleMap: Record<string, string> = {};
-          for (const r of roleDefs) {
-              const ref = doc(db, 'roles', r.name); 
-              batch.set(ref, r);
-              roleMap[r.name] = ref.id;
-          }
-          const assign = (role: string, list: string[]) => {
-              const rid = roleMap[role];
-              if (!rid) return;
-              list.forEach(p => batch.set(doc(collection(db, 'permissions')), { roleId: rid, permissionName: p }));
-          };
-          
-          const allPerms = [
-              'perm_tab_entry', 'perm_tab_tasks', 'perm_tab_bom', 'perm_tab_analytics', 'perm_tab_settings', 'perm_tab_missing', 'perm_tab_permissions', 'perm_logistics_mode', 'perm_tab_logistics_center',
-              'perm_btn_finish', 'perm_btn_edit', 'perm_btn_delete', 'perm_btn_resolve', 'perm_btn_missing', 'perm_btn_copy', 'perm_btn_note', 'perm_btn_incorrect', 'perm_btn_return', 'perm_btn_lock',
-              'perm_view_fullscreen', 'perm_play_sound', 'perm_view_passwords', 'perm_install_pwa',
-              'perm_manage_users', 'perm_manage_db', 'perm_manage_logistics_ops', 'perm_manage_bom', 'perm_archive', 'perm_manage_breaks', 'perm_manage_roles'
-          ];
-          assign('ADMIN', allPerms);
-          assign('USER', ['perm_tab_entry', 'perm_tab_tasks', 'perm_tab_bom', 'perm_btn_resolve', 'perm_btn_missing', 'perm_btn_copy', 'perm_btn_note', 'perm_btn_finish', 'perm_play_sound', 'perm_install_pwa']);
-          assign('LEADER', ['perm_tab_entry', 'perm_tab_tasks', 'perm_tab_bom', 'perm_logistics_mode', 'perm_tab_logistics_center', 'perm_btn_incorrect', 'perm_btn_edit', 'perm_btn_return', 'perm_play_sound', 'perm_install_pwa']); 
-          await batch.commit();
-      }
-
-      const pSnap = await getDocs(collection(db, 'parts'));
-      if (pSnap.empty) {
-          const b = writeBatch(db);
-          initialParts.forEach(p => b.set(doc(collection(db, 'parts')), { value: p, description: '' }));
-          await b.commit();
-          await incrementDataVersion();
-      }
-  };
 
   // --- ACTIONS ---
 
@@ -688,11 +636,11 @@ const App: React.FC = () => {
     const t = tasks.find(x => x.id === id);
     if(t) {
         const newState = !t.isDone;
-        await updateDoc(doc(db,'tasks',id), { isDone:newState, status:newState?'completed':null, completionTime:newState?new Date().toLocaleTimeString('sk-SK'):null, completedBy:newState?currentUser:null, completedAt:newState?Date.now():null, isInProgress:false, inProgressBy:null, isBlocked:false });
+        await updateDoc(doc(db,'tasks',id), { isDone:newState, status:newState?'completed':null, completionTime:newState?new Date().toLocaleTimeString('sk-SK'):null, completedBy:newState?currentUser:null, completedAt:newState?Date.now():null, isInProgress:false, inProgressBy:null, isBlocked:false, isManualBlocked: false });
     }
   };
 
-  const handleMarkAsIncorrect = async (id: string) => updateDoc(doc(db,'tasks',id), { isDone:true, status:'incorrectly_entered', completionTime:new Date().toLocaleTimeString('sk-SK'), completedBy:currentUser, completedAt:Date.now(), isInProgress:false, inProgressBy:null, isBlocked:false });
+  const handleMarkAsIncorrect = async (id: string) => updateDoc(doc(db,'tasks',id), { isDone:true, status:'incorrectly_entered', completionTime:new Date().toLocaleTimeString('sk-SK'), completedBy:currentUser, completedAt:Date.now(), isInProgress:false, inProgressBy:null, isBlocked:false, isManualBlocked: false });
   const handleSetInProgress = async (id: string) => { const t = tasks.find(x=>x.id===id); if(t) updateDoc(doc(db,'tasks',id), { isInProgress:!t.isInProgress, inProgressBy:!t.isInProgress?currentUser:null, startedAt:(!t.isInProgress && !t.startedAt)?Date.now():t.startedAt }); };
   const handleAddNote = (id:string, n:string) => updateDoc(doc(db,'tasks',id), {note:n});
   const handleReleaseTask = (id:string) => updateDoc(doc(db,'tasks',id), {isInProgress:false, inProgressBy:null});
@@ -709,7 +657,8 @@ const App: React.FC = () => {
               missingReason: isMissing?(reason||'Iné'):null,
               isInProgress: false, 
               inProgressBy: null,
-              isBlocked: false 
+              isBlocked: false,
+              isManualBlocked: false
           });
           if (isMissing) {
               await addDoc(collection(db, 'notifications'), {
@@ -731,6 +680,20 @@ const App: React.FC = () => {
           const hist = t.inventoryHistory ? [...t.inventoryHistory] : [];
           if(isBlocked) hist.push({start:Date.now()}); else { const last=hist[hist.length-1]; if(last && !last.end) last.end=Date.now(); }
           updateDoc(doc(db,'tasks',id), { isBlocked, inventoryHistory:hist });
+      }
+  };
+
+  const handleToggleManualBlock = async (id: string) => {
+      const t = tasks.find(x => x.id === id);
+      if (t) {
+          const newState = !t.isManualBlocked;
+          await updateDoc(doc(db, 'tasks', id), { 
+              isManualBlocked: newState,
+              // When unblocking, reset createdAt so it jumps to top of its priority group
+              createdAt: !newState ? Date.now() : t.createdAt,
+              isInProgress: false,
+              inProgressBy: null
+          });
       }
   };
 
@@ -759,7 +722,7 @@ const App: React.FC = () => {
         <PartSearchScreen 
           currentUser={currentUser} currentUserRole={currentUserRole} onLogout={handleLogout}
           tasks={tasks} onAddTask={handleAddTask} onToggleTask={handleToggleTask} onEditTask={handleEditTask} onDeleteTask={handleDeleteTask}
-          onToggleMissing={handleToggleMissing} onSetInProgress={handleSetInProgress} onToggleBlock={handleToggleBlock} onMarkAsIncorrect={handleMarkAsIncorrect} onAddNote={handleAddNote} onReleaseTask={handleReleaseTask}
+          onToggleMissing={handleToggleMissing} onSetInProgress={handleSetInProgress} onToggleBlock={handleToggleBlock} onToggleManualBlock={handleToggleManualBlock} onMarkAsIncorrect={handleMarkAsIncorrect} onAddNote={handleAddNote} onReleaseTask={handleReleaseTask}
           users={users} onAddUser={handleAddUser} onUpdatePassword={handleUpdatePassword} onUpdateUserRole={handleUpdateUserRole} onDeleteUser={handleDeleteUser}
           parts={parts} workplaces={workplaces} missingReasons={missingReasons} logisticsOperations={logisticsOperations}
           onAddPart={handleAddPart} onBatchAddParts={handleBatchAddParts} onDeletePart={handleDeletePart} onDeleteAllParts={handleDeleteAllParts}
@@ -777,7 +740,7 @@ const App: React.FC = () => {
           notifications={notifications} onClearNotification={handleClearNotification}
           installPrompt={deferredPrompt} onInstallApp={handleInstallApp}
           systemConfig={systemConfig} onUpdateSystemConfig={handleUpdateSystemConfig}
-          dbLoadWarning={dbLoadWarning} // Pass warning to child
+          dbLoadWarning={dbLoadWarning} 
         />
       )}
     </div>
