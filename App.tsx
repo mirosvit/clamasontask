@@ -419,6 +419,7 @@ const App: React.FC = () => {
   
   useEffect(() => { const q = query(collection(db, 'part_requests')); return onSnapshot(q, s => setPartRequests(s.docs.map(d => ({id:d.id, ...d.data()} as PartRequest)))); }, []);
   useEffect(() => { const q = query(collection(db, 'bom_requests')); return onSnapshot(q, s => setBomRequests(s.docs.map(d => ({id:d.id, ...d.data()} as BOMRequest)))); }, []);
+  // Fix: use the correct 'Notification' interface instead of 'AppNotification'
   useEffect(() => { return onSnapshot(collection(db, 'notifications'), s => setNotifications(s.docs.map(d => ({id:d.id, ...d.data()} as Notification)))); }, []);
   
   useEffect(() => { 
@@ -617,6 +618,9 @@ const App: React.FC = () => {
         }
     }
 
+    // --- AUTOMATICKÉ 'RIEŠIM' PRE INVENTÚRU ---
+    const isInventoryTask = pn === "Počítanie zásob";
+
     await addDoc(collection(db, 'tasks'), { 
         text: text, 
         partNumber: pn, 
@@ -628,7 +632,10 @@ const App: React.FC = () => {
         priority:prio, 
         createdAt:Date.now(), 
         createdBy:currentUser,
-        type: type 
+        type: type,
+        isInProgress: isInventoryTask,
+        inProgressBy: isInventoryTask ? currentUser : null,
+        startedAt: isInventoryTask ? Date.now() : null
     });
   };
 

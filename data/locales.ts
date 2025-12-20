@@ -1,11 +1,9 @@
 
 export const translations = {
   sk: {
-    // ... existing ...
     tab_inventory: "Inventúra",
     perm_tab_inventory: "Viditeľnosť: Inventúra",
     inventory_title: "Prehľad zablokovaných úloh (Inventúra)",
-    // ... rest of translations (copying from provided file to maintain integrity)
     login_title: "Clamason Task Manager",
     login_subtitle: "Zadajte svoje prihlasovacie údaje",
     username: "Užívateľské meno",
@@ -103,7 +101,7 @@ export const translations = {
     task_search_placeholder: "Hľadať v úlohách (napr. 3323*)...",
     export_excel: "Export do Excelu",
     empty_tasks: "Zatiaľ nemáte žiadne úlohy.",
-    status_inventory: "INVENTÚRA",
+    status_inventory: "HĽADÁ SA TOVAR",
     status_logistics: "LOGISTIKA",
     status_urgent: "URGENT",
     status_low: "NÍZKA",
@@ -214,6 +212,7 @@ export const translations = {
     sect_maint_db_link: "Otvoriť databázu (Firebase)",
     sect_maint_gh_link: "Otvoriť zdrojový kód (GitHub)",
     sect_maint_db_desc: "Priamy prístup k Firestore databáze pre manuálne úpravy.",
+    sect_maint_gh_desc: "Prehľad repozitára na GitHub-e.",
     sect_breaks: "7. Manažment prestávok",
     break_start: "Začiatok (HH:MM)",
     break_end: "Koniec (HH:MM)",
@@ -284,7 +283,7 @@ export const translations = {
     perm_btn_note: "Akcia: Poznámka",
     perm_btn_incorrect: "Akcia: Chybne zadané",
     perm_btn_return: "Akcia: Vrátiť (Obnoviť)",
-    perm_btn_lock: "Akcia: Blokovať / Inventúra",
+    perm_btn_lock: "Akcia: Hľadať tovar",
     perm_btn_block_new: "Akcia: Blokovať/Uvoľniť",
     perm_view_fullscreen: "Funkcia: Fullscreen",
     perm_play_sound: "Funkcia: Zvukové notifikácie",
@@ -380,11 +379,9 @@ export const translations = {
     log_sheet_name: "Logistický Prehľad",
   },
   en: {
-    // ... existing ...
     tab_inventory: "Inventory",
     perm_tab_inventory: "View: Inventory",
     inventory_title: "Blocked Tasks Overview (Inventory)",
-    // ... (rest of the EN translations omitted for brevity but should be maintained)
     login_title: "Clamason Task Manager",
     login_subtitle: "Enter your credentials",
     username: "Username",
@@ -482,7 +479,7 @@ export const translations = {
     task_search_placeholder: "Search tasks (e.g. 3323*)...",
     export_excel: "Export to Excel",
     empty_tasks: "No tasks yet.",
-    status_inventory: "INVENTORY",
+    status_inventory: "SEARCHING FOR GOODS",
     status_logistics: "LOGISTICS",
     status_urgent: "URGENT",
     status_low: "LOW",
@@ -663,7 +660,7 @@ export const translations = {
     perm_btn_note: "Action: Note",
     perm_btn_incorrect: "Action: Incorrect",
     perm_btn_return: "Action: Return (Undo)",
-    perm_btn_lock: "Action: Block / Inventory",
+    perm_btn_lock: "Action: Search Goods",
     perm_btn_block_new: "Action: Block/Release",
     perm_view_fullscreen: "Feature: Fullscreen",
     perm_play_sound: "Feature: Sound Notifications",

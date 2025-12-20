@@ -669,7 +669,8 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
               </div>
           )}
            {activeTab === 'missing' && hasPermission('perm_tab_missing') && <MissingItemsTab tasks={tasks} onDeleteMissingItem={props.onDeleteMissingItem} hasPermission={hasPermission} />}
-           {activeTab === 'inventory' && hasPermission('perm_tab_inventory') && <InventoryTab currentUser={currentUser} tasks={tasks} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} parts={parts.map(p => p.value)} onRequestPart={props.onRequestPart} />}
+           {/* Fix: Pass missing required onAddTask and onToggleTask props to InventoryTab */}
+           {activeTab === 'inventory' && hasPermission('perm_tab_inventory') && <InventoryTab currentUser={currentUser} tasks={tasks} onAddTask={onAddTask} onToggleTask={onToggleTask} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} parts={parts.map(p => p.value)} onRequestPart={props.onRequestPart} />}
            {activeTab === 'logistics' && hasPermission('perm_tab_logistics_center') && <LogisticsCenterTab tasks={tasks} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} />}
            {activeTab === 'permissions' && hasPermission('perm_tab_permissions') && <PermissionsTab roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={onDeleteRole} onUpdatePermission={onUpdatePermission} onVerifyAdminPassword={onVerifyAdminPassword} />}
         </div>
