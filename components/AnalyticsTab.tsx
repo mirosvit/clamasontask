@@ -179,10 +179,23 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
         if (task.isDone && task.completedBy) {
             const worker = task.completedBy;
             if (!workerStatsMap[worker]) {
-                workerStatsMap[worker] = { name: worker, count: 0, totalLeadMs: 0, countLead: 0, totalReactionMs: 0, countReaction: 0, totalExecutionMs: 0, totalStandardMinutes: 0 };
+                workerStatsMap[worker] = { 
+                    name: worker, 
+                    count: 0, 
+                    totalVolume: 0,
+                    totalLeadMs: 0, 
+                    countLead: 0, 
+                    totalReactionMs: 0, 
+                    countReaction: 0, 
+                    totalExecutionMs: 0, 
+                    totalStandardMinutes: 0 
+                };
             }
             const ws = workerStatsMap[worker];
-            ws.count += weight; 
+            // OPRAVA: count inkrementujeme o 1 (jedna vybavena uloha), totalVolume o vahu (palety/ks)
+            ws.count += 1; 
+            ws.totalVolume += weight;
+
             if (task.standardTime) ws.totalStandardMinutes += task.standardTime;
 
             if (task.createdAt) {
@@ -295,6 +308,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
                             <th className="py-2 px-2">{t('th_rank')}</th>
                             <th className="py-2 px-2">{t('th_name')}</th>
                             <th className="py-2 px-2 text-right">{t('th_done')}</th>
+                            <th className="py-2 px-2 text-right text-sky-400">{language === 'sk' ? 'Objem (pal/ks)' : 'Volume'}</th>
                             <th className="py-2 px-2 text-right text-green-400">{t('th_work_time')}</th>
                         </tr>
                     </thead>
@@ -303,7 +317,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
                             <tr key={ws.name} className="border-b border-gray-800 hover:bg-gray-800 transition-colors">
                                 <td className="py-3 px-2 text-gray-500 font-mono">{idx + 1}</td>
                                 <td className="py-3 px-2 font-bold text-white">{ws.name}</td>
-                                <td className="py-3 px-2 text-right text-teal-400 font-bold">{Number(ws.count.toFixed(1))}</td>
+                                <td className="py-3 px-2 text-right text-teal-400 font-bold">{ws.count}</td>
+                                <td className="py-3 px-2 text-right text-sky-400 font-bold font-mono">{Number(ws.totalVolume.toFixed(1))}</td>
                                 <td className="py-3 px-2 text-right text-green-400 font-bold font-mono">{formatDuration(ws.totalExecutionMs)}</td>
                             </tr>
                         ))}
@@ -312,7 +327,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
              </div>
         </div>
 
-        {/* ÚPRAVA: Grafy vedľa seba už od šírky 'sm' */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="bg-gray-900 border border-gray-700 p-6 rounded-xl shadow-lg">
                 <h3 className="text-lg font-bold text-white mb-4 border-b border-gray-700 pb-2">{t('chart_wp')}</h3>

@@ -305,7 +305,8 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
         .filter(item => item.parentPart === displayedBomParent)
         .map(item => ({
             ...item,
-            requiredQty: Number((item.quantity * displayedBomQuantity).toFixed(2))
+            // OPRAVA: Zaokrúhľovanie výsledku na celé čísla smerom nahor (napr. 1.22 -> 2)
+            requiredQty: Math.ceil(item.quantity * displayedBomQuantity)
         }));
   }, [displayedBomParent, displayedBomQuantity, bomItems]);
   
