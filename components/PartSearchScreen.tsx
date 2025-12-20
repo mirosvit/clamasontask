@@ -86,6 +86,12 @@ interface PartSearchScreenProps {
   dbLoadWarning: boolean;
 }
 
+const UserIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+);
+
 const FullscreenIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 10L4 4m0 0v4m0-4h4M14 10l6-6m0 0v4m0-4h-4M14 14l6 6m0 0v-4m0 4h-4M10 14l-6 6m0 0v-4m0 4h4" />
@@ -258,7 +264,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
         alert(t('select_bom_workplace'));
         return;
     }
-    // ZMENA: Typ úlohy zmenený z 'logistics' na 'production'
     onAddTask(childPart, bomSelectedWorkplace, qty.toString(), 'pcs', 'NORMAL', 'production');
     setClickedBOMTasks(prev => new Set(prev).add(childPart));
   };
@@ -305,7 +310,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
         .filter(item => item.parentPart === displayedBomParent)
         .map(item => ({
             ...item,
-            // OPRAVA: Zaokrúhľovanie výsledku na celé čísla smerom nahor (napr. 1.22 -> 2)
             requiredQty: Math.ceil(item.quantity * displayedBomQuantity)
         }));
   }, [displayedBomParent, displayedBomQuantity, bomItems]);
@@ -359,6 +363,17 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
              </div>
           </div>
           <div className="flex items-center gap-3 z-10">
+            {/* User Info Pill */}
+            <div className="hidden sm:flex items-center gap-2 bg-gray-800 border border-gray-700 px-3 py-1.5 rounded-full shadow-sm">
+                <UserIcon className="w-4 h-4 text-teal-400" />
+                <div className="flex flex-col">
+                    <span className="text-xs font-black text-white leading-none truncate max-w-[120px]">{currentUser}</span>
+                    <span className={`text-[9px] font-bold uppercase leading-none mt-1 ${currentUserRole === 'ADMIN' ? 'text-red-400' : currentUserRole === 'LEADER' ? 'text-sky-400' : 'text-teal-500 opacity-80'}`}>
+                        {currentUserRole}
+                    </span>
+                </div>
+            </div>
+
             {installPrompt && hasPermission('perm_install_pwa') && (
                 <button onClick={onInstallApp} className="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-lg transition-colors shadow-md border border-blue-500/50" title={t('pwa_install_btn')}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a.75.75 0 01.75.75v6.5a.75.75 0 01-1.5 0V2.75A.75.75 0 0110 2z"/><path fillRule="evenodd" d="M3.5 9.25a.75.75 0 00-1.5 0v7a2 2 0 002 2h11a2 2 0 002-2v-7a.75.75 0 00-1.5 0v7a.5.5 0 01-.5.5h-11a.5.5 0 01-.5-.5v-7z" clipRule="evenodd"/></svg>
@@ -490,7 +505,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                   <div className="max-w-7xl mx-auto">
                       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                           
-                          {/* PANEL VSTUPOV (Ľavá strana) */}
+                          {/* PANEL VSTUPOV */}
                           <div className="lg:col-span-4 space-y-6">
                               <div className="bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-700">
                                   <div className="flex items-center gap-3 mb-6">
@@ -542,7 +557,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                                           {t('bom_calc_btn')}
                                       </button>
 
-                                      {/* Report Button pre chýbajúci BOM */}
                                       {bomParentQuery && bomResults.length === 0 && (
                                           <button 
                                               onClick={handleRequestNewBOM}
@@ -559,7 +573,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                                   </div>
                               </div>
 
-                              {/* SUMMARY CARDS (Štatistiky) */}
                               {bomResults.length > 0 && (
                                   <div className="grid grid-cols-2 gap-4">
                                       <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
@@ -574,7 +587,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                               )}
                           </div>
 
-                          {/* PANEL VÝSLEDKOV (Pravá strana) */}
+                          {/* PANEL VÝSLEDKOV */}
                           <div className="lg:col-span-8">
                               {bomResults.length > 0 ? (
                                   <div className="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 overflow-hidden flex flex-col h-full">
