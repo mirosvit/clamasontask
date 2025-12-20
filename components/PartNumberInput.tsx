@@ -9,6 +9,8 @@ interface PartNumberInputProps {
   placeholder?: string;
   value: string | null;
   onRequestPart?: (part: string) => Promise<boolean>; // Returns boolean based on success
+  inputRef?: React.RefObject<HTMLInputElement>; // Added for focus management
+  onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>; // Added for keyboard navigation
 }
 
 const SearchIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -23,7 +25,7 @@ const PlusIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
-const PartNumberInput: React.FC<PartNumberInputProps> = ({ parts, onPartSelect, onInputChange, placeholder, value, onRequestPart }) => {
+const PartNumberInput: React.FC<PartNumberInputProps> = ({ parts, onPartSelect, onInputChange, placeholder, value, onRequestPart, inputRef, onKeyDown }) => {
   const [query, setQuery] = useState<string>('');
   const [filteredParts, setFilteredParts] = useState<string[]>([]);
   const [isDropdownVisible, setIsDropdownVisible] = useState<boolean>(false);
@@ -104,6 +106,13 @@ const PartNumberInput: React.FC<PartNumberInputProps> = ({ parts, onPartSelect, 
     }
   };
 
+  const handleInternalKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      setIsDropdownVisible(false);
+    }
+    if (onKeyDown) onKeyDown(e);
+  };
+
   const handleRequestClick = async (e: React.MouseEvent) => {
     // Prevent default to ensure focus logic doesn't interfere
     e.preventDefault();
@@ -139,8 +148,10 @@ const PartNumberInput: React.FC<PartNumberInputProps> = ({ parts, onPartSelect, 
         </span>
         <input
           type="text"
+          ref={inputRef}
           value={query}
           onChange={handleChange}
+          onKeyDown={handleInternalKeyDown}
           onFocus={() => setIsDropdownVisible(true)}
           placeholder={placeholder || t('input_wildcard_hint')}
           className="w-full pl-10 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors"

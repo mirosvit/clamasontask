@@ -1,8 +1,11 @@
 
-
 export const translations = {
   sk: {
-    // Login
+    // ... existing ...
+    tab_inventory: "Inventúra",
+    perm_tab_inventory: "Viditeľnosť: Inventúra",
+    inventory_title: "Prehľad zablokovaných úloh (Inventúra)",
+    // ... rest of translations (copying from provided file to maintain integrity)
     login_title: "Clamason Task Manager",
     login_subtitle: "Zadajte svoje prihlasovacie údaje",
     username: "Užívateľské meno",
@@ -11,15 +14,12 @@ export const translations = {
     login_error: "Nesprávne meno alebo heslo.",
     login_error_maint: "Systém je v údržbe. Prístup majú len administrátori.",
     created_by: "Vytvoril: Miroslav Svítok",
-    
-    // Security & Maintenance (NEW)
     maint_active_title: "🛠️ SERVISNÝ MÓD",
     maint_active_desc: "Systém je momentálne v údržbe. Prihlásiť sa môžu iba administrátori.",
     maint_scheduled_msg: "Plánovaná údržba: {start} - {end}",
     ip_blocked_title: "⛔ Prístup zamietnutý",
     ip_blocked_desc: "Vaša IP adresa ({ip}) nie je na zozname povolených.",
     checking_ip: "Overujem IP adresu...",
-    
     sect_security: "10. Bezpečnosť a Údržba",
     sec_maint_mode: "Servisný Mód (Údržba)",
     sec_maint_desc: "Keď je aktívny, bežní užívatelia sú odhlásení a nemôžu sa prihlásiť.",
@@ -32,7 +32,6 @@ export const translations = {
     sec_end: "Do",
     sec_btn_schedule: "Uložiť plán",
     sec_btn_clear_schedule: "Zrušiť plán",
-    
     sec_ip_whitelist: "IP Whitelist (Povolené adresy)",
     sec_ip_desc: "Obmedziť prístup len na konkrétne IP adresy (napr. firemná sieť).",
     sec_ip_check_enabled: "Kontrola IP zapnutá",
@@ -42,28 +41,20 @@ export const translations = {
     sec_ip_placeholder: "napr. 162.44.55.*",
     sec_ip_added: "IP pridaná.",
     sec_ip_removed: "IP odstránená.",
-
-    // Header
     logout: "Odhlásiť",
     fullscreen_on: "Na celú obrazovku",
     fullscreen_off: "Klasické zobrazenie",
-    
-    // Tabs
     tab_entry: "Zadávanie úloh",
     tab_tasks: "Úlohy",
     tab_analytics: "Analytika",
     tab_settings: "Nastavenia",
     tab_bom: "BOM (Kusovník)",
     tab_missing: "Chýbajúci tovar",
-    tab_logistics_center: "Logistické centrum", // NEW
+    tab_logistics_center: "Logistické centrum",
     tab_permissions: "Autorizácia",
-
-    // Entry Screen
     search_title: "Zadávanie úloh",
     mode_production: "VÝROBA",
     mode_logistics: "LOGISTIKA",
-    
-    // Production Mode
     search_subtitle: "Zadajte požadované údaje.",
     priority_label: "Priorita",
     prio_low: "Nízka",
@@ -78,8 +69,6 @@ export const translations = {
     unit_pcs: "Kusy",
     unit_boxes: "Boxy",
     unit_pallet: "Paleta",
-
-    // Logistics Mode
     log_reference: "Referencia / ŠPZ",
     log_reference_place: "Napr. TT-123-XY, DHL, Príjem...",
     log_operation: "Typ Operácie",
@@ -87,8 +76,6 @@ export const translations = {
     op_loading: "NAKLÁDKA",
     op_putaway: "ZASKLADNENIE",
     op_move: "INTERNÝ PRESUN",
-    
-    // Declension SK
     unit_pcs_1: "kus",
     unit_pcs_2_4: "kusy",
     unit_pcs_5: "kusov",
@@ -98,7 +85,6 @@ export const translations = {
     unit_pallet_1: "paleta",
     unit_pallet_2_4: "palety",
     unit_pallet_5: "paliet",
-
     unit_pcs_short: "ks",
     unit_boxes_short: "box",
     unit_pallet_short: "pal",
@@ -107,16 +93,12 @@ export const translations = {
     send_urgent_btn: "ODOSLAŤ URGENTNE",
     sent_msg: "Odoslané!",
     fill_all_fields: "Prosím, vyplňte všetky povinné polia.",
-
-    // Input
     input_wildcard_hint: "Zadajte časť čísla dielu (skúste 33*)...",
     report_btn_loading: "⏳ Odosielam...",
     report_btn_success: "✓ Odoslané!",
     report_btn_idle: "Nenašlo sa. ➕ Nahlásiť nový diel:",
     report_hint_success: "Žiadosť bola úspešne odoslaná.",
     report_hint_idle: "Kliknutím odošlete žiadosť adminovi na pridanie dielu.",
-
-    // Task List
     tasks_title: "Zoznam úloh",
     task_search_placeholder: "Hľadať v úlohách (napr. 3323*)...",
     export_excel: "Export do Excelu",
@@ -155,8 +137,6 @@ export const translations = {
     alert_btn_ok: "Rozumiem",
     cancel_missing_confirm: "Zrušiť stav 'Chýbajúci tovar'?",
     action_not_allowed: "Nemáte oprávnenie na túto akciu.",
-    
-    // BOM
     bom_title: "BOM Kalkulačka",
     bom_subtitle: "Výpočet materiálovej spotreby",
     bom_parent: "Výrobok (Parent Part)",
@@ -172,8 +152,6 @@ export const translations = {
     bom_select_wp: "Cieľové pracovisko",
     select_bom_workplace: "Vyberte cieľové pracovisko.",
     bom_invalid_input: "Neplatný vstup pre výpočet BOM.",
-
-    // Settings
     settings_title: "Nastavenia systému",
     req_title: "⚡ Žiadosti",
     req_type_part: "Diel",
@@ -184,7 +162,6 @@ export const translations = {
     no_requests: "Žiadne čakajúce žiadosti.",
     requested_by: "Žiadal",
     search_db_placeholder: "Hľadať...",
-    
     sect_users_manage: "1. Správa užívateľov (Rola / Heslo)",
     user_added_success: "Užívateľ {username} bol pridaný.",
     password_changed_success: "Heslo pre {username} bolo zmenené.",
@@ -197,7 +174,6 @@ export const translations = {
     user_exists: "Užívateľ už existuje.",
     user_fill: "Vyplňte meno a heslo.",
     no_perm_user: "Nemáte oprávnenie spravovať tento účet.",
-
     sect_parts: "2. Databáza Dielov",
     sect_wp: "3. Databáza Pracovísk",
     delete_all: "VYMAZAŤ VŠETKO",
@@ -213,22 +189,18 @@ export const translations = {
     wp_bulk_added_success: "{count} pracovísk pridaných.",
     delete_all_workplaces_confirm: "Naozaj chcete vymazať VŠETKY pracoviská? Táto akcia je nevratná.",
     all_workplaces_deleted_success: "Všetky pracoviská boli vymazané.",
-
     bulk_parts_placeholder: "Hromadné pridanie dielov (Diel;Popis)",
     bulk_wp_placeholder: "Hromadné pridanie pracovísk (hodnota;štandardný čas)",
     bulk_btn_parts: "Hromadne pridať diely",
     bulk_btn_wp: "Hromadne pridať pracoviská",
-
     sect_reasons: "4. Dôvody chýbajúceho tovaru",
     new_reason_place: "Nový dôvod...",
     reason_hint: "Tieto dôvody sa zobrazia operátorovi, keď označí tovar ako chýbajúci.",
     reason_added_success: "Dôvod pridaný.",
-
     sect_log_ops: "5. Typy Operácií (Logistika)",
     new_op_place: "Nová operácia (napr. PRESUN)",
     op_hint: "Tieto možnosti sa zobrazia pri zadávaní logistickej úlohy.",
     op_added_success: "Operácia pridaná.",
-
     sect_maint: "6. Údržba dát",
     maint_desc: "Ak je aplikácia pomalá, môžete presunúť staré dokončené úlohy do archívu.",
     maint_info: "Presunú sa iba dokončené úlohy staršie ako 24 hodín.",
@@ -242,7 +214,6 @@ export const translations = {
     sect_maint_db_link: "Otvoriť databázu (Firebase)",
     sect_maint_gh_link: "Otvoriť zdrojový kód (GitHub)",
     sect_maint_db_desc: "Priamy prístup k Firestore databáze pre manuálne úpravy.",
-
     sect_breaks: "7. Manažment prestávok",
     break_start: "Začiatok (HH:MM)",
     break_end: "Koniec (HH:MM)",
@@ -251,12 +222,10 @@ export const translations = {
     break_active_desc: "Čas strávený na úlohách sa nezapočítava do štatistík.",
     break_end_btn: "Ukončiť prestávku",
     break_blocked_msg: "Počas prestávky nie je možné pridávať úlohy.",
-
     sect_pwa: "8. Inštalácia aplikácie",
     pwa_install_btn: "Nainštalovať aplikáciu na plochu",
     pwa_desc: "Vytvorí odkaz 'TASK MANAGER' na ploche zariadenia pre rýchly prístup.",
     pwa_installed: "Aplikácia je už nainštalovaná alebo prehliadač nepodporuje automatickú inštaláciu.",
-    
     sect_bom: "9. Databáza BOM (Kusovníky)",
     bom_add_single: "Pridať Väzbu",
     bom_parent_place: "Rodič (Parent)",
@@ -271,12 +240,10 @@ export const translations = {
     all_bom_deleted_success: "Všetky BOM položky boli vymazané.",
     bom_req_title: "Žiadosti o BOM",
     bom_search_placeholder: "Vyhľadať BOM...",
-    
     sect_admin_notes: "10. Poznámkový blok (Admin)",
     admin_notes_placeholder: "Sem si môžete zapísať poznámky...",
     admin_notes_save: "Uložiť poznámky",
     admin_notes_saved: "Poznámky uložené!",
-
     sect_roles: "Autorizácia",
     role_add_btn: "Vytvoriť Rolu",
     role_add_new_title: "Pridať novú rolu",
@@ -286,8 +253,6 @@ export const translations = {
     role_delete_pass_label: "Heslo administrátora",
     role_delete_btn: "Potvrdiť Vymazanie",
     err_pass_incorrect: "Nesprávne heslo.",
-    
-    // Modal Confirmations
     modal_confirm_title: "Potvrdenie akcie",
     btn_confirm_delete: "Áno, Vymazať",
     msg_delete_user: "Naozaj chcete vymazať užívateľa: {name}?",
@@ -297,23 +262,19 @@ export const translations = {
     msg_delete_log_op: "Naozaj chcete vymazať operáciu: {name}?",
     msg_delete_bom: "Naozaj chcete vymazať BOM väzbu: {parent} -> {child}?",
     msg_delete_break: "Naozaj chcete vymazať túto prestávku?",
-
-    // Granular Permissions
     perm_group_tabs: "Karty (Záložky)",
     perm_group_actions: "Akcie v Úlohe",
     perm_group_mgmt: "Manažment & Správa",
     permission_label: "Oprávnenie",
-    
     perm_tab_entry: "Viditeľnosť: Zadávanie",
     perm_tab_tasks: "Viditeľnosť: Úlohy",
     perm_tab_bom: "Viditeľnosť: BOM",
     perm_tab_missing: "Viditeľnosť: Chýbajúci tovar",
-    perm_tab_logistics_center: "Viditeľnosť: Logistické centrum", // NEW
+    perm_tab_logistics_center: "Viditeľnosť: Logistické centrum",
     perm_tab_analytics: "Viditeľnosť: Analytika",
     perm_tab_settings: "Viditeľnosť: Nastavenia",
     perm_tab_permissions: "Viditeľnosť: Oprávnenia",
     perm_logistics_mode: "Viditeľnosť: Logistický Mód",
-    
     perm_btn_finish: "Akcia: Dokončiť",
     perm_btn_edit: "Akcia: Upraviť",
     perm_btn_delete: "Akcia: Vymazať",
@@ -330,7 +291,6 @@ export const translations = {
     perm_push_notification: "Funkcia: Push notifikácie",
     perm_view_passwords: "Funkcia: Zobraziť heslá",
     perm_install_pwa: "Funkcia: Inštalovať PWA",
-
     perm_manage_users: "Správa: Užívatelia (heslo/rola)",
     perm_delete_users: "Správa: Vymazať užívateľov",
     perm_manage_db: "Správa: Databáza (diely/prac.)",
@@ -339,20 +299,16 @@ export const translations = {
     perm_archive: "Správa: Archivácia",
     perm_manage_breaks: "Správa: Prestávky",
     perm_manage_roles: "Správa: Roly a Oprávnenia",
-
-    // Analytics
     analytics_title: "Analytika Výroby a Logistiky",
     include_archive: "Zahrnúť dáta z archívu",
     loading_hist: "Načítavam históriu...",
     download_report: "Stiahnuť Report (.xlsx)",
-    
     filter_all: "Všetko",
     filter_today: "Dnes",
     filter_yesterday: "Včera",
     filter_week: "Tento týždeň",
     filter_month: "Tento mesiac",
     filter_custom: "Vlastný rozsah",
-    
     showing_data: "Zobrazujem dáta pre:",
     f_history: "Celú históriu",
     f_today: "Dnešný deň",
@@ -361,7 +317,6 @@ export const translations = {
     f_month: "Aktuálny mesiac",
     f_custom: "Vlastný výber",
     records: "záznamov",
-
     kpi_total: "Celkovo úloh",
     kpi_worked: "Odpracovaný Čas",
     kpi_clean_time: "Čistý čas práce",
@@ -375,7 +330,6 @@ export const translations = {
     kpi_missing: "Chýbajúci tovar",
     kpi_incorrect: "Chybne Zadané",
     kpi_quantity: "Počet",
-
     table_title: "Detailná výkonnosť skladníkov",
     th_rank: "#",
     th_name: "Meno",
@@ -387,7 +341,6 @@ export const translations = {
     th_loaded: "Naložené (pal)",
     th_unloaded: "Vyložené (pal)",
     no_data: "Zatiaľ žiadne dáta pre vybrané obdobie.",
-    
     chart_wp: "Top 5 Pracovísk (Výroba)",
     chart_wp_label: "Pracovisko",
     chart_wp_count: "Počet",
@@ -397,19 +350,15 @@ export const translations = {
     chart_ops: "Top 5 Operácií (Logistika)",
     chart_ops_label: "Operácia",
     chart_ops_count: "Počet",
-    chart_log_refs: "Top 10 Referencií (Logistika)", // NEW
-    chart_log_refs_label: "Referencia", // NEW
-    
+    chart_log_refs: "Top 10 Referencií (Logistika)",
+    chart_log_refs_label: "Referencia",
     analysis_missing_title: "Analýza Chýbajúceho Tovaru",
     top_reasons: "Top Dôvody",
     top_reporters: "Top Nahlasovatelia",
-
     KPI_report_sheet_name: "KPI Prehľad",
     worker_perf_sheet_name: "Výkonnosť Skladníkov",
     top_lists_sheet_name: "Top Rebríčky",
     raw_data_sheet_name: "Zdrojové Dáta",
-    
-    // Missing Tab
     miss_tab_title: "Prehľad chýbajúceho tovaru",
     miss_th_created: "Dátum zadania",
     miss_th_created_time: "Čas zadania",
@@ -421,19 +370,21 @@ export const translations = {
     miss_th_creator: "Zadal",
     miss_delete_confirm: "Naozaj chcete vymazať tento záznam?",
     missing_items_sheet_name: "Chýbajúci Tovar",
-    
-    // Logistics Center Tab
-    log_center_title: "Logistické centrum", // NEW
-    log_th_reference: "Referencia / ŠPZ", // NEW
-    log_th_operation: "Operácia", // NEW
-    log_th_quantity: "Množstvo", // NEW
-    log_th_priority: "Priorita", // NEW
-    log_th_status: "Stav", // NEW
-    log_th_completed_by: "Dokončil", // NEW
-    log_sheet_name: "Logistický Prehľad", // NEW
+    log_center_title: "Logistické centrum",
+    log_th_reference: "Referencia / ŠPZ",
+    log_th_operation: "Operácia",
+    log_th_quantity: "Množstvo",
+    log_th_priority: "Priorita",
+    log_th_status: "Stav",
+    log_th_completed_by: "Dokončil",
+    log_sheet_name: "Logistický Prehľad",
   },
   en: {
-    // Login
+    // ... existing ...
+    tab_inventory: "Inventory",
+    perm_tab_inventory: "View: Inventory",
+    inventory_title: "Blocked Tasks Overview (Inventory)",
+    // ... (rest of the EN translations omitted for brevity but should be maintained)
     login_title: "Clamason Task Manager",
     login_subtitle: "Enter your credentials",
     username: "Username",
@@ -442,15 +393,12 @@ export const translations = {
     login_error: "Invalid username or password.",
     login_error_maint: "System under maintenance. Admin access only.",
     created_by: "Created by: Miroslav Svítok",
-
-    // Security & Maintenance (NEW)
     maint_active_title: "🛠️ MAINTENANCE MODE",
     maint_active_desc: "System is currently under maintenance. Only Administrators can log in.",
     maint_scheduled_msg: "Scheduled Maintenance: {start} - {end}",
     ip_blocked_title: "⛔ Access Denied",
     ip_blocked_desc: "Your IP address ({ip}) is not allowed.",
     checking_ip: "Verifying IP address...",
-
     sect_security: "10. Security & Maintenance",
     sec_maint_mode: "Maintenance Mode",
     sec_maint_desc: "When active, regular users are logged out and cannot log in.",
@@ -463,7 +411,6 @@ export const translations = {
     sec_end: "End",
     sec_btn_schedule: "Save Schedule",
     sec_btn_clear_schedule: "Clear Schedule",
-    
     sec_ip_whitelist: "IP Whitelist",
     sec_ip_desc: "Restrict access to specific IP addresses (e.g., company network).",
     sec_ip_check_enabled: "IP Check Enabled",
@@ -473,27 +420,20 @@ export const translations = {
     sec_ip_placeholder: "e.g. 162.44.55.*",
     sec_ip_added: "IP added.",
     sec_ip_removed: "IP removed.",
-
-    // Header
     logout: "Logout",
     fullscreen_on: "Fullscreen",
     fullscreen_off: "Standard View",
-    
-    // Tabs
     tab_entry: "Task Entry",
     tab_tasks: "Tasks",
     tab_analytics: "Analytics",
     tab_settings: "Settings",
     tab_bom: "BOM",
     tab_missing: "Missing Items",
-    tab_logistics_center: "Logistics Center", // NEW
+    tab_logistics_center: "Logistics Center",
     tab_permissions: "Authorization",
-
-    // Entry Screen
     search_title: "Task Entry",
     mode_production: "PRODUCTION",
     mode_logistics: "LOGISTICS",
-
     search_subtitle: "Enter required details.",
     priority_label: "Priority",
     prio_low: "Low",
@@ -508,8 +448,6 @@ export const translations = {
     unit_pcs: "Pcs",
     unit_boxes: "Boxes",
     unit_pallet: "Pallet",
-
-    // Logistics Mode
     log_reference: "Reference / Plate No.",
     log_reference_place: "E.g. TT-123-XY, DHL, Receiving...",
     log_operation: "Operation Type",
@@ -517,8 +455,6 @@ export const translations = {
     op_loading: "LOADING",
     op_putaway: "PUT-AWAY",
     op_move: "INTERNAL MOVE",
-    
-    // Declension EN
     unit_pcs_1: "pc",
     unit_pcs_2_4: "pcs",
     unit_pcs_5: "pcs",
@@ -528,7 +464,6 @@ export const translations = {
     unit_pallet_1: "pallet",
     unit_pallet_2_4: "pallets",
     unit_pallet_5: "pallets",
-
     unit_pcs_short: "pcs",
     unit_boxes_short: "box",
     unit_pallet_short: "pal",
@@ -537,16 +472,12 @@ export const translations = {
     send_urgent_btn: "SEND URGENT",
     sent_msg: "Sent!",
     fill_all_fields: "Please fill all required fields.",
-
-    // Input
     input_wildcard_hint: "Enter part segment (try 33*)...",
     report_btn_loading: "⏳ Sending...",
     report_btn_success: "✓ Sent!",
     report_btn_idle: "Not found. ➕ Report new part:",
     report_hint_success: "Request sent successfully.",
     report_hint_idle: "Click to request Admin to add this part.",
-
-    // Task List
     tasks_title: "Task List",
     task_search_placeholder: "Search tasks (e.g. 3323*)...",
     export_excel: "Export to Excel",
@@ -585,8 +516,21 @@ export const translations = {
     alert_btn_ok: "Acknowledge",
     cancel_missing_confirm: "Unmark 'Missing Item'?",
     action_not_allowed: "You do not have permission for this action.",
-
-    // Settings
+    bom_title: "BOM Calculator",
+    bom_subtitle: "Material requirement calculation",
+    bom_parent: "Parent Part",
+    bom_qty: "Planned Quantity",
+    bom_calc_btn: "Calculate",
+    bom_results: "Required Material:",
+    bom_child: "Child Part",
+    bom_req_qty: "Required Quantity",
+    bom_create_task: "Create Task",
+    bom_no_results: "No components found for this parent.",
+    bom_request_btn: "Not found? ➕ Request BOM addition",
+    bom_req_success: "BOM request sent.",
+    bom_select_wp: "Target Workplace",
+    select_bom_workplace: "Please select target workplace.",
+    bom_invalid_input: "Invalid input for BOM calculation.",
     settings_title: "System Settings",
     req_title: "⚡ Requests",
     req_type_part: "Part",
@@ -597,7 +541,6 @@ export const translations = {
     no_requests: "No pending requests.",
     requested_by: "Requested By",
     search_db_placeholder: "Search...",
-    
     sect_users_manage: "1. User Management (Role / Password)",
     user_added_success: "User {username} added.",
     password_changed_success: "Password for {username} changed.",
@@ -610,7 +553,6 @@ export const translations = {
     user_exists: "User already exists.",
     user_fill: "Fill name and password.",
     no_perm_user: "No permission to manage this account.",
-
     sect_parts: "2. Parts Database",
     sect_wp: "3. Workplace Database",
     delete_all: "DELETE ALL",
@@ -626,22 +568,18 @@ export const translations = {
     wp_bulk_added_success: "{count} workplaces added.",
     delete_all_workplaces_confirm: "Are you sure you want to delete ALL workplaces? This action cannot be undone.",
     all_workplaces_deleted_success: "All workplaces deleted.",
-
     bulk_parts_placeholder: "Bulk add parts (Part;Description)",
     bulk_wp_placeholder: "Bulk add workplaces (value;standard time)",
     bulk_btn_parts: "Bulk Add Parts",
     bulk_btn_wp: "Bulk Add Workplaces",
-
     sect_reasons: "4. Missing Item Reasons",
     new_reason_place: "New reason...",
     reason_hint: "These reasons appear when operator marks item as missing.",
     reason_added_success: "Reason added.",
-
     sect_log_ops: "5. Logistics Operations",
     new_op_place: "New operation (e.g. TRANSFER)",
     op_hint: "These options appear when creating a logistics task.",
     op_added_success: "Operation added.",
-
     sect_maint: "6. Data Maintenance",
     maint_desc: "If app is slow, move old completed tasks to archive.",
     maint_info: "Only completed tasks older than 24h will be moved.",
@@ -655,7 +593,6 @@ export const translations = {
     sect_maint_db_link: "Open Database (Firebase)",
     sect_maint_gh_link: "Open Source Code (GitHub)",
     sect_maint_db_desc: "Direct access to the Firestore database for manual edits.",
-
     sect_breaks: "7. Break Management",
     break_start: "Start (HH:MM)",
     break_end: "End (HH:MM)",
@@ -664,12 +601,10 @@ export const translations = {
     break_active_desc: "Task time tracking is paused.",
     break_end_btn: "End Break Now",
     break_blocked_msg: "Cannot add tasks during a break.",
-
     sect_pwa: "8. App Installation",
     pwa_install_btn: "Install App to Home Screen",
     pwa_desc: "Creates a 'TASK MANAGER' shortcut on the device desktop.",
     pwa_installed: "App is already installed or browser does not support automatic installation.",
-    
     sect_bom: "9. BOM Database",
     bom_add_single: "Add Relation",
     bom_parent_place: "Parent Part",
@@ -684,12 +619,10 @@ export const translations = {
     all_bom_deleted_success: "All BOM items deleted.",
     bom_req_title: "BOM Requests",
     bom_search_placeholder: "Search BOM...",
-    
     sect_admin_notes: "10. Notepad (Admin)",
     admin_notes_placeholder: "Write your notes here...",
     admin_notes_save: "Save Notes",
     admin_notes_saved: "Notes saved!",
-
     sect_roles: "Authorization",
     role_add_btn: "Create Role",
     role_add_new_title: "Add New Role",
@@ -699,8 +632,6 @@ export const translations = {
     role_delete_pass_label: "Admin Password",
     role_delete_btn: "Confirm Delete",
     err_pass_incorrect: "Incorrect password.",
-    
-    // Modal Confirmations
     modal_confirm_title: "Action Confirmation",
     btn_confirm_delete: "Yes, Delete",
     msg_delete_user: "Are you sure you want to delete user: {name}?",
@@ -710,23 +641,19 @@ export const translations = {
     msg_delete_log_op: "Are you sure you want to delete operation: {name}?",
     msg_delete_bom: "Are you sure you want to delete BOM relation: {parent} -> {child}?",
     msg_delete_break: "Are you sure you want to delete this break?",
-
-    // Granular Permissions
     perm_group_tabs: "Tabs",
     perm_group_actions: "Task Actions",
     perm_group_mgmt: "Management",
     permission_label: "Permission",
-
     perm_tab_entry: "View: Entry",
     perm_tab_tasks: "View: Tasks",
     perm_tab_bom: "View: BOM",
     perm_tab_analytics: "View: Analytics",
     perm_tab_settings: "View: Settings",
     perm_tab_missing: "View: Missing Items",
-    perm_tab_logistics_center: "View: Logistics Center", // NEW
+    perm_tab_logistics_center: "View: Logistics Center",
     perm_tab_permissions: "View: Permissions",
     perm_logistics_mode: "View: Logistics Mode",
-    
     perm_btn_finish: "Action: Finish",
     perm_btn_edit: "Action: Edit",
     perm_btn_delete: "Action: Delete",
@@ -743,7 +670,6 @@ export const translations = {
     perm_push_notification: "Feature: Push Notifications",
     perm_view_passwords: "Feature: View Passwords",
     perm_install_pwa: "Feature: Install PWA",
-
     perm_manage_users: "Manage: Users (pw/role)",
     perm_delete_users: "Manage: Delete Users",
     perm_manage_db: "Manage: Database (parts/wp)",
@@ -752,20 +678,16 @@ export const translations = {
     perm_archive: "Manage: Archiving",
     perm_manage_breaks: "Manage: Breaks",
     perm_manage_roles: "Manage: Roles & Permissions",
-
-    // Analytics
     analytics_title: "Production & Logistics Analytics",
     include_archive: "Include Archived Data",
     loading_hist: "Loading history...",
     download_report: "Download Report (.xlsx)",
-    
     filter_all: "All Time",
     filter_today: "Today",
     filter_yesterday: "Yesterday",
     filter_week: "This Week",
     filter_month: "This Month",
     filter_custom: "Custom Range",
-    
     showing_data: "Showing data for:",
     f_history: "Full History",
     f_today: "Today",
@@ -774,7 +696,6 @@ export const translations = {
     f_month: "Current Month",
     f_custom: "Custom Selection",
     records: "records",
-
     kpi_total: "Total Tasks",
     kpi_worked: "Man-Hours",
     kpi_clean_time: "Net Work Time",
@@ -788,7 +709,6 @@ export const translations = {
     kpi_missing: "Missing Items",
     kpi_incorrect: "Incorrect Entries",
     kpi_quantity: "Quantity",
-
     table_title: "Worker Performance Details",
     th_rank: "#",
     th_name: "Name",
@@ -800,7 +720,6 @@ export const translations = {
     th_loaded: "Loaded (pal)",
     th_unloaded: "Unloaded (pal)",
     no_data: "No data for selected period.",
-    
     chart_wp: "Top 5 Workplaces (Production)",
     chart_wp_label: "Workplace",
     chart_wp_count: "Count",
@@ -810,19 +729,15 @@ export const translations = {
     chart_ops: "Top 5 Operations (Logistics)",
     chart_ops_label: "Operation",
     chart_ops_count: "Count",
-    chart_log_refs: "Top 10 References (Logistics)", // NEW
-    chart_log_refs_label: "Reference", // NEW
-    
+    chart_log_refs: "Top 10 References (Logistics)",
+    chart_log_refs_label: "Reference",
     analysis_missing_title: "Missing Items Analysis",
     top_reasons: "Top Reasons",
     top_reporters: "Top Reporters",
-
     KPI_report_sheet_name: "KPI Summary",
     worker_perf_sheet_name: "Worker Performance",
     top_lists_sheet_name: "Top Lists",
     raw_data_sheet_name: "Raw Data",
-    
-    // Missing Tab
     miss_tab_title: "Missing Items Report",
     miss_th_created: "Task Creation Date",
     miss_th_created_time: "Task Creation Time",
@@ -834,15 +749,13 @@ export const translations = {
     miss_th_creator: "Creator",
     miss_delete_confirm: "Are you sure you want to delete this record?",
     missing_items_sheet_name: "Missing Items",
-
-    // Logistics Center Tab
-    log_center_title: "Logistics Center", // NEW
-    log_th_reference: "Reference / Plate", // NEW
-    log_th_operation: "Operation", // NEW
-    log_th_quantity: "Quantity", // NEW
-    log_th_priority: "Priority", // NEW
-    log_th_status: "Status", // NEW
-    log_th_completed_by: "Completed By", // NEW
-    log_sheet_name: "Logistics Overview", // NEW
+    log_center_title: "Logistics Center",
+    log_th_reference: "Reference / Plate",
+    log_th_operation: "Operation",
+    log_th_quantity: "Quantity",
+    log_th_priority: "Priority",
+    log_th_status: "Status",
+    log_th_completed_by: "Completed By",
+    log_sheet_name: "Logistics Overview",
   }
 };
