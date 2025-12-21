@@ -359,23 +359,50 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
     <div className="flex flex-col h-screen bg-gray-900 text-white">
       {notifications.length > 0 && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-              <div className="bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-2xl border border-red-600 animate-fade-in">
-                  <h3 className="text-xl font-bold text-red-400 mb-4 text-center">{t('alert_missing_title')}</h3>
-                  <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar">
-                      {notifications.map(notif => (
-                          <div key={notif.id} className="bg-gray-700 p-3 rounded-lg flex items-center justify-between gap-3">
-                              <div>
-                                  <p className="font-bold text-white text-lg font-mono">{notif.partNumber}</p>
-                                  <p className="text-sm text-gray-300">{notif.reason} - <span className="text-red-400">{notif.reportedBy}</span></p>
-                                  <p className="text-xs text-gray-500">{new Date(notif.timestamp).toLocaleString('sk-SK')}</p>
-                              </div>
-                              <button onClick={() => props.onClearNotification(notif.id)} className="text-red-300 hover:text-red-500 p-2 rounded-full hover:bg-gray-600">
-                                  <CheckCircleIcon className="w-6 h-6" />
-                              </button>
-                          </div>
-                      ))}
+              <div className="bg-gray-800 rounded-2xl max-w-2xl w-full p-8 shadow-2xl border border-gray-700 animate-fade-in">
+                  <div className="flex items-center justify-between mb-6 border-b border-gray-700 pb-4">
+                      <h3 className="text-3xl font-black text-teal-400 uppercase tracking-tighter">{t('alert_missing_title')}</h3>
+                      <span className="bg-teal-500/20 text-teal-400 px-3 py-1 rounded-full text-xs font-bold">{notifications.length}</span>
                   </div>
-                  <button onClick={() => notifications.forEach(n => props.onClearNotification(n.id))} className="mt-6 w-full py-3 bg-red-800/50 hover:bg-red-800 text-red-100 rounded-lg font-bold transition-colors">{t('alert_btn_ok')}</button>
+                  
+                  <div className="space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
+                      {notifications.map(notif => {
+                          const isAudit = notif.reason.toUpperCase().includes('AUDIT');
+                          const itemBgClass = isAudit 
+                            ? "bg-amber-900/20 border-amber-800/40" 
+                            : "bg-red-900/20 border-red-800/40";
+                          const iconColorClass = isAudit ? "text-amber-400" : "text-red-400";
+                          
+                          return (
+                              <div key={notif.id} className={`${itemBgClass} border p-5 rounded-xl flex items-center justify-between gap-6 transition-all hover:bg-opacity-30`}>
+                                  <div className="flex-grow min-w-0">
+                                      <div className="flex items-center gap-3 mb-1">
+                                          <div className={`w-2 h-2 rounded-full ${isAudit ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'}`}></div>
+                                          <p className="font-mono font-black text-2xl text-white truncate">{notif.partNumber}</p>
+                                      </div>
+                                      <p className="text-lg text-gray-200 font-medium leading-tight mb-2">{notif.reason}</p>
+                                      <div className="flex items-center gap-4 text-sm text-gray-500 font-bold uppercase tracking-wide">
+                                          <span className={iconColorClass}>{notif.reportedBy}</span>
+                                          <span className="opacity-50">•</span>
+                                          <span>{new Date(notif.timestamp).toLocaleString('sk-SK', {hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit'})}</span>
+                                      </div>
+                                  </div>
+                                  <button onClick={() => props.onClearNotification(notif.id)} className="flex-shrink-0 bg-gray-900/50 text-gray-400 hover:text-white p-3 rounded-xl hover:bg-gray-700 transition-all active:scale-90">
+                                      <CheckCircleIcon className="w-8 h-8" />
+                                  </button>
+                              </div>
+                          );
+                      })}
+                  </div>
+                  
+                  <div className="mt-8 flex gap-4">
+                      <button 
+                        onClick={() => notifications.forEach(n => props.onClearNotification(n.id))} 
+                        className="flex-1 py-4 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-black text-lg shadow-xl transition-all active:scale-[0.98] uppercase tracking-widest"
+                      >
+                          {t('alert_btn_ok')}
+                      </button>
+                  </div>
               </div>
           </div>
       )}
