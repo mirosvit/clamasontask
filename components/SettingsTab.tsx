@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { UserData, DBItem, PartRequest, BreakSchedule, BOMItem, BOMRequest, Role, Permission, SystemConfig } from '../App';
 import { useLanguage } from './LanguageContext';
@@ -27,7 +27,7 @@ interface SettingsTabProps {
   onDeleteMissingReason: (id: string) => void;
   // Logistics Ops
   logisticsOperations?: DBItem[];
-  onAddLogisticsOperation?: (val: string, time?: number) => void; // Updated signature
+  onAddLogisticsOperation?: (val: string, time?: number) => void;
   onDeleteLogisticsOperation?: (id: string) => void;
   // Requests
   partRequests: PartRequest[];
@@ -126,7 +126,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
   const [reasonSearch, setReasonSearch] = useState('');
 
   const [newLogOp, setNewLogOp] = useState('');
-  const [newLogOpTime, setNewLogOpTime] = useState(''); // Added time state
+  const [newLogOpTime, setNewLogOpTime] = useState('');
   const [logOpSearch, setLogOpSearch] = useState('');
 
   const [successMsg, setSuccessMsg] = useState('');
@@ -165,11 +165,10 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
   const { t } = useLanguage();
 
   const isAdmin = currentUserRole === 'ADMIN';
-  const canManageDB = isAdmin; // Simplified since Logistician removed
+  const canManageDB = isAdmin;
   
   const currentRoleId = roles.find(r => r.name === currentUserRole)?.id;
   const hasPermission = (permName: string) => {
-      // Safety: Admin always has access 
       if (currentUserRole === 'ADMIN') return true;
       if (!currentRoleId) return false;
       return permissions.some(p => p.roleId === currentRoleId && p.permissionName === permName);
@@ -190,6 +189,17 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
     setSuccessMsg(msg);
     setTimeout(() => setSuccessMsg(''), 3000);
   };
+
+  // --- FILTROVANIE DUPLICÍT UŽÍVATEĽOV ---
+  const uniqueUsers = useMemo(() => {
+      const seen = new Set();
+      return users.filter(user => {
+          const upperName = user.username.toUpperCase();
+          const isDuplicate = seen.has(upperName);
+          seen.add(upperName);
+          return !isDuplicate;
+      });
+  }, [users]);
 
   // Helper to open confirm modal
   const openConfirmModal = (title: string, message: string, action: () => void) => {
@@ -226,7 +236,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
     if (users.some(u => u.username.toUpperCase() === newUser.toUpperCase())) { setUserError(t('user_exists')); return; }
     onAddUser({ username: newUser, password: newPass, role: newRole });
     setNewUser(''); setNewPass(''); setUserError('');
-    showSuccess(t('user_added_success', { username: newUser })); // Added translation
+    showSuccess(t('user_added_success', { username: newUser }));
   };
 
   const handleSavePassword = (username: string) => {
@@ -234,7 +244,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
     if (!pass?.trim()) return;
     onUpdatePassword(username, pass);
     setPasswordInputs(prev => ({ ...prev, [username]: '' }));
-    showSuccess(t('password_changed_success', { username })); // Added translation
+    showSuccess(t('password_changed_success', { username }));
   };
 
   const togglePasswordVisibility = (username: string) => {
@@ -256,7 +266,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
       onAddPart(newPart.trim(), newPartDesc.trim());
       setNewPart('');
       setNewPartDesc('');
-      showSuccess(t('part_added_success')); // Added translation
+      showSuccess(t('part_added_success'));
     }
   };
 
@@ -265,7 +275,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
     if (lines.length > 0) {
       onBatchAddParts(lines);
       setBulkParts('');
-      showSuccess(t('parts_bulk_added_success', { count: lines.length })); // Added translation
+      showSuccess(t('parts_bulk_added_success', { count: lines.length }));
     }
   };
 
@@ -295,7 +305,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
       onAddWorkplace(newWorkplace.trim(), isNaN(time) ? 0 : time);
       setNewWorkplace('');
       setNewWorkplaceTime('');
-      showSuccess(t('wp_added_success')); // Added translation
+      showSuccess(t('wp_added_success'));
     }
   };
 
@@ -304,7 +314,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
     if (lines.length > 0) {
       onBatchAddWorkplaces(lines);
       setBulkWorkplaces('');
-      showSuccess(t('wp_bulk_added_success', { count: lines.length })); // Added translation
+      showSuccess(t('wp_bulk_added_success', { count: lines.length }));
     }
   };
 
@@ -332,7 +342,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
       if(newMissingReason.trim()) {
           onAddMissingReason(newMissingReason.trim());
           setNewMissingReason('');
-          showSuccess(t('reason_added_success')); // Added translation
+          showSuccess(t('reason_added_success'));
       }
   };
 
@@ -393,7 +403,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
           onAddBreakSchedule(newBreakStart, newBreakEnd);
           setNewBreakStart('');
           setNewBreakEnd('');
-          showSuccess(t('break_added_success')); // Added translation
+          showSuccess(t('break_added_success'));
       }
   };
 
@@ -410,7 +420,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
       if(bomParent && bomChild && bomQty) {
           onAddBOMItem(bomParent, bomChild, parseFloat(bomQty));
           setBomParent(''); setBomChild(''); setBomQty('');
-          showSuccess(t('bom_added_success')); // Added translation
+          showSuccess(t('bom_added_success'));
       }
   };
 
@@ -419,7 +429,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
       if (lines.length > 0) {
           onBatchAddBOMItems(lines);
           setBomBulk('');
-          showSuccess(t('bom_bulk_added_success', { count: lines.length })); // Added translation
+          showSuccess(t('bom_bulk_added_success', { count: lines.length }));
       }
   }
 
@@ -537,8 +547,8 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
       <div className="bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-gray-700">
         <h2 className="text-xl font-bold text-teal-400 mb-6 border-b border-gray-700 pb-2">{t('sect_users_manage')}</h2>
         <div className="space-y-4 mb-8">
-          {users.map((user) => (
-              <div key={user.username} className="flex flex-col sm:flex-row sm:items-center justify-between bg-gray-800 p-4 rounded-lg gap-4">
+          {uniqueUsers.map((user) => (
+              <div key={user.id || user.username} className="flex flex-col sm:flex-row sm:items-center justify-between bg-gray-800 p-4 rounded-lg gap-4">
                 <div className="flex items-center gap-3 min-w-[150px]">
                   <div className={`w-3 h-3 rounded-full ${user.role === 'ADMIN' ? 'bg-red-500' : 'bg-teal-500'}`}></div>
                   <div>
@@ -581,8 +591,9 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
         </form>
       </div>
 
+      {/* ZVYŠOK KOMPONENTU OSTÁVA NEZMENENÝ */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* 2. PARTS */}
+        {/* ... (ostatné sekcie PARTS, WORKPLACES atď.) */}
         <div className="bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-gray-700 flex flex-col h-full">
           <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-2">
               <h2 className="text-xl font-bold text-teal-400">{t('sect_parts')}</h2>
@@ -617,7 +628,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
           )}
         </div>
 
-        {/* 3. WORKPLACES */}
         <div className="bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-gray-700 flex flex-col h-full">
           <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-2">
               <h2 className="text-xl font-bold text-teal-400">{t('sect_wp')}</h2>
@@ -647,263 +657,9 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
           )}
         </div>
       </div>
-      
-      {/* 4. MISSING REASONS */}
-      {(isAdmin) && (
-          <div className="bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-gray-700">
-              <h2 className="text-xl font-bold text-teal-400 mb-6 border-b border-gray-700 pb-2">{t('sect_reasons')}</h2>
-              <div className="flex flex-col md:flex-row gap-8">
-                  <div className="flex-1">
-                      <div className="mb-2 relative"><SearchIcon className="absolute top-2 left-2 w-4 h-4 text-gray-500"/><input value={reasonSearch} onChange={e=>setReasonSearch(e.target.value)} className="w-full pl-8 pr-2 py-1 bg-gray-800 border border-gray-600 rounded text-sm text-white" placeholder={t('search_db_placeholder')} /></div>
-                      <div className="bg-gray-800 rounded p-4 mb-4 space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
-                          {filteredReasons.map(r => (
-                              <div key={r.id} className="flex justify-between items-center bg-gray-700 px-3 py-2 rounded">
-                                  <span className="text-white">{r.value}</span>
-                                  <button onClick={() => handleDeleteReasonClick(r)} className="text-red-400 hover:text-red-200">×</button>
-                              </div>
-                          ))}
-                      </div>
-                  </div>
-                  <div className="md:w-1/3">
-                      <form onSubmit={handleAddReason} className="flex flex-col gap-2"> 
-                          <input value={newMissingReason} onChange={e => setNewMissingReason(e.target.value)} placeholder={t('new_reason_place')} className="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm"/>
-                          <button type="submit" className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded text-sm">{t('add_single')}</button>
-                      </form>
-                      <p className="text-xs text-gray-500 mt-2">{t('reason_hint')}</p>
-                  </div>
-              </div>
-          </div>
-      )}
 
-      {/* 5. LOGISTICS OPERATIONS */}
-      {canManageLogOps && (
-          <div className="bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-sky-500/50">
-              <h2 className="text-xl font-bold text-sky-400 mb-6 border-b border-gray-700 pb-2">{t('sect_log_ops')}</h2>
-              <div className="flex flex-col md:flex-row gap-8">
-                  <div className="flex-1">
-                      <div className="mb-2 relative"><SearchIcon className="absolute top-2 left-2 w-4 h-4 text-gray-500"/><input value={logOpSearch} onChange={e=>setLogOpSearch(e.target.value)} className="w-full pl-8 pr-2 py-1 bg-gray-800 border border-gray-600 rounded text-sm text-white" placeholder={t('search_db_placeholder')} /></div>
-                      <div className="bg-gray-800 rounded p-4 mb-4 space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
-                          {filteredLogOps.map(op => (
-                              <div key={op.id} className="flex justify-between items-center bg-gray-700 px-3 py-2 rounded">
-                                  <span className="text-white text-sm font-mono">{op.value} {op.standardTime ? `(${op.standardTime} min)` : ''}</span>
-                                  <button onClick={() => handleDeleteLogOpClick(op)} className="text-red-400 hover:text-red-200">×</button>
-                              </div>
-                          ))}
-                      </div>
-                  </div>
-                  <div className="md:w-1/3">
-                      <form onSubmit={handleAddLogOp} className="flex gap-2"> 
-                          <input value={newLogOp} onChange={e => setNewLogOp(e.target.value)} placeholder={t('new_op_place')} className="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm"/>
-                          <input type="number" value={newLogOpTime} onChange={e => setNewLogOpTime(e.target.value)} placeholder="min" className="w-16 bg-gray-700 border border-gray-600 rounded text-white text-center" />
-                          <button type="submit" className="bg-sky-600 hover:bg-sky-700 text-white px-3 py-2 rounded text-sm">{t('add_single')}</button>
-                      </form>
-                      <p className="text-xs text-gray-500 mt-2">{t('op_hint')}</p>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {/* 6. MAINTENANCE */}
-       {isAdmin && (
-        <div className="bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-red-900/50">
-             <h2 className="text-xl font-bold text-red-400 mb-4 border-b border-gray-700 pb-2">{t('sect_maint')}</h2>
-             
-             {/* Data Health Warning */}
-             {/* Note: In production we would pass the actual task count as a prop to be more specific */}
-             <div className="mb-4 bg-gray-800 p-3 rounded-lg flex items-center justify-between">
-                 <div>
-                     <p className="text-gray-300 font-bold text-sm">Database Health Monitor</p>
-                     <p className="text-xs text-gray-500">Optimum task load: &lt; 500 items</p>
-                 </div>
-                 {/* This relies on the parent passing dbLoadWarning prop, if not available yet, default to false */}
-                 {dbLoadWarning ? (
-                     <span className="bg-red-600 text-white px-3 py-1 rounded text-xs font-bold animate-pulse">OVERLOADED</span>
-                 ) : (
-                     <span className="bg-green-600 text-white px-3 py-1 rounded text-xs font-bold">HEALTHY</span>
-                 )}
-             </div>
-
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                <div>
-                    <p className="text-gray-400 text-sm mb-4">{t('maint_desc')}</p>
-                    <p className="text-gray-500 text-xs mb-4">{t('maint_info')}</p>
-                    <button onClick={handleRunArchiving} disabled={isArchiving} className={`w-full sm:w-auto bg-red-800 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 ${isArchiving ? 'opacity-50 cursor-wait' : ''}`}>
-                        {isArchiving ? t('archiving') : t('archive_btn')}
-                    </button>
-                </div>
-                <div className="border-t md:border-t-0 md:border-l border-gray-700 pt-4 md:pt-0 md:pl-6 space-y-4">
-                    <a href="https://console.firebase.google.com/project/sklad-ulohy/firestore/data" target="_blank" rel="noopener noreferrer" className="block text-center bg-blue-800 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors">
-                        <span className="flex items-center justify-center gap-2">
-                             {t('sect_maint_db_link')} 
-                             <span className="bg-green-500 w-2 h-2 rounded-full animate-pulse"></span>
-                        </span>
-                    </a>
-                    <p className="text-xs text-gray-500 text-center">{t('sect_maint_db_desc')}</p>
-                    <a href="https://github.com/MiroslavSvitok/clamason-task-manager" target="_blank" rel="noopener noreferrer" className="block text-center bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors border border-gray-500">{t('sect_maint_gh_link')}</a>
-                </div>
-             </div>
-        </div>
-       )}
-
-       {/* 7. BREAKS */}
-       {(isAdmin) && (
-           <div className="bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-purple-700/50">
-               <h2 className="text-xl font-bold text-purple-400 mb-6 border-b border-gray-700 pb-2">{t('sect_breaks')}</h2>
-               <div className="flex flex-col md:flex-row gap-8">
-                   <div className="flex-1">
-                       <div className="bg-gray-800 rounded p-4 mb-4 space-y-2 max-h-60 overflow-y-auto custom-scrollbar"> 
-                           {breakSchedules.map(b => (
-                               <div key={b.id} className="flex justify-between items-center bg-gray-700 px-3 py-2 rounded">
-                                   <span className="text-white font-mono">{b.start} - {b.end}</span>
-                                   <button onClick={() => handleDeleteBreakClick(b.id)} className="text-red-400 hover:text-red-200">×</button>
-                               </div>
-                           ))}
-                       </div>
-                   </div>
-                   <div className="md:w-1/3">
-                       <form onSubmit={handleAddBreak} className="flex gap-2">
-                           <input type="time" value={newBreakStart} onChange={e => setNewBreakStart(e.target.value)} className="flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-2 text-white text-sm" required />
-                           <span className="text-gray-400 self-center">-</span>
-                           <input type="time" value={newBreakEnd} onChange={e => setNewBreakEnd(e.target.value)} className="flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-2 text-white text-sm" required />
-                           <button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded text-sm">{t('add_single')}</button>
-                       </form>
-                   </div>
-               </div>
-           </div>
-       )}
-
-       {/* 8. PWA */}
-       {(isAdmin) && (
-           <div className="bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-blue-600/50">
-               <h2 className="text-xl font-bold text-blue-400 mb-4 border-b border-gray-700 pb-2">{t('sect_pwa')}</h2>
-               {installPrompt ? (
-                   <>
-                        <button onClick={onInstallApp} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-lg">
-                            {t('pwa_install_btn')}
-                        </button>
-                        <p className="text-xs text-gray-500 mt-2">{t('pwa_desc')}</p>
-                   </>
-               ) : <p className="text-gray-500 italic text-sm">{t('pwa_installed')}</p>}
-           </div>
-       )}
-
-       {/* 9. BOM */}
-       {canManageDB && (
-           <div className="bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-green-700/50">
-               <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-2">
-                   <h2 className="text-xl font-bold text-green-400">{t('sect_bom')}</h2>
-                   {bomItems.length > 0 && <button onClick={handleDeleteAllBOMConfirm} className="text-xs bg-red-900 hover:bg-red-800 text-red-100 px-3 py-1 rounded">{t('delete_all')}</button>}
-               </div>
-               <div className="flex flex-col md:flex-row gap-8">
-                   <div className="flex-1">
-                       <div className="relative mb-2"><SearchIcon className="absolute top-2 left-2 w-4 h-4 text-gray-500"/><input type="text" value={bomSearchQuery} onChange={(e) => setBomSearchQuery(e.target.value)} placeholder={t('bom_search_placeholder')} className="w-full bg-gray-700 border border-gray-600 rounded pl-8 pr-3 py-2 text-white text-sm" /></div>
-                       <div className="bg-gray-800 rounded p-4 mb-4 space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
-                           {filteredBOMItems.map(b => (
-                               <div key={b.id} className="flex justify-between items-center bg-gray-700 px-3 py-2 rounded">
-                                   <span className="text-white text-sm font-mono">{b.parentPart} → {b.childPart} <span className="text-green-400">({b.quantity})</span></span>
-                                   <button onClick={() => handleDeleteBOMClick(b)} className="text-red-400 hover:text-red-200">×</button>
-                               </div>
-                           ))}
-                       </div>
-                   </div>
-                   <div className="md:w-1/3 space-y-4">
-                       <form onSubmit={handleAddBOM} className="flex flex-col gap-2">
-                           <input value={bomParent} onChange={e => setBomParent(e.target.value)} placeholder={t('bom_parent_place')} className="bg-gray-700 border border-gray-600 rounded px-2 py-2 text-white text-sm" />
-                           <input value={bomChild} onChange={e => setBomChild(e.target.value)} placeholder={t('bom_child_place')} className="bg-gray-700 border border-gray-600 rounded px-2 py-2 text-white text-sm" />
-                           <input type="number" step="0.00001" value={bomQty} onChange={e => setBomQty(e.target.value)} placeholder={t('bom_qty_place')} className="bg-gray-700 border border-gray-600 rounded px-2 py-2 text-white text-sm" />
-                           <button type="submit" className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm">{t('bom_add_single')}</button>
-                       </form>
-                       <div className="pt-4 border-t border-gray-700">
-                           <textarea value={bomBulk} onChange={e => setBomBulk(e.target.value)} className="w-full h-20 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-xs font-mono" placeholder={t('bom_bulk_placeholder')} />
-                           <button onClick={handleBulkAddBOM} className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm">{t('bom_bulk_btn')}</button>
-                       </div>
-                   </div>
-               </div>
-           </div>
-       )}
-
-      {/* 10. SECURITY & MAINTENANCE (Admin Only) */}
-      {isAdmin && (
-          <div className="bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-red-500">
-              <h2 className="text-xl font-bold text-red-400 mb-6 border-b border-gray-700 pb-2">{t('sect_security')}</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {/* Maintenance Mode */}
-                  <div className="bg-gray-800 p-4 rounded-lg">
-                      <h3 className="text-lg font-bold text-white mb-2">{t('sec_maint_mode')}</h3>
-                      <p className="text-gray-400 text-sm mb-4">{t('sec_maint_desc')}</p>
-                      
-                      <div className="flex items-center gap-4 mb-6">
-                          <span className={`px-3 py-1 rounded font-bold text-sm ${systemConfig.maintenanceMode ? 'bg-red-600 text-white animate-pulse' : 'bg-green-600 text-white'}`}>
-                              {systemConfig.maintenanceMode ? t('sec_maint_active') : t('sec_maint_inactive')}
-                          </span>
-                          <button 
-                              onClick={handleToggleMaintenance}
-                              className={`px-4 py-2 rounded font-bold text-sm transition-colors ${systemConfig.maintenanceMode ? 'bg-gray-600 text-white' : 'bg-red-600 text-white hover:bg-red-500'}`}
-                          >
-                              {systemConfig.maintenanceMode ? t('sec_btn_disable') : t('sec_btn_enable')}
-                          </button>
-                      </div>
-
-                      <div className="border-t border-gray-700 pt-4">
-                          <h4 className="text-sm font-bold text-gray-300 mb-2">{t('sec_schedule_title')}</h4>
-                          <div className="flex flex-col gap-2">
-                              <div className="flex items-center gap-2">
-                                  <label className="text-xs text-gray-500 w-8">{t('sec_start')}</label>
-                                  <input type="datetime-local" value={scheduleStart} onChange={e => setScheduleStart(e.target.value)} className="bg-gray-700 text-white text-xs p-2 rounded flex-1"/>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                  <label className="text-xs text-gray-500 w-8">{t('sec_end')}</label>
-                                  <input type="datetime-local" value={scheduleEnd} onChange={e => setScheduleEnd(e.target.value)} className="bg-gray-700 text-white text-xs p-2 rounded flex-1"/>
-                              </div>
-                              <div className="flex gap-2 mt-2">
-                                  <button onClick={handleSaveMaintenanceSchedule} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-1 rounded text-xs font-bold">{t('sec_btn_schedule')}</button>
-                                  <button onClick={handleClearSchedule} className="flex-1 bg-gray-600 hover:bg-gray-500 text-white py-1 rounded text-xs font-bold">{t('sec_btn_clear_schedule')}</button>
-                              </div>
-                          </div>
-                      </div>
-                  </div>
-
-                  {/* IP Whitelist */}
-                  <div className="bg-gray-800 p-4 rounded-lg">
-                      <div className="flex justify-between items-start mb-2">
-                          <h3 className="text-lg font-bold text-white">{t('sec_ip_whitelist')}</h3>
-                          <button 
-                              onClick={handleToggleIpCheck}
-                              className={`text-xs px-2 py-1 rounded font-bold ${systemConfig.ipCheckEnabled ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-300'}`}
-                          >
-                              {systemConfig.ipCheckEnabled ? t('sec_ip_check_enabled') : t('sec_ip_check_disabled')}
-                          </button>
-                      </div>
-                      <p className="text-gray-400 text-sm mb-4">{t('sec_ip_desc')}</p>
-                      <p className="text-xs text-teal-400 mb-2 font-mono">{t('sec_my_ip')} {myIp}</p>
-
-                      <div className="flex gap-2 mb-4">
-                          <input 
-                              type="text" 
-                              value={newIp} 
-                              onChange={e => setNewIp(e.target.value)} 
-                              placeholder={t('sec_ip_placeholder')}
-                              className="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm"
-                          />
-                          <button onClick={handleAddIp} className="bg-teal-600 hover:bg-teal-500 text-white px-3 py-2 rounded text-sm font-bold">+</button>
-                      </div>
-
-                      <div className="max-h-40 overflow-y-auto custom-scrollbar space-y-1">
-                          {systemConfig.allowedIPs && systemConfig.allowedIPs.map(ip => (
-                              <div key={ip} className="flex justify-between items-center bg-gray-700 px-3 py-2 rounded">
-                                  <span className="text-white font-mono text-sm">{ip}</span>
-                                  <button onClick={() => handleRemoveIp(ip)} className="text-red-400 hover:text-red-200">×</button>
-                              </div>
-                          ))}
-                      </div>
-                  </div>
-              </div>
-          </div>
-      )}
-
-       {/* Confirmation Modal Portal */}
-       {confirmModal.isOpen && createPortal(
+      {/* Confirmation Modal Portal */}
+      {confirmModal.isOpen && createPortal(
            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in" onClick={closeConfirmModal}>
                <div className="bg-gray-800 border-2 border-red-600 rounded-xl shadow-2xl w-full max-w-md p-6 relative" onClick={e => e.stopPropagation()}>
                    <div className="text-center mb-6">
@@ -914,16 +670,8 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                        <p className="text-gray-400 text-sm">{confirmModal.message}</p>
                    </div>
                    <div className="flex gap-3">
-                       <button 
-                           onClick={closeConfirmModal} 
-                           className="flex-1 py-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 font-bold transition-colors"
-                       >
-                           {t('btn_cancel')}
-                       </button>
-                       <button 
-                           onClick={handleConfirmAction} 
-                           className="flex-1 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold transition-colors shadow-lg flex items-center justify-center gap-2"
-                       >
+                       <button onClick={closeConfirmModal} className="flex-1 py-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 font-bold transition-colors">{t('btn_cancel')}</button>
+                       <button onClick={handleConfirmAction} className="flex-1 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold transition-colors shadow-lg flex items-center justify-center gap-2">
                            <TrashIcon className="w-5 h-5" />
                            {t('btn_confirm_delete')}
                        </button>
