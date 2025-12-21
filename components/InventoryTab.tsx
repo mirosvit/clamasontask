@@ -65,8 +65,11 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
     }, []);
 
     useEffect(() => {
-        localStorage.setItem('inventory_scans', JSON.stringify(scannedItems));
-        if (scannedItems.length > 0) setLastSaved(Date.now());
+        // Ukladáme do localStorage iba ak máme aktívnu reláciu alebo ak zoznam nie je prázdny
+        if (scannedItems.length > 0) {
+            localStorage.setItem('inventory_scans', JSON.stringify(scannedItems));
+            setLastSaved(Date.now());
+        }
     }, [scannedItems]);
 
     const handleStartInventory = () => {
@@ -92,9 +95,12 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
         setTimeout(() => locationRef.current?.focus(), 10);
     };
 
-    // Fix: Added missing handleDeleteItem function
     const handleDeleteItem = (id: string) => {
-        setScannedItems(prev => prev.filter(item => item.id !== id));
+        const updated = scannedItems.filter(item => item.id !== id);
+        setScannedItems(updated);
+        if (updated.length === 0) {
+            localStorage.removeItem('inventory_scans');
+        }
     };
 
     const handleClearAll = () => {
@@ -111,8 +117,15 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
             return;
         }
         
+        // 1. Spustíme stiahnutie Excelu
         handleExport();
 
+        // 2. Vymažeme lokálnu pamäť (dôležité pre odstránenie hlášky pri odhlásení)
+        setScannedItems([]);
+        localStorage.removeItem('inventory_scans');
+        setLastSaved(null);
+
+        // 3. Označíme úlohu vo Firestore ako dokončenú
         if (activeInventoryTask) {
             onToggleTask(activeInventoryTask.id);
         }
