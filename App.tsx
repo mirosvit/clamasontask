@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import LoginScreen from './components/LoginScreen';
 import PartSearchScreen from './components/PartSearchScreen';
@@ -81,7 +82,7 @@ export interface Notification {
     partNumber: string;
     reason: string;
     reportedBy: string;
-    targetUser: string; // Pridané pre filtrovanie adresáta
+    targetUser: string; 
     timestamp: number;
 }
 
@@ -165,10 +166,14 @@ const App: React.FC = () => {
   });
   const [dbLoadWarning, setDbLoadWarning] = useState<boolean>(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  
   const isFirstLoad = useRef(true);
   const rolesRef = useRef<Role[]>([]);
   const permissionsRef = useRef<Permission[]>([]);
   const currentUserRoleRef = useRef(currentUserRole);
+  
+  // Smart Cache Logic Lock
+  const isRefreshingSmartData = useRef(false);
 
   useEffect(() => { rolesRef.current = roles; }, [roles]);
   useEffect(() => { permissionsRef.current = permissions; }, [permissions]);
@@ -298,54 +303,83 @@ const App: React.FC = () => {
       }); 
   }, []);
 
+  // OPTIMALIZOVANÁ LOGIKA SMART CACHE
   const incrementDataVersion = async () => {
       const metaRef = doc(db, 'metadata', 'system');
-      try { await setDoc(metaRef, { dataVersion: increment(1) }, { merge: true }); } catch (e) {}
+      try { 
+          // Atomický increment priamo vo Firestore
+          await setDoc(metaRef, { dataVersion: increment(1) }, { merge: true }); 
+      } catch (e) {
+          console.error("Failed to increment data version", e);
+      }
   };
 
-  const refreshSmartData = async (inputServerVersion?: number) => {
+  const refreshSmartData = async (serverVersion: number) => {
+      // Prevencia paralelných refreshov
+      if (isRefreshingSmartData.current) return;
+      
       try {
-          const metaRef = doc(db, 'metadata', 'system');
-          const metaSnap = await getDoc(metaRef);
-          const serverVersion = inputServerVersion !== undefined ? inputServerVersion : (metaSnap.exists() ? (metaSnap.data()?.dataVersion ?? 0) : 0);
+          isRefreshingSmartData.current = true;
           const localVersion = parseInt(localStorage.getItem('cached_data_version') || '-1');
-          let loadedFromCache = false;
+
+          // Ak sa verzie zhodujú, načítame z cache
           if (serverVersion === localVersion && localVersion !== -1) {
               const cParts = localStorage.getItem('cached_parts');
               const cBom = localStorage.getItem('cached_bom');
               if (cParts && cBom) {
                   setParts(JSON.parse(cParts));
                   setBomItems(JSON.parse(cBom));
-                  loadedFromCache = true;
+                  isRefreshingSmartData.current = false;
+                  return;
               }
           }
-          if (!loadedFromCache) {
-              const pSnap = await getDocs(query(collection(db, 'parts'), orderBy('value')));
-              const bSnap = await getDocs(query(collection(db, 'bom_items'), orderBy('parentPart')));
-              const newParts = pSnap.docs.map(d => ({id:d.id, ...d.data()} as DBItem));
-              const newBOM = bSnap.docs.map(d => ({id:d.id, ...d.data()} as BOMItem));
-              setParts(newParts);
-              setBomItems(newBOM);
-              localStorage.setItem('cached_parts', JSON.stringify(newParts));
-              localStorage.setItem('cached_bom', JSON.stringify(newBOM));
-              localStorage.setItem('cached_data_version', serverVersion.toString());
-          }
-      } catch (e) {}
+
+          // Ak sa verzie nezhodujú alebo cache chýba, urobíme getDocs (1 read na kolekciu)
+          const [pSnap, bSnap] = await Promise.all([
+              getDocs(query(collection(db, 'parts'), orderBy('value'))),
+              getDocs(query(collection(db, 'bom_items'), orderBy('parentPart')))
+          ]);
+
+          const newParts = pSnap.docs.map(d => ({ id: d.id, ...d.data() } as DBItem));
+          const newBOM = bSnap.docs.map(d => ({ id: d.id, ...d.data() } as BOMItem));
+
+          // Update State
+          setParts(newParts);
+          setBomItems(newBOM);
+
+          // Update Cache
+          localStorage.setItem('cached_parts', JSON.stringify(newParts));
+          localStorage.setItem('cached_bom', JSON.stringify(newBOM));
+          localStorage.setItem('cached_data_version', serverVersion.toString());
+
+      } catch (e) {
+          console.error("Smart Data Refresh failed", e);
+      } finally {
+          isRefreshingSmartData.current = false;
+      }
   };
 
   useEffect(() => {
       const metaRef = doc(db, 'metadata', 'system');
       return onSnapshot(metaRef, (snap) => {
-          const data = snap.exists() ? snap.data() : { dataVersion: 0 };
-          const jitter = Math.floor(Math.random() * 10000); 
-          setTimeout(() => refreshSmartData(data.dataVersion), jitter);
+          if (!snap.exists()) return;
+          
+          const version = snap.data().dataVersion ?? 0;
+          
+          // Ak ide o prvý load, načítame hneď bez jittera
+          if (isFirstLoad.current) {
+              refreshSmartData(version);
+          } else {
+              // Jitter 0-10s na ochranu free tieru pri hromadných zmenách
+              const jitter = Math.floor(Math.random() * 10000); 
+              setTimeout(() => refreshSmartData(version), jitter);
+          }
       });
   }, []);
   
   useEffect(() => { const q = query(collection(db, 'part_requests')); return onSnapshot(q, s => setPartRequests(s.docs.map(d => ({id:d.id, ...d.data()} as PartRequest)))); }, []);
   useEffect(() => { const q = query(collection(db, 'bom_requests')); return onSnapshot(q, s => setBomRequests(s.docs.map(d => ({id:d.id, ...d.data()} as BOMRequest)))); }, []);
   
-  // OPTIMALIZÁCIA: Notifikácie počúva len ten užívateľ, ktorému sú určené
   useEffect(() => { 
       if (!isAuthenticated || !currentUser) return;
       const q = query(collection(db, 'notifications'), where('targetUser', '==', currentUser)); 
@@ -441,13 +475,12 @@ const App: React.FC = () => {
           const isMissing = !t.isMissing;
           await updateDoc(doc(db,'tasks',id), { isMissing, missingReportedBy: isMissing?currentUser:null, missingReason: isMissing?(reason||'Iné'):null, isInProgress: false, inProgressBy: null, isBlocked: false, isManualBlocked: false, isAuditInProgress: false, auditBy: null });
           
-          // Ak sa položka nahlasuje ako chýbajúca a má tvorcu, pošleme mu notifikáciu
           if (isMissing && t.createdBy && t.createdBy !== currentUser) {
               await addDoc(collection(db, 'notifications'), { 
                   partNumber: t.partNumber || 'Unknown', 
                   reason: reason || 'Iné', 
                   reportedBy: currentUser, 
-                  targetUser: t.createdBy, // Iba tento užívateľ notifikáciu uvidí
+                  targetUser: t.createdBy, 
                   timestamp: Date.now() 
               });
           }
@@ -506,13 +539,12 @@ const App: React.FC = () => {
           });
       }
 
-      // NOVÉ: NOTIFIKÁCIA PRE TVORCU O VÝSLEDKU AUDITU
       if (t.createdBy && t.createdBy !== currentUser) {
           await addDoc(collection(db, 'notifications'), { 
               partNumber: t.partNumber || 'N/A', 
               reason: `AUDIT DOKONČENÝ (${statusLabel}): ${note}`, 
               reportedBy: currentUser, 
-              targetUser: t.createdBy, // Tvorca úlohy dostane správu
+              targetUser: t.createdBy, 
               timestamp: Date.now() 
           });
       }
@@ -553,8 +585,8 @@ const App: React.FC = () => {
           onFetchArchivedTasks={fetchArchivedTasks}
           onDeleteMissingItem={handleDeleteMissingItem}
           breakSchedules={breakSchedules} systemBreaks={systemBreaks} isBreakActive={isBreakActive} onAddBreakSchedule={handleAddBreakSchedule} onDeleteBreakSchedule={handleDeleteBreakSchedule}
-          bomItems={bomItems} bomRequests={bomRequests} onAddBOMItem={handleAddBOMItem} onBatchAddBOMItems={handleBatchAddBOMItems} onDeleteBOMItem={handleDeleteBOMItem} onDeleteAllBOMItems={handleDeleteAllBOMItems} onRequestBOM={handleRequestBOM} onApproveBOMRequest={handleApproveBOMRequest} onRejectBOMRequest={handleRejectBOMRequest}
-          roles={roles} permissions={permissions} onAddRole={handleAddRole} onDeleteRole={handleDeleteRole} onUpdatePermission={handleUpdatePermission}
+          // Fix: Replace props.onRejectBOMRequest with handleRejectBOMRequest as App doesn't have props
+          bomItems={bomItems} bomRequests={bomRequests} onAddBOMItem={handleAddBOMItem} onBatchAddBOMItems={handleBatchAddBOMItems} onDeleteBOMItem={handleDeleteBOMItem} onDeleteAllBOMItems={handleDeleteAllBOMItems} onRequestBOM={handleRequestBOM} onApproveBOMRequest={handleApproveBOMRequest} onRejectBOMRequest={handleRejectBOMRequest} roles={roles} permissions={permissions} onAddRole={handleAddRole} onDeleteRole={handleDeleteRole} onUpdatePermission={handleUpdatePermission}
           onVerifyAdminPassword={handleVerifyAdminPassword}
           notifications={notifications} onClearNotification={handleClearNotification}
           installPrompt={deferredPrompt} onInstallApp={handleInstallApp}
