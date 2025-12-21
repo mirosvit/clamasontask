@@ -67,6 +67,7 @@ export interface Task {
   completedAt?: number; 
   note?: string;
   isBlocked?: boolean; // For Inventory
+  blockedBy?: string | null; // WHO is searching
   isManualBlocked?: boolean; // For new manual block feature
   inventoryHistory?: InventorySession[];
   type?: 'production' | 'logistics'; 
@@ -690,7 +691,11 @@ const App: React.FC = () => {
           const isBlocked = !t.isBlocked;
           const hist = t.inventoryHistory ? [...t.inventoryHistory] : [];
           if(isBlocked) hist.push({start:Date.now()}); else { const last=hist[hist.length-1]; if(last && !last.end) last.end=Date.now(); }
-          updateDoc(doc(db,'tasks',id), { isBlocked, inventoryHistory:hist });
+          updateDoc(doc(db,'tasks',id), { 
+              isBlocked, 
+              blockedBy: isBlocked ? currentUser : null,
+              inventoryHistory:hist 
+          });
       }
   };
 

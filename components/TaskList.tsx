@@ -249,7 +249,16 @@ const TaskList: React.FC<TaskListProps> = (props) => {
                                 {isSearchingMode && !task.isDone && (
                                     <div className="mb-1">
                                         <span className="bg-gray-500 text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded animate-pulse border border-gray-400 shadow-sm inline-block">
-                                            🔍 {t('status_inventory')}
+                                            🔍 {t('status_inventory')} {task.blockedBy ? `• ${task.blockedBy}` : ''}
+                                        </span>
+                                    </div>
+                                )}
+
+                                {/* NOVÝ ŠTÍTOK PRE ZABLOKOVANÉ ÚLOHY (MODRÝ) */}
+                                {isManualBlocked && !task.isDone && (
+                                    <div className="mb-1">
+                                        <span className="bg-[#4169E1] text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded animate-pulse border border-[#3151b1] shadow-[0_0_10px_rgba(65,105,225,0.4)] inline-block">
+                                            🚫 {t('status_blocked')}
                                         </span>
                                     </div>
                                 )}

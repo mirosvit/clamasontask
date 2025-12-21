@@ -1,7 +1,8 @@
 
 export const translations = {
   sk: {
-    // ... existing keys ...
+    // ... existujúce kľúče ...
+    status_blocked: "ZABLOKOVANÉ",
     miss_tab_title: "Prehľad chýbajúceho tovaru",
     miss_kpi_total: "Aktuálne chýba",
     miss_kpi_critical: "Kritické (> 2h)",
@@ -386,7 +387,8 @@ export const translations = {
     log_sheet_name: "Logistický Prehľad",
   },
   en: {
-    // ... existing en keys ...
+    // ... existing keys ...
+    status_blocked: "BLOCKED",
     miss_tab_title: "Missing Items Report",
     miss_kpi_total: "Currently Missing",
     miss_kpi_critical: "Critical (> 2h)",
