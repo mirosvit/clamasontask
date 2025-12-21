@@ -75,12 +75,6 @@ const BanIcon: React.FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
-const TruckIcon: React.FC<{ className?: string }> = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M20 8h-3V4H3v14h1v2a2 2 0 0 0 2 2 2 2 0 0 0 2-2v-2h8v2a2 2 0 0 0 2 2 2 2 0 0 0 2-2v-2h1V8zm-2 2v3h-3v-3h3zM5 18H4V6h11v12H5zm13 0h-1v-2h-3v-2h4v4z"/>
-    </svg>
-);
-
 const TaskList: React.FC<TaskListProps> = (props) => {
     const { t, language } = useLanguage();
     
@@ -260,6 +254,16 @@ const TaskList: React.FC<TaskListProps> = (props) => {
                                 </div>
                                 {task.isInProgress && (
                                     <div className="flex"><span className="text-[#FFD700] text-xs font-bold uppercase tracking-wide border border-[#FFD700]/50 bg-[#FFD700]/10 px-2 py-0.5 rounded animate-pulse">{t('status_resolving')} {task.inProgressBy}</span></div>
+                                )}
+
+                                {/* INFO O DOKONČENÍ - NOVÉ */}
+                                {task.isDone && task.completedBy && (
+                                    <div className="mt-2 flex items-center gap-1.5 border-t border-gray-700/50 pt-1.5 animate-fade-in">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div>
+                                        <span className="text-[10px] font-bold uppercase text-green-500/80 tracking-wide">
+                                            {t('task_completed_label')}: <span className="text-green-400">{task.completedBy}</span> {t('at_time')} <span className="font-mono">{new Date(task.completedAt || 0).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+                                        </span>
+                                    </div>
                                 )}
                             </div>
                         </div>
