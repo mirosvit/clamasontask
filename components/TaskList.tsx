@@ -369,7 +369,7 @@ const TaskList: React.FC<TaskListProps> = (props) => {
                                         {!isSearchingMode && !isManualBlocked && props.hasPermission('perm_btn_note') && !isAuditInProgress && (
                                             <button 
                                                 onClick={() => !isNoteLockedByAudit && handleNoteClick(task)} 
-                                                disabled={isNoteLockedByAudit}
+                                                disabled={!!isNoteLockedByAudit}
                                                 className={`w-16 h-16 flex items-center justify-center rounded-lg border transition-all ${isNoteLockedByAudit ? 'bg-gray-800 text-gray-600 border-gray-700 cursor-not-allowed opacity-30 grayscale' : (task.note ? 'bg-[#fef9c3] text-gray-800 border-yellow-200' : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600')}`}
                                             >
                                                 <ChatIcon className="w-8 h-8" />

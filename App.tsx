@@ -505,6 +505,17 @@ const App: React.FC = () => {
               auditFinalBadge: badgeText 
           });
       }
+
+      // NOVÉ: NOTIFIKÁCIA PRE TVORCU O VÝSLEDKU AUDITU
+      if (t.createdBy && t.createdBy !== currentUser) {
+          await addDoc(collection(db, 'notifications'), { 
+              partNumber: t.partNumber || 'N/A', 
+              reason: `AUDIT DOKONČENÝ (${statusLabel}): ${note}`, 
+              reportedBy: currentUser, 
+              targetUser: t.createdBy, // Tvorca úlohy dostane správu
+              timestamp: Date.now() 
+          });
+      }
   };
 
   const handleArchiveTasks = async () => {
