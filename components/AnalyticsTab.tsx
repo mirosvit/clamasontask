@@ -108,6 +108,14 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
     return `${minutes} min`;
   };
 
+  const getEfficiencyColor = (eff: number) => {
+      if (eff <= 0) return 'text-gray-500';
+      if (eff < 85) return 'text-red-500';
+      if (eff >= 90 && eff <= 110) return 'text-green-400';
+      if (eff > 115) return 'text-yellow-400 font-black'; // "Gold"
+      return 'text-white';
+  };
+
   const calculateBlockedTime = (history: any[] | undefined, startTime: number, endTime: number): number => {
       let totalBlocked = 0;
       if (history && history.length > 0) {
@@ -156,7 +164,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
     const done = performanceTasks.filter(t => t.isDone).length;
     const missing = performanceTasks.filter(t => t.isMissing).length;
     const urgent = performanceTasks.filter(t => t.priority === 'URGENT' && t.isDone).length;
-    const efficiency = performanceTasks.length === 0 ? 0 : Math.round((done / performanceTasks.length) * 100);
+    const efficiencySummary = performanceTasks.length === 0 ? 0 : Math.round((done / performanceTasks.length) * 100);
 
     filteredTasks.forEach(task => {
         let weight = 1;
@@ -231,19 +239,29 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
         }
     });
 
+    // Final worker stats with derived metrics
+    const workerStats = Object.values(workerStatsMap).map((ws: any) => {
+        const executionMin = ws.totalExecutionMs / 60000;
+        return {
+            ...ws,
+            efficiency: executionMin > 0 ? Math.round((ws.totalStandardMinutes / executionMin) * 100) : 0,
+            qi: ws.count > 0 ? Math.round((ws.count / (ws.count + ws.incorrectCount)) * 100) : 100
+        };
+    }).sort((a, b) => b.count - a.count);
+
     const getTop = (record: Record<string, number>, limit: number) => {
         return Object.entries(record).sort(([, a], [, b]) => b - a).slice(0, limit);
     };
 
     return {
-        total, done, missing, urgent, efficiency,
+        total, done, missing, urgent, efficiencySummary,
         avgReaction: countReactionTime > 0 ? totalReactionTime / countReactionTime : 0,
         avgLead: countLeadTime > 0 ? totalLeadTime / countLeadTime : 0,
         grandTotalExecutionTime,
         incorrectlyEntered,
         topWorkplaces: getTop(workplaceCounts, 5),
         topParts: getTop(partCounts, 5),
-        workerStats: Object.values(workerStatsMap).sort((a, b) => b.count - a.count),
+        workerStats,
         audit: {
             sessions: auditSessionsCount,
             totalItems: auditTotalItems,
@@ -263,7 +281,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
         { Metrika: t('kpi_worked'), Hodnota: (stats.grandTotalExecutionTime / 3600000).toFixed(2) + " h" },
         { Metrika: t('kpi_lead'), Hodnota: (stats.avgLead / 60000).toFixed(2) + " min" },
         { Metrika: t('kpi_react'), Hodnota: (stats.avgReaction / 60000).toFixed(2) + " min" },
-        { Metrika: t('kpi_effic'), Hodnota: stats.efficiency + " %" },
+        { Metrika: t('kpi_effic'), Hodnota: stats.efficiencySummary + " %" },
         { Metrika: t('kpi_urgent'), Hodnota: stats.urgent },
         { Metrika: t('kpi_missing'), Hodnota: stats.missing },
         { Metrika: t('kpi_incorrect'), Hodnota: stats.incorrectlyEntered },
@@ -293,6 +311,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
             "Reakcia (min)": reactionTime,
             "Lead Time (min)": leadTime,
             "Čistý čas práce (min)": executionTime,
+            "Normo-minúty": task.standardTime || 0,
             "Poznámka": task.note || ''
         };
     });
@@ -305,14 +324,15 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
   const handleExportWorkerKPI = (ws: any) => {
     if (typeof XLSX === 'undefined' || !ws) return;
     const wb = XLSX.utils.book_new();
-    const accuracy = ws.count > 0 ? Math.round((ws.count / (ws.count + ws.incorrectCount)) * 100) : 100;
     const data = [
         { "KPI Pasport": ws.name, "Hodnota": "" },
         { "KPI Pasport": "-------------------", "Hodnota": "----------" },
         { "KPI Pasport": "Vybavené úlohy", "Hodnota": ws.count },
         { "KPI Pasport": "Chybne zadané", "Hodnota": ws.incorrectCount },
-        { "KPI Pasport": "Presnosť (Accuracy %)", "Hodnota": accuracy + " %" },
+        { "KPI Pasport": "Quality Index (QI %)", "Hodnota": ws.qi + " %" },
+        { "KPI Pasport": "Efektivita (%)", "Hodnota": ws.efficiency + " %" },
         { "KPI Pasport": "Odpracovaný čistý čas", "Hodnota": formatDuration(ws.totalExecutionMs) },
+        { "KPI Pasport": "Súčet normo-minút", "Hodnota": Math.round(ws.totalStandardMinutes) + " min" },
         { "KPI Pasport": "Priem. Reakcia", "Hodnota": formatDuration(ws.countReaction > 0 ? ws.totalReactionMs / ws.countReaction : 0) },
         { "KPI Pasport": "Priem. Vybavenie", "Hodnota": formatDuration(ws.countLead > 0 ? ws.totalLeadMs / ws.countLead : 0) },
         { "KPI Pasport": "Spracovaný objem (pal/ks)", "Hodnota": Number(ws.totalVolume.toFixed(1)) },
@@ -389,14 +409,14 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
                         <tr>
                             <th className="py-4 px-6">Meno</th>
                             <th className="py-4 px-6 text-right">Vybavené</th>
-                            <th className="py-4 px-6 text-right">Accuracy</th>
+                            <th className="py-4 px-6 text-right">{t('th_accuracy')}</th>
+                            <th className="py-4 px-6 text-right">{t('th_efficiency')}</th>
                             <th className="py-4 px-6 text-right text-sky-400">Objem (pal/ks)</th>
                             <th className="py-4 px-6 text-right text-green-400">Čistý Čas</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-700/50">
                         {stats.workerStats.map((ws: any) => {
-                            const accuracy = ws.count > 0 ? Math.round((ws.count / (ws.count + ws.incorrectCount)) * 100) : 100;
                             return (
                                 <tr key={ws.name} onClick={() => setSelectedWorker(ws)} className="hover:bg-[#4169E1]/10 transition-all cursor-pointer group">
                                     <td className="py-4 px-6">
@@ -409,8 +429,13 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
                                     </td>
                                     <td className="py-4 px-6 text-right text-gray-300 font-mono font-bold">{ws.count}</td>
                                     <td className="py-4 px-6 text-right">
-                                        <span className={`font-mono font-black ${accuracy < 90 ? 'text-red-500' : 'text-teal-400'}`}>
-                                            {accuracy}%
+                                        <span className={`font-mono font-black ${ws.qi < 90 ? 'text-red-500' : 'text-teal-400'}`}>
+                                            {ws.qi}%
+                                        </span>
+                                    </td>
+                                    <td className="py-4 px-6 text-right">
+                                        <span className={`font-mono font-black ${getEfficiencyColor(ws.efficiency)}`}>
+                                            {ws.efficiency}%
                                         </span>
                                     </td>
                                     <td className="py-4 px-6 text-right text-sky-400 font-black font-mono">{Number(ws.totalVolume.toFixed(1))}</td>
@@ -544,8 +569,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
                         {/* Summary Metrics */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             {[
-                                { l: "Accuracy", v: (selectedWorker.count > 0 ? Math.round((selectedWorker.count / (selectedWorker.count + selectedWorker.incorrectCount)) * 100) : 100) + "%", c: "text-teal-400" },
-                                { l: "Lead Time", v: formatDuration(selectedWorker.countLead > 0 ? selectedWorker.totalLeadMs / selectedWorker.countLead : 0), c: "text-white" },
+                                { l: "Quality Index", v: selectedWorker.qi + "%", c: "text-teal-400" },
+                                { l: "Efektivita", v: selectedWorker.efficiency + "%", c: getEfficiencyColor(selectedWorker.efficiency) },
                                 { l: "Vybavené", v: selectedWorker.count, c: "text-[#4169E1]" },
                                 { l: "Chybné", v: selectedWorker.incorrectCount, c: "text-red-500" }
                             ].map(m => (
