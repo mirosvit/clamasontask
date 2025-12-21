@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useLanguage } from './LanguageContext';
 import PartNumberInput from './PartNumberInput';
 import { Task, PriorityLevel } from '../App';
@@ -28,7 +29,13 @@ interface InventoryTabProps {
 
 declare var XLSX: any;
 
-const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTask, onUpdateTask, parts, onRequestPart }) => {
+const TrashIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor">
+        <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+    </svg>
+);
+
+const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTask, onUpdateTask, onDeleteTask, parts, onRequestPart }) => {
     const { t, language } = useLanguage();
     
     const locationRef = useRef<HTMLInputElement>(null);
@@ -43,6 +50,21 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
     const [quantity, setQuantity] = useState('');
     const [lastSaved, setLastSaved] = useState<number | null>(null);
     const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
+
+    // Modal state
+    const [confirmModal, setConfirmModal] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: React.ReactNode;
+        onConfirm: () => void;
+        type: 'danger' | 'warning';
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => {},
+        type: 'danger'
+    });
 
     // --- LOGIKA AKTÍVNEJ ÚLOHY ---
     const activeInventoryTask = useMemo(() => {
@@ -66,7 +88,6 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
         }
     }, []);
 
-    // Sledovanie lokálnych zmien (iba localStorage, nie Firebase)
     useEffect(() => {
         if (scannedItems.length > 0) {
             localStorage.setItem('inventory_scans', JSON.stringify(scannedItems));
@@ -79,10 +100,26 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
     };
 
     const handleAddItem = () => {
-        if (!location || !partNumber || !quantity) {
-            alert(language === 'sk' ? "Vyplňte kľúčové údaje (Lokácia, Diel, Množstvo)." : "Fill required data (Location, Part, Qty).");
+        const isLocEmpty = !location.trim();
+        const isPartEmpty = !partNumber.trim();
+        const isQtyEmpty = !quantity.trim();
+        const isBatchRequiredAndEmpty = !isBatchMissing && !batch.trim();
+
+        if (isLocEmpty || isPartEmpty || isQtyEmpty || isBatchRequiredAndEmpty) {
+            const missingFields = [];
+            if (isLocEmpty) missingFields.push(language === 'sk' ? "Lokácia" : "Location");
+            if (isPartEmpty) missingFields.push(language === 'sk' ? "Diel" : "Part");
+            if (isBatchRequiredAndEmpty) missingFields.push("Batch");
+            if (isQtyEmpty) missingFields.push(language === 'sk' ? "Množstvo" : "Quantity");
+
+            const errorMsg = language === 'sk' 
+                ? `Prosím, vyplňte povinné polia: ${missingFields.join(', ')}.` 
+                : `Please fill required fields: ${missingFields.join(', ')}.`;
+            
+            alert(errorMsg);
             return;
         }
+
         const newItem: ScannedItem = {
             id: crypto.randomUUID(),
             location,
@@ -103,19 +140,69 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
     };
 
     const handleDeleteItem = (id: string) => {
-        const updated = scannedItems.filter(item => item.id !== id);
-        setScannedItems(updated);
-        if (updated.length === 0) {
-            localStorage.removeItem('inventory_scans');
-        }
+        setConfirmModal({
+            isOpen: true,
+            title: language === 'sk' ? "Vymazať položku?" : "Delete item?",
+            message: language === 'sk' ? "Naozaj chcete vymazať túto naskenovanú položku?" : "Are you sure you want to delete this scanned item?",
+            type: 'danger',
+            onConfirm: () => {
+                const updated = scannedItems.filter(item => item.id !== id);
+                setScannedItems(updated);
+                if (updated.length === 0) {
+                    localStorage.removeItem('inventory_scans');
+                }
+                setConfirmModal(prev => ({ ...prev, isOpen: false }));
+            }
+        });
     };
 
     const handleClearAll = () => {
-        if (window.confirm(language === 'sk' ? "Naozaj chcete vymazať celý zoznam?" : "Really clear all items?")) {
-            setScannedItems([]);
-            localStorage.removeItem('inventory_scans');
-            setLastSaved(null);
-        }
+        setConfirmModal({
+            isOpen: true,
+            title: language === 'sk' ? "Vymazať všetko?" : "Clear all?",
+            message: language === 'sk' ? "Naozaj chcete vymazať celý zoznam naskenovaných položiek? Táto akcia je nevratná." : "Are you sure you want to clear the entire list? This action cannot be undone.",
+            type: 'danger',
+            onConfirm: () => {
+                setScannedItems([]);
+                localStorage.removeItem('inventory_scans');
+                setLastSaved(null);
+                setConfirmModal(prev => ({ ...prev, isOpen: false }));
+            }
+        });
+    };
+
+    const handleCancelInventory = () => {
+        setConfirmModal({
+            isOpen: true,
+            title: language === 'sk' ? "Zrušiť reláciu inventúry?" : "Cancel inventory session?",
+            message: (
+                <div className="space-y-4">
+                    <p className="font-bold text-red-500">
+                        {language === 'sk' 
+                            ? "Pozor! Táto akcia vymaže všetky naskenované dáta a ukončí inventúru bez uloženia do systému." 
+                            : "Warning! This action will delete all scanned data and end the inventory without saving to the system."}
+                    </p>
+                    <div className="bg-gray-700/50 p-3 rounded-lg border border-gray-600 text-xs">
+                        <p className="text-gray-300">
+                            {language === 'sk'
+                                ? "Ak chcete dáta uložiť a vygenerovať report, použite zelené tlačidlo"
+                                : "If you want to save data and generate a report, use the green button"}
+                            <span className="text-green-400 font-black ml-1">"EXPORT & UKONČIŤ"</span>.
+                        </p>
+                    </div>
+                </div>
+            ),
+            type: 'danger',
+            onConfirm: () => {
+                if (activeInventoryTask) {
+                    onDeleteTask(activeInventoryTask.id);
+                }
+                setScannedItems([]);
+                localStorage.removeItem('inventory_scans');
+                setLastSaved(null);
+                setConfirmModal(prev => ({ ...prev, isOpen: false }));
+            }
+        });
     };
 
     const handleExportAndFinish = () => {
@@ -169,13 +256,15 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
         setIsBatchMissing(newState);
         if (newState) {
             setBatch('[CHÝBA ŠTÍTOK]');
+            setTimeout(() => quantityRef.current?.focus(), 10);
         } else {
             setBatch('');
+            setTimeout(() => batchRef.current?.focus(), 10);
         }
     };
 
-    // Štýly pre vstupné polia zjednotené s PartSearchScreen
     const inputBaseClass = "w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 placeholder:font-mono focus:outline-none focus:ring-2 focus:ring-[#4169E1] focus:border-[#4169E1] transition-all font-mono uppercase text-lg";
+    const dangerButtonClass = "bg-red-900/40 hover:bg-red-800 text-red-100 px-6 py-4 rounded-xl text-sm font-black border-2 border-red-800/50 shadow-lg transition-all active:scale-95 uppercase tracking-wider flex items-center justify-center gap-2";
 
     return (
         <div className="max-w-4xl mx-auto space-y-6 pb-20 animate-fade-in">
@@ -196,7 +285,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                     </div>
                 ) : (
                     <>
-                        <div className="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
+                        <div className="flex justify-between items-start sm:items-center mb-8 border-b border-gray-700 pb-4">
                             <div>
                                 <h1 className="text-3xl font-extrabold text-[#4169E1] uppercase tracking-widest leading-none">
                                     {t('tab_inventory')}
@@ -208,6 +297,13 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                                     </p>
                                 </div>
                             </div>
+                            
+                            <button 
+                                onClick={handleCancelInventory}
+                                className={dangerButtonClass.replace('px-6 py-4', 'px-4 py-3 text-[11px]')}
+                            >
+                                🛑 {language === 'sk' ? 'Zrušiť reláciu' : 'Cancel session'}
+                            </button>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -286,15 +382,19 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
             {/* Summary List */}
             {activeInventoryTask && (
                 <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700 overflow-hidden">
-                    <div className="p-4 border-b border-gray-700 bg-gray-900/50 flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <div className="flex items-center gap-2">
-                            <h3 className="text-gray-400 font-bold uppercase text-xs tracking-widest">Naskenované položky</h3>
-                            <span className="bg-gray-700 text-white text-xs px-2 py-0.5 rounded-full font-mono">{scannedItems.length}</span>
+                    <div className="p-4 sm:p-6 border-b border-gray-700 bg-gray-900/50 flex flex-col sm:flex-row justify-between items-center gap-6">
+                        <div className="flex items-center gap-4">
+                            <h3 className="text-gray-400 font-black uppercase text-sm tracking-[0.15em] leading-none">
+                                {language === 'sk' ? 'SÚPIS POLOŽIEK' : 'ITEM INVENTORY'}
+                            </h3>
+                            <span className="bg-[#4169E1]/20 text-white border-2 border-[#4169E1] text-lg px-3 py-1 rounded-lg font-black font-mono leading-none shadow-lg">
+                                {scannedItems.length}
+                            </span>
                         </div>
-                        <div className="flex w-full sm:w-auto gap-3">
+                        <div className="flex flex-wrap w-full sm:w-auto gap-3">
                             <button 
                                 onClick={handleClearAll} 
-                                className="flex-1 sm:flex-none bg-red-900/40 hover:bg-red-800 text-red-100 px-6 py-4 rounded-xl text-sm font-black border-2 border-red-800/50 shadow-lg transition-all active:scale-95 uppercase tracking-wider"
+                                className={dangerButtonClass}
                             >
                                 {language === 'sk' ? 'Zmazať všetko' : 'Clear all'}
                             </button>
@@ -325,16 +425,19 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                                 {scannedItems.length > 0 ? (
                                     scannedItems.map(item => (
                                         <tr key={item.id} className="text-gray-300 hover:bg-gray-700/30 transition-colors group">
-                                            <td className="py-3 px-4 text-[10px] text-gray-500 font-mono whitespace-nowrap">{new Date(item.timestamp).toLocaleTimeString('sk-SK')}</td>
-                                            <td className="py-3 px-4 font-mono font-bold text-[#4169E1]">{item.location}</td>
-                                            <td className="py-3 px-4 font-mono text-white text-xs">{item.partNumber}</td>
-                                            <td className={`py-3 px-4 font-mono text-xs ${item.batch === '[CHÝBA ŠTÍTOK]' ? 'text-red-500 font-bold' : 'text-gray-500'}`}>
+                                            <td className="py-4 px-4 text-[10px] text-gray-500 font-mono whitespace-nowrap">{new Date(item.timestamp).toLocaleTimeString('sk-SK')}</td>
+                                            <td className="py-4 px-4 font-mono font-bold text-[#4169E1]">{item.location}</td>
+                                            <td className="py-4 px-4 font-mono text-white text-xs">{item.partNumber}</td>
+                                            <td className={`py-4 px-4 font-mono text-xs ${item.batch === '[CHÝBA ŠTÍTOK]' ? 'text-red-500 font-bold' : 'text-gray-500'}`}>
                                                 {item.batch || '-'}
                                             </td>
-                                            <td className="py-3 px-4 font-black text-white text-right font-mono text-base">{item.quantity}</td>
-                                            <td className="py-3 px-4 text-center">
-                                                <button onClick={() => handleDeleteItem(item.id)} className="text-gray-600 hover:text-red-500 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                                            <td className="py-4 px-4 font-black text-white text-right font-mono text-base">{item.quantity}</td>
+                                            <td className="py-4 px-4 text-center w-20">
+                                                <button 
+                                                    onClick={() => handleDeleteItem(item.id)} 
+                                                    className="w-16 h-16 flex items-center justify-center rounded-lg bg-red-900/30 text-red-500 hover:bg-red-800 hover:text-white border border-red-800/50 transition-all active:scale-90"
+                                                >
+                                                    <TrashIcon className="w-8 h-8" />
                                                 </button>
                                             </td>
                                         </tr>
@@ -346,6 +449,38 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                         </table>
                     </div>
                 </div>
+            )}
+
+            {/* Confirmation Modal Portal */}
+            {confirmModal.isOpen && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}>
+                    <div className="bg-gray-800 border-2 border-red-600 rounded-xl shadow-2xl w-full max-w-md p-6 relative" onClick={e => e.stopPropagation()}>
+                        <div className="text-center mb-6">
+                            <div className="w-16 h-16 bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/50">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                            </div>
+                            <h3 className="text-xl font-bold text-white mb-2 uppercase tracking-wide">{confirmModal.title}</h3>
+                            <div className="text-gray-400 text-sm">{confirmModal.message}</div>
+                        </div>
+                        <div className="flex gap-3">
+                            <button 
+                                onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} 
+                                className="flex-1 py-4 bg-gray-700 text-gray-300 rounded-xl hover:bg-gray-600 font-bold transition-colors uppercase text-xs"
+                            >
+                                {t('btn_cancel')}
+                            </button>
+                            <button 
+                                onClick={confirmModal.onConfirm} 
+                                className="flex-1 py-4 bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold transition-colors shadow-lg flex items-center justify-center gap-2 uppercase text-xs"
+                            >
+                                {language === 'sk' ? 'Potvrdiť' : 'Confirm'}
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
             )}
         </div>
     );
