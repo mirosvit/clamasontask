@@ -26,6 +26,12 @@ const UserIcon: React.FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
+const ClipboardListIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+    </svg>
+);
+
 const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchArchivedTasks, systemBreaks }) => {
   const [filterMode, setFilterMode] = useState<FilterMode>('ALL');
   const [customStart, setCustomStart] = useState('');
@@ -36,7 +42,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
   const [isLoadingArchive, setIsLoadingArchive] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState<any | null>(null);
   
-  // Nový stav pre filter v sekcii Auditov
+  // Filter pre sekciu Auditov
   const [auditUserFilter, setAuditUserFilter] = useState('ALL');
 
   const { t, language } = useLanguage();
@@ -103,7 +109,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
     if (ms <= 0) return '0 min';
     const minutes = Math.round(ms / 60000);
     if (minutes < 1) return '< 1 min';
-    if (minutes > 60) {
+    if (minutes >= 60) {
         const h = Math.floor(minutes / 60);
         const m = minutes % 60;
         return `${h}h ${m}m`;
@@ -143,7 +149,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
   };
 
   const stats = useMemo(() => {
-    // Rozdelené počítadlá pre grafy
     const wpProdCounts: Record<string, number> = {};
     const partProdCounts: Record<string, number> = {};
     const opLogCounts: Record<string, number> = {};
@@ -159,22 +164,18 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
 
     const allAuditTasks = filteredTasks.filter(t => t.partNumber === "Počítanie zásob" && t.isDone);
     
-    // Zoznam unikátnych auditorov pre filter
+    // Unikátny auditori pre filter
     const auditUsers = Array.from(new Set(allAuditTasks.map(t => t.completedBy).filter(Boolean))) as string[];
 
-    // Aplikácia filtra na audit dáta (iba pre zobrazenie v sekcii auditov)
-    const auditTasks = auditUserFilter === 'ALL' 
+    // Dáta pre sekciu auditov (podľa filtra)
+    const auditTasksFiltered = auditUserFilter === 'ALL' 
         ? allAuditTasks 
         : allAuditTasks.filter(t => t.completedBy === auditUserFilter);
 
-    const auditSessionsCount = auditTasks.length;
-    const auditTotalItems = auditTasks.reduce((acc, t) => acc + (parseFloat(t.quantity || '0')), 0);
+    const auditSessionsCount = auditTasksFiltered.length;
+    const auditTotalItems = auditTasksFiltered.reduce((acc, t) => acc + (parseFloat(t.quantity || '0')), 0);
     const auditAvgItems = auditSessionsCount > 0 ? Math.round(auditTotalItems / auditSessionsCount) : 0;
-    const recentAudits = auditTasks.sort((a,b) => (b.completedAt || 0) - (a.completedAt || 0)).slice(0, 5);
-
-    const performanceTasks = filteredTasks.filter(t => t.status !== 'incorrectly_entered' && t.partNumber !== "Počítanie zásob");
-    const total = filteredTasks.length;
-    const incorrectlyEntered = filteredTasks.filter(t => t.status === 'incorrectly_entered').length;
+    const recentAudits = auditTasksFiltered.sort((a,b) => (b.completedAt || 0) - (a.completedAt || 0)).slice(0, 5);
 
     filteredTasks.forEach(task => {
         let weight = 1;
@@ -183,7 +184,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
              if (!isNaN(qty) && qty > 0) weight = qty;
         }
 
-        // --- FILTROVANIE DO GRAFOV ---
+        // --- ROZDELENIE DO GRAFOV (BEZ MIEŠANIA) ---
         if (task.partNumber !== "Počítanie zásob") {
             if (task.type === 'logistics') {
                 if (task.workplace) opLogCounts[task.workplace] = (opLogCounts[task.workplace] || 0) + weight;
@@ -232,6 +233,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
                         if (execution > 0) { 
                             ws.totalExecutionMs += execution; 
                             grandTotalExecutionTime += execution;
+                            
+                            // Efektivita len z normovaných úloh
                             if (task.standardTime && task.standardTime > 0) {
                                 ws.normativeExecutionMs += execution;
                                 ws.totalStandardMinutes += task.standardTime;
@@ -257,7 +260,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
     };
 
     return {
-        total, incorrectlyEntered,
+        total: filteredTasks.length,
+        incorrectlyEntered: filteredTasks.filter(t => t.status === 'incorrectly_entered').length,
         avgReaction: countReactionTime > 0 ? totalReactionTime / countReactionTime : 0,
         avgLead: countLeadTime > 0 ? totalLeadTime / countLeadTime : 0,
         grandTotalExecutionTime,
@@ -291,29 +295,20 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
     const wsKPI = XLSX.utils.json_to_sheet(kpiData);
     XLSX.utils.book_append_sheet(wb, wsKPI, "KPI Summary");
 
-    const rawData = filteredTasks.map(task => {
-        const reactionTime = task.startedAt && task.createdAt ? Math.round((task.startedAt - task.createdAt) / 60000) : null;
-        const leadTime = task.completedAt && task.createdAt ? Math.round((task.completedAt - task.createdAt) / 60000) : null;
-        const executionTime = task.completedAt && task.startedAt ? Math.round((task.completedAt - task.startedAt) / 60000) : null;
-
-        return {
-            "Dátum zadania": task.createdAt ? new Date(task.createdAt).toLocaleString('sk-SK') : '-',
-            "Zadal": task.createdBy || '-',
-            "Diel / Referencia": task.partNumber || task.text,
-            "Pracovisko": task.workplace || '-',
-            "Množstvo": task.quantity || '0',
-            "Jednotka": task.quantityUnit || '-',
-            "Typ": task.type === 'logistics' ? 'Logistika' : 'Výroba',
-            "Stav": task.status === 'incorrectly_entered' ? 'Chybne zadaná' : (task.isDone ? 'Dokončená' : 'Otvorená'),
-            "Dokončil": task.completedBy || '-',
-            "Reakcia (min)": reactionTime,
-            "Lead Time (min)": leadTime,
-            "Čistý čas práce (min)": executionTime,
-            "Normo-minúty": task.standardTime || 0,
-            "Započítané do Efektivity": (task.standardTime && task.standardTime > 0) ? 'ÁNO' : 'NIE',
-            "Poznámka": task.note || ''
-        };
-    });
+    const rawData = filteredTasks.map(task => ({
+        "Dátum zadania": task.createdAt ? new Date(task.createdAt).toLocaleString('sk-SK') : '-',
+        "Zadal": task.createdBy || '-',
+        "Diel / Referencia": task.partNumber || task.text,
+        "Pracovisko": task.workplace || '-',
+        "Množstvo": task.quantity || '0',
+        "Jednotka": task.quantityUnit || '-',
+        "Typ": task.type === 'logistics' ? 'Logistika' : 'Výroba',
+        "Stav": task.status === 'incorrectly_entered' ? 'Chybne zadaná' : (task.isDone ? 'Dokončená' : 'Otvorená'),
+        "Dokončil": task.completedBy || '-',
+        "Čistý čas práce (min)": task.completedAt && task.startedAt ? Math.round((task.completedAt - task.startedAt) / 60000) : 0,
+        "Normo-minúty": task.standardTime || 0,
+        "Započítané do Efektivity": (task.standardTime && task.standardTime > 0) ? 'ÁNO' : 'NIE'
+    }));
     const wsRaw = XLSX.utils.json_to_sheet(rawData);
     XLSX.utils.book_append_sheet(wb, wsRaw, "Raw Data");
 
@@ -324,30 +319,29 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
     if (typeof XLSX === 'undefined' || !ws) return;
     const wb = XLSX.utils.book_new();
     const data = [
-        { "KPI Pasport": ws.name, "Hodnota": "" },
-        { "KPI Pasport": "Quality Index (QI %)", "Hodnota": ws.qi + " %" },
-        { "KPI Pasport": "Efektivita (%)", "Hodnota": ws.efficiency + " %" },
-        { "KPI Pasport": "Vybavené úlohy", "Hodnota": ws.count },
-        { "KPI Pasport": "Celkový čistý čas práce", "Hodnota": formatDuration(ws.totalExecutionMs) },
-        { "KPI Pasport": "Súčet normo-minút", "Hodnota": Math.round(ws.totalStandardMinutes) + " min" },
-        { "KPI Pasport": "Výroba (%)", "Hodnota": ws.count > 0 ? Math.round((ws.productionCount / ws.count) * 100) : 0 },
-        { "KPI Pasport": "Logistika (%)", "Hodnota": ws.count > 0 ? Math.round((ws.logisticsCount / ws.count) * 100) : 0 },
+        { "KPI": "Quality Index", "Hodnota": ws.qi + " %" },
+        { "KPI": "Efektivita", "Hodnota": ws.efficiency + " %" },
+        { "KPI": "Vybavené", "Hodnota": ws.count },
+        { "KPI": "Čistý čas celkom", "Hodnota": formatDuration(ws.totalExecutionMs) },
+        { "KPI": "Čas na normovanej práci", "Hodnota": formatDuration(ws.normativeExecutionMs) },
+        { "KPI": "Odvedená norma", "Hodnota": Math.round(ws.totalStandardMinutes) + " min" },
     ];
     const sheet = XLSX.utils.json_to_sheet(data);
     XLSX.utils.book_append_sheet(wb, sheet, "Worker KPI");
-    XLSX.writeFile(wb, `KPI_${ws.name}_${new Date().toISOString().slice(0,10)}.xlsx`);
+    XLSX.writeFile(wb, `KPI_${ws.name}.xlsx`);
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-12 animate-fade-in">
-        <h1 className="text-center text-3xl font-black text-white uppercase tracking-[0.2em] mb-4">
+    <div key="analytics-container" className="max-w-6xl mx-auto space-y-8 pb-12 animate-fade-in relative bg-gray-900 min-h-screen">
+        <h1 className="text-center text-3xl font-black text-white uppercase tracking-[0.2em] pt-4 mb-4">
             {t('analytics_title')}
         </h1>
 
-        <div className="flex flex-col sm:flex-row justify-between gap-4 mb-2">
-            <div className="flex bg-gray-800 p-1 rounded-xl border border-gray-700 overflow-x-auto">
+        {/* FILTRE HLAVIČKA */}
+        <div className="flex flex-col sm:flex-row justify-between gap-4 mb-2 px-2 sm:px-0">
+            <div className="flex bg-gray-800 p-1 rounded-xl border border-gray-700 overflow-x-auto custom-scrollbar">
                 {(['ALL', 'TODAY', 'WEEK', 'MONTH', 'CUSTOM'] as FilterMode[]).map(mode => (
-                    <button key={mode} onClick={() => setFilterMode(mode)} className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition-all tracking-wider whitespace-nowrap ${filterMode === mode ? 'bg-[#4169E1] text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}>
+                    <button key={mode} onClick={() => setFilterMode(mode)} className={`px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase transition-all tracking-wider whitespace-nowrap ${filterMode === mode ? 'bg-[#4169E1] text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}>
                         {t(`filter_${mode.toLowerCase()}` as any)}
                     </button>
                 ))}
@@ -365,15 +359,15 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
         </div>
 
         {filterMode === 'CUSTOM' && (
-            <div className="flex items-center justify-center gap-4 bg-gray-800/50 p-4 rounded-xl border border-gray-700 animate-fade-in">
+            <div className="flex items-center justify-center gap-4 bg-gray-800/50 p-4 rounded-xl border border-gray-700 animate-fade-in mx-2 sm:mx-0">
                 <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="bg-gray-700 text-white text-sm rounded-lg px-4 py-2 border border-gray-600 focus:border-[#4169E1] outline-none font-mono"/>
                 <span className="text-gray-500 font-bold">>>></span>
                 <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="bg-gray-700 text-white text-sm rounded-lg px-4 py-2 border border-gray-600 focus:border-[#4169E1] outline-none font-mono"/>
             </div>
         )}
 
-        {/* TOP KPI CARDS */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* HLAVNÉ KPI KARTY */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 px-2 sm:px-0">
             {[
                 { label: t('kpi_total'), val: stats.total, color: 'border-blue-500', icon: '📋' },
                 { label: t('kpi_worked'), val: formatDuration(stats.grandTotalExecutionTime), color: 'border-green-500', icon: '⏱️' },
@@ -390,11 +384,11 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
             ))}
         </div>
 
-        {/* WORKER KPI TABLE */}
-        <div className="bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden">
+        {/* TABUĽKA VÝKONNOSTI */}
+        <div className="bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden mx-2 sm:mx-0">
              <div className="p-6 border-b border-gray-700 bg-gray-900/40 flex justify-between items-center">
                  <h3 className="text-xl font-black text-white uppercase tracking-widest">{t('table_title')}</h3>
-                 <span className="hidden sm:block text-[10px] text-gray-500 uppercase font-bold italic">Kliknite na meno pre detaily</span>
+                 <span className="hidden sm:block text-[10px] text-gray-500 uppercase font-bold italic">Kliknite na meno pre Pasport</span>
              </div>
              <div className="overflow-x-auto custom-scrollbar">
                 <table className="w-full text-left border-collapse">
@@ -421,14 +415,10 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
                                 </td>
                                 <td className="py-4 px-6 text-right text-gray-300 font-mono font-bold">{ws.count}</td>
                                 <td className="py-4 px-6 text-right">
-                                    <span className={`font-mono font-black ${ws.qi < 90 ? 'text-red-500' : 'text-teal-400'}`}>
-                                        {ws.qi}%
-                                    </span>
+                                    <span className={`font-mono font-black ${ws.qi < 90 ? 'text-red-500' : 'text-teal-400'}`}>{ws.qi}%</span>
                                 </td>
                                 <td className="py-4 px-6 text-right">
-                                    <span className={`font-mono font-black ${getEfficiencyColor(ws.efficiency)}`}>
-                                        {ws.efficiency}%
-                                    </span>
+                                    <span className={`font-mono font-black ${getEfficiencyColor(ws.efficiency)}`}>{ws.efficiency}%</span>
                                 </td>
                                 <td className="py-4 px-6 text-right text-sky-400 font-black font-mono">{Number(ws.totalVolume.toFixed(1))}</td>
                                 <td className="py-4 px-6 text-right text-green-400 font-black font-mono">{formatDuration(ws.totalExecutionMs)}</td>
@@ -439,8 +429,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
              </div>
         </div>
 
-        {/* AUDIT & INVENTORY SECTION */}
-        <div className="bg-gray-800 border border-[#4169E1]/30 rounded-2xl shadow-2xl overflow-hidden">
+        {/* AUDIT & INVENTÚRY S FILTROM */}
+        <div className="bg-gray-800 border border-[#4169E1]/30 rounded-2xl shadow-2xl overflow-hidden mx-2 sm:mx-0">
             <div className="p-6 border-b border-gray-700 bg-[#4169E1]/10 flex flex-col sm:flex-row justify-between items-center gap-4">
                 <div className="flex items-center gap-4">
                     <div className="p-3 bg-[#4169E1] rounded-xl shadow-lg">
@@ -449,7 +439,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
                     <h3 className="text-xl font-black text-white uppercase tracking-widest">{t('audit_title')}</h3>
                 </div>
                 
-                {/* Užívateľský filter pre Audit */}
                 <div className="flex items-center gap-3">
                     <span className="text-[10px] font-black text-gray-500 uppercase">{language === 'sk' ? 'Filter Auditora:' : 'Auditor Filter:'}</span>
                     <select 
@@ -482,42 +471,40 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
                     ))}
                 </div>
 
-                <div className="lg:col-span-8 p-0">
+                <div className="lg:col-span-8 p-0 overflow-x-auto">
                     <div className="p-4 bg-gray-900/40 border-b border-gray-700">
                         <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{t('audit_history')}</h4>
                     </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                            <thead className="bg-gray-900/20 text-gray-500 text-[9px] uppercase tracking-tighter">
-                                <tr>
-                                    <th className="py-3 px-6">Dátum</th>
-                                    <th className="py-3 px-6">Auditor</th>
-                                    <th className="py-3 px-6 text-right">Položiek</th>
-                                    <th className="py-3 px-6 text-right">Trvanie</th>
+                    <table className="w-full text-left">
+                        <thead className="bg-gray-900/20 text-gray-500 text-[9px] uppercase tracking-tighter border-b border-gray-800">
+                            <tr>
+                                <th className="py-3 px-6">Dátum</th>
+                                <th className="py-3 px-6">Auditor</th>
+                                <th className="py-3 px-6 text-right">Položiek</th>
+                                <th className="py-3 px-6 text-right">Trvanie</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-700/50">
+                            {stats.audit.recent.map(audit => (
+                                <tr key={audit.id} className="hover:bg-gray-700/20">
+                                    <td className="py-4 px-6 text-xs text-gray-400 font-mono">
+                                        {new Date(audit.completedAt || 0).toLocaleDateString('sk-SK')}
+                                    </td>
+                                    <td className="py-4 px-6 text-xs font-bold text-white uppercase">{audit.completedBy}</td>
+                                    <td className="py-4 px-6 text-right text-[#4169E1] font-black">{audit.quantity}</td>
+                                    <td className="py-4 px-6 text-right text-xs text-gray-500">
+                                        {formatDuration((audit.completedAt || 0) - (audit.startedAt || 0))}
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-700/50">
-                                {stats.audit.recent.map(audit => (
-                                    <tr key={audit.id} className="hover:bg-gray-700/20">
-                                        <td className="py-4 px-6 text-xs text-gray-400 font-mono">
-                                            {new Date(audit.completedAt || 0).toLocaleDateString('sk-SK')}
-                                        </td>
-                                        <td className="py-4 px-6 text-xs font-bold text-white uppercase">{audit.completedBy}</td>
-                                        <td className="py-4 px-6 text-right text-[#4169E1] font-black">{audit.quantity}</td>
-                                        <td className="py-4 px-6 text-right text-xs text-gray-500">
-                                            {formatDuration((audit.completedAt || 0) - (audit.startedAt || 0))}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
 
-        {/* PRODUKCIA: TOP CHARTS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* GRAFY VÝROBA */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 px-2 sm:px-0">
             <div className="bg-gray-800 border border-gray-700 p-8 rounded-2xl shadow-xl">
                 <h3 className="text-sm font-black text-gray-400 mb-6 uppercase tracking-widest border-b border-gray-700 pb-2">{t('chart_wp')}</h3>
                 <div className="space-y-6">
@@ -528,7 +515,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
                                 <span className="text-[#4169E1] font-black">{Number(count.toFixed(1))}</span>
                             </div>
                             <div className="w-full bg-gray-900 rounded-full h-2 shadow-inner overflow-hidden">
-                                <div className="bg-[#4169E1] h-full rounded-full shadow-[0_0_10px_rgba(65,105,225,0.4)]" style={{ width: `${(count / (stats.topWorkplacesProd[0]?.[1] || 1)) * 100}%` }}></div>
+                                <div className="bg-[#4169E1] h-full rounded-full" style={{ width: `${(count / (stats.topWorkplacesProd[0]?.[1] || 1)) * 100}%` }}></div>
                             </div>
                         </div>
                     ))}
@@ -545,7 +532,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
                                 <span className="text-teal-400 font-black">{Number(count.toFixed(1))}</span>
                             </div>
                             <div className="w-full bg-gray-900 rounded-full h-2 shadow-inner overflow-hidden">
-                                <div className="bg-teal-600 h-full rounded-full shadow-[0_0_10px_rgba(20,184,166,0.4)]" style={{ width: `${(count / (stats.topPartsProd[0]?.[1] || 1)) * 100}%` }}></div>
+                                <div className="bg-teal-600 h-full rounded-full" style={{ width: `${(count / (stats.topPartsProd[0]?.[1] || 1)) * 100}%` }}></div>
                             </div>
                         </div>
                     ))}
@@ -553,8 +540,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
             </div>
         </div>
 
-        {/* LOGISTIKA: TOP CHARTS (NOVÉ) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* GRAFY LOGISTIKA */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 px-2 sm:px-0">
             <div className="bg-gray-800 border border-gray-700 p-8 rounded-2xl shadow-xl">
                 <h3 className="text-sm font-black text-sky-400 mb-6 uppercase tracking-widest border-b border-gray-700 pb-2">{t('chart_ops')}</h3>
                 <div className="space-y-6">
@@ -565,7 +552,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
                                 <span className="text-sky-400 font-black">{Number(count.toFixed(1))}</span>
                             </div>
                             <div className="w-full bg-gray-900 rounded-full h-2 shadow-inner overflow-hidden">
-                                <div className="bg-sky-500 h-full rounded-full shadow-[0_0_10px_rgba(14,165,233,0.4)]" style={{ width: `${(count / (stats.topOpsLog[0]?.[1] || 1)) * 100}%` }}></div>
+                                <div className="bg-sky-500 h-full rounded-full" style={{ width: `${(count / (stats.topOpsLog[0]?.[1] || 1)) * 100}%` }}></div>
                             </div>
                         </div>
                     ))}
@@ -582,7 +569,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
                                 <span className="text-purple-400 font-black">{Number(count.toFixed(1))}</span>
                             </div>
                             <div className="w-full bg-gray-900 rounded-full h-2 shadow-inner overflow-hidden">
-                                <div className="bg-purple-600 h-full rounded-full shadow-[0_0_10px_rgba(147,51,234,0.4)]" style={{ width: `${(count / (stats.topRefsLog[0]?.[1] || 1)) * 100}%` }}></div>
+                                <div className="bg-purple-600 h-full rounded-full" style={{ width: `${(count / (stats.topRefsLog[0]?.[1] || 1)) * 100}%` }}></div>
                             </div>
                         </div>
                     ))}
@@ -590,7 +577,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
             </div>
         </div>
 
-        {/* WORKER PASSPORT MODAL */}
+        {/* KPI PASPORT MODAL */}
         {selectedWorker && createPortal(
             <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-fade-in" onClick={() => setSelectedWorker(null)}>
                 <div className="bg-gray-800 border-2 border-[#4169E1] rounded-3xl shadow-[0_0_50px_rgba(65,105,225,0.3)] w-full max-w-2xl p-0 overflow-hidden relative" onClick={e => e.stopPropagation()}>
@@ -651,7 +638,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
                                     <span className="text-lg font-black text-white font-mono">{formatDuration(selectedWorker.totalExecutionMs)}</span>
                                 </div>
                                 <div className="flex justify-between items-center text-sky-400">
-                                    <span className="text-sm font-bold">Z toho na normovaných úlohách:</span>
+                                    <span className="text-sm font-bold">Z toho na normovanej práci:</span>
                                     <span className="text-lg font-black font-mono">{formatDuration(selectedWorker.normativeExecutionMs)}</span>
                                 </div>
                                 <div className="pt-3 border-t border-gray-700 flex justify-between items-center">
@@ -678,11 +665,5 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
     </div>
   );
 };
-
-const ClipboardListIcon: React.FC<{ className?: string }> = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-    </svg>
-);
 
 export default AnalyticsTab;
