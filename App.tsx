@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import LoginScreen from './components/LoginScreen';
 import PartSearchScreen from './components/PartSearchScreen';
@@ -75,6 +74,11 @@ export interface Task {
   isAuditInProgress?: boolean;
   auditBy?: string | null;
   auditFinalBadge?: string | null;
+  // Audit štruktúrované dáta
+  auditedBy?: string | null;
+  auditedAt?: number | null;
+  auditResult?: 'OK' | 'NOK' | null;
+  auditNote?: string | null;
 }
 
 export interface Notification {
@@ -514,28 +518,37 @@ const App: React.FC = () => {
   const handleFinishAudit = async (id: string, result: 'found' | 'missing', note: string) => {
       const t = tasks.find(x => x.id === id);
       if (!t) return;
+      
       const statusLabel = result === 'found' ? 'OK' : 'CHÝBA';
       const badgeText = `AUDIT ${statusLabel}: ${note} (${currentUser})`;
       
+      const auditData = {
+          auditedBy: currentUser,
+          auditedAt: Date.now(),
+          auditResult: result === 'found' ? 'OK' : 'NOK',
+          auditNote: note,
+          isAuditInProgress: false,
+          auditBy: null,
+          auditFinalBadge: badgeText
+      };
+
       if (result === 'found') {
+          // Ak sa našiel, zrušíme stav missing a vrátime do zoznamu úloh
           await updateDoc(doc(db, 'tasks', id), { 
+              ...auditData,
               isMissing: false, 
               missingReason: null, 
-              missingReportedBy: null, 
-              isAuditInProgress: false, 
-              auditBy: null, 
-              auditFinalBadge: badgeText 
+              missingReportedBy: null
           });
       } else {
+          // Ak sa potvrdilo chýbanie, označíme ako hotové (vybavené), ale zostáva isMissing pre zobrazenie v tabuľke chýbajúceho tovaru
           await updateDoc(doc(db, 'tasks', id), { 
+              ...auditData,
               isDone: true, 
               status: 'completed', 
               completionTime: new Date().toLocaleTimeString('sk-SK'), 
               completedBy: currentUser, 
-              completedAt: Date.now(), 
-              isAuditInProgress: false, 
-              auditBy: null, 
-              auditFinalBadge: badgeText 
+              completedAt: Date.now()
           });
       }
 
@@ -585,7 +598,6 @@ const App: React.FC = () => {
           onFetchArchivedTasks={fetchArchivedTasks}
           onDeleteMissingItem={handleDeleteMissingItem}
           breakSchedules={breakSchedules} systemBreaks={systemBreaks} isBreakActive={isBreakActive} onAddBreakSchedule={handleAddBreakSchedule} onDeleteBreakSchedule={handleDeleteBreakSchedule}
-          // Fix: Replace props.onRejectBOMRequest with handleRejectBOMRequest as App doesn't have props
           bomItems={bomItems} bomRequests={bomRequests} onAddBOMItem={handleAddBOMItem} onBatchAddBOMItems={handleBatchAddBOMItems} onDeleteBOMItem={handleDeleteBOMItem} onDeleteAllBOMItems={handleDeleteAllBOMItems} onRequestBOM={handleRequestBOM} onApproveBOMRequest={handleApproveBOMRequest} onRejectBOMRequest={handleRejectBOMRequest} roles={roles} permissions={permissions} onAddRole={handleAddRole} onDeleteRole={handleDeleteRole} onUpdatePermission={handleUpdatePermission}
           onVerifyAdminPassword={handleVerifyAdminPassword}
           notifications={notifications} onClearNotification={handleClearNotification}
