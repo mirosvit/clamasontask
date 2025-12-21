@@ -216,6 +216,13 @@ const TaskList: React.FC<TaskListProps> = (props) => {
                             </div>
                         )}
 
+                        {/* VODOZNAK VÝSTRAŽNÉHO TROJUHOLNÍKA NA POZADÍ (Iba pri urgentnej úlohe) */}
+                        {isUrgent && !isManualBlocked && !task.isDone && (
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-10">
+                                <ExclamationIcon className="w-32 h-32 text-red-500" />
+                            </div>
+                        )}
+
                         <div className="flex-grow p-4 flex flex-col gap-1 min-w-0 relative">
                             {isSystemInventoryTask && !task.isDone && (
                                 <div className="absolute left-0 top-0 p-1">
@@ -223,6 +230,15 @@ const TaskList: React.FC<TaskListProps> = (props) => {
                                 </div>
                             )}
                             <div className="relative z-10">
+                                {/* PULZUJÚCI ŠTÍTOK PRE URGENTNÉ ÚLOHY (ORANŽOVÝ) */}
+                                {isUrgent && !isManualBlocked && (
+                                    <div className="mb-1">
+                                        <span className="bg-orange-600 text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded animate-pulse border border-orange-500 shadow-[0_0_10px_rgba(234,88,12,0.4)] inline-block">
+                                            🔥 {t('status_urgent')}
+                                        </span>
+                                    </div>
+                                )}
+
                                 {/* PULZUJÚCI ŠTÍTOK PRE HĽADANIE TOVARU (SIVÝ) */}
                                 {isSearchingMode && !task.isDone && (
                                     <div className="mb-1">
@@ -256,7 +272,7 @@ const TaskList: React.FC<TaskListProps> = (props) => {
                                     <div className="flex"><span className="text-[#FFD700] text-xs font-bold uppercase tracking-wide border border-[#FFD700]/50 bg-[#FFD700]/10 px-2 py-0.5 rounded animate-pulse">{t('status_resolving')} {task.inProgressBy}</span></div>
                                 )}
 
-                                {/* INFO O DOKONČENÍ - NOVÉ */}
+                                {/* INFO O DOKONČENÍ */}
                                 {task.isDone && task.completedBy && (
                                     <div className="mt-2 flex items-center gap-1.5 border-t border-gray-700/50 pt-1.5 animate-fade-in">
                                         <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div>
