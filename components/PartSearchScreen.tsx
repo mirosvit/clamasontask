@@ -19,6 +19,7 @@ interface PartSearchScreenProps {
   onLogout: () => void;
   tasks: Task[];
   onAddTask: (partNumber: string, workplace: string | null, quantity: string | null, quantityUnit: string | null, priority: PriorityLevel, type?: 'production' | 'logistics') => void; 
+  onUpdateTask: (id: string, updates: Partial<Task>) => void;
   onToggleTask: (id: string) => void;
   onMarkAsIncorrect: (id: string) => void;
   onEditTask: (id: string, newText: string, newPriority?: PriorityLevel) => void;
@@ -134,7 +135,7 @@ const ActivityIcon: React.FC<{ className?: string }> = ({ className }) => (
 
 const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   const { 
-    currentUser, currentUserRole, onLogout, tasks, onAddTask, roles, permissions,
+    currentUser, currentUserRole, onLogout, tasks, onAddTask, onUpdateTask, roles, permissions,
     notifications, onClearNotification, installPrompt, onInstallApp, parts, workplaces,
     onToggleTask, onEditTask, onDeleteTask, onToggleMissing, onSetInProgress, onToggleBlock, onToggleManualBlock, onMarkAsIncorrect, onAddNote, onReleaseTask, missingReasons,
     users,
@@ -670,7 +671,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
           )}
            {activeTab === 'missing' && hasPermission('perm_tab_missing') && <MissingItemsTab tasks={tasks} onDeleteMissingItem={props.onDeleteMissingItem} hasPermission={hasPermission} />}
            {/* Fix: Pass missing required onAddTask and onToggleTask props to InventoryTab */}
-           {activeTab === 'inventory' && hasPermission('perm_tab_inventory') && <InventoryTab currentUser={currentUser} tasks={tasks} onAddTask={onAddTask} onToggleTask={onToggleTask} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} parts={parts.map(p => p.value)} onRequestPart={props.onRequestPart} />}
+           {activeTab === 'inventory' && hasPermission('perm_tab_inventory') && <InventoryTab currentUser={currentUser} tasks={tasks} onAddTask={onAddTask} onUpdateTask={onUpdateTask} onToggleTask={onToggleTask} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} parts={parts.map(p => p.value)} onRequestPart={props.onRequestPart} />}
            {activeTab === 'logistics' && hasPermission('perm_tab_logistics_center') && <LogisticsCenterTab tasks={tasks} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} />}
            {activeTab === 'permissions' && hasPermission('perm_tab_permissions') && <PermissionsTab roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={onDeleteRole} onUpdatePermission={onUpdatePermission} onVerifyAdminPassword={onVerifyAdminPassword} />}
         </div>

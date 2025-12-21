@@ -18,6 +18,7 @@ interface InventoryTabProps {
     currentUser: string;
     tasks: Task[];
     onAddTask: (pn: string, wp: string | null, qty: string | null, unit: string | null, prio: PriorityLevel, type?: 'production' | 'logistics') => void;
+    onUpdateTask: (id: string, updates: Partial<Task>) => void;
     onToggleTask: (id: string) => void;
     onDeleteTask: (id: string) => void;
     hasPermission: (perm: string) => boolean;
@@ -27,7 +28,7 @@ interface InventoryTabProps {
 
 declare var XLSX: any;
 
-const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTask, onToggleTask, parts, onRequestPart }) => {
+const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTask, onUpdateTask, onToggleTask, parts, onRequestPart }) => {
     const { t, language } = useLanguage();
     
     const locationRef = useRef<HTMLInputElement>(null);
@@ -64,8 +65,8 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
         }
     }, []);
 
+    // Sledovanie lokálnych zmien (iba localStorage, nie Firebase)
     useEffect(() => {
-        // Ukladáme do localStorage iba ak máme aktívnu reláciu alebo ak zoznam nie je prázdny
         if (scannedItems.length > 0) {
             localStorage.setItem('inventory_scans', JSON.stringify(scannedItems));
             setLastSaved(Date.now());
@@ -73,7 +74,8 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
     }, [scannedItems]);
 
     const handleStartInventory = () => {
-        onAddTask("Počítanie zásob", "Inventúra", "1", "pallet", "NORMAL", "logistics");
+        // Pri štarte nastavíme množstvo na "0" v databáze (vytvorenie záznamu)
+        onAddTask("Počítanie zásob", "Inventúra", "0", "pallet", "NORMAL", "logistics");
     };
 
     const handleAddItem = () => {
@@ -90,7 +92,9 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
             timestamp: Date.now(),
             worker: currentUser
         };
+        // Aktualizujeme iba lokálny state (0 zápisov do Firebase)
         setScannedItems([newItem, ...scannedItems]);
+
         setLocation(''); setPartNumber(''); setBatch(''); setQuantity('');
         setTimeout(() => locationRef.current?.focus(), 10);
     };
@@ -108,6 +112,11 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
             setScannedItems([]);
             localStorage.removeItem('inventory_scans');
             setLastSaved(null);
+            // Tu môžeme voliteľne zresetovať aj DB, ale ak je cieľom minimálne písanie, 
+            // stačí počkať na finálny export. Ak ale chceme nulu vidieť hneď:
+            if (activeInventoryTask) {
+                onUpdateTask(activeInventoryTask.id, { quantity: "0" });
+            }
         }
     };
 
@@ -117,18 +126,30 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
             return;
         }
         
-        // 1. Spustíme stiahnutie Excelu
+        // KROK 1: Najprv stiahneme Excel (užívateľ má dáta v PC/Tablete)
         handleExport();
 
-        // 2. Vymažeme lokálnu pamäť (dôležité pre odstránenie hlášky pri odhlásení)
+        // KROK 2: Zapamätáme si počet položiek pred vymazaním z pamäte
+        const finalCount = scannedItems.length.toString();
+
+        // KROK 3: Zapíšeme finálny stav a dokončenie do DB (JEDEN ZÁPIS)
+        if (activeInventoryTask) {
+            onUpdateTask(activeInventoryTask.id, { 
+                isDone: true, 
+                status: 'completed', 
+                completionTime: new Date().toLocaleTimeString('sk-SK'),
+                completedBy: currentUser,
+                completedAt: Date.now(),
+                isInProgress: false,
+                inProgressBy: null,
+                quantity: finalCount // Tu sa zapíše skutočný počet položiek z Excelu
+            });
+        }
+
+        // KROK 4: Vymažeme lokálne naskenované dáta
         setScannedItems([]);
         localStorage.removeItem('inventory_scans');
         setLastSaved(null);
-
-        // 3. Označíme úlohu vo Firestore ako dokončenú
-        if (activeInventoryTask) {
-            onToggleTask(activeInventoryTask.id);
-        }
     };
 
     const handleExport = () => {
@@ -176,7 +197,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                                 <div className="flex gap-4 items-center mt-2">
                                     <span className="bg-green-900/40 text-green-400 text-[10px] font-bold px-2 py-0.5 rounded border border-green-800 animate-pulse">AKTÍVNA RELÁCIA</span>
                                     <p className="text-[10px] text-teal-500 uppercase font-mono">
-                                        {language === 'sk' ? 'Užívateľ:' : 'User:'} {currentUser}
+                                        {language === 'sk' ? 'Položiek v pamäti:' : 'Items in memory:'} <span className="text-white font-bold">{scannedItems.length}</span>
                                     </p>
                                 </div>
                             </div>

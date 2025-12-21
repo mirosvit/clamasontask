@@ -155,7 +155,8 @@ const TaskList: React.FC<TaskListProps> = (props) => {
         ));
     };
 
-    const getUnitLabel = (count: number, unit: string) => {
+    const getUnitLabel = (count: number, unit: string, isInventory: boolean) => {
+        if (isInventory) return "pol.";
         if (language === 'sk') {
             let key = count === 1 ? `unit_${unit}_1` : (count >= 2 && count <= 4 ? `unit_${unit}_2_4` : `unit_${unit}_5`);
             return t(key as any) || unit;
@@ -178,6 +179,11 @@ const TaskList: React.FC<TaskListProps> = (props) => {
                 // --- DETEKCIA ŠPECIÁLNEJ ÚLOHY ---
                 const isSystemInventoryTask = task.partNumber === "Počítanie zásob";
                 
+                // --- FILTER VIDITEĽNOSTI INVENTÚRY (Bod 1 požiadavky) ---
+                if (isSystemInventoryTask && !props.hasPermission('perm_tab_inventory')) {
+                    return null;
+                }
+
                 let bgClass = "";
                 let borderClass = "";
                 let textClass = "text-white";
@@ -203,7 +209,7 @@ const TaskList: React.FC<TaskListProps> = (props) => {
                 }
                 
                 const qtyNum = parseFloat(task.quantity || '0');
-                const unitLabel = task.quantityUnit ? getUnitLabel(qtyNum, task.quantityUnit) : '';
+                const unitLabel = getUnitLabel(qtyNum, task.quantityUnit || '', isSystemInventoryTask);
 
                 return (
                     <div key={task.id} className={`group relative flex flex-col sm:flex-row rounded-lg shadow-md overflow-hidden transition-all duration-200 items-stretch ${bgClass} ${borderClass} ${!task.isDone ? 'hover:shadow-lg' : ''}`}>
@@ -260,7 +266,7 @@ const TaskList: React.FC<TaskListProps> = (props) => {
                                 <div className="flex justify-between items-start gap-3">
                                     <h3 className={`text-2xl sm:text-3xl font-bold truncate leading-tight ${textClass}`}>{renderFormattedText(task.partNumber || task.text)}</h3>
                                     <div className="flex flex-col items-end flex-shrink-0">
-                                        <span className={`bg-black border border-gray-700 shadow-inner px-3 py-1 rounded-full text-xl font-bold ${textClass}`}>{task.quantity || "-"} <span className="ml-1 text-lg font-normal">{unitLabel}</span></span>
+                                        <span className={`bg-black border border-gray-700 shadow-inner px-3 py-1 rounded-full text-xl font-bold ${textClass}`}>{task.quantity || "0"} <span className="ml-1 text-lg font-normal">{unitLabel}</span></span>
                                         <div className="text-xs text-gray-400 mt-1 font-mono text-right"><span className="font-bold text-gray-500">{task.createdBy}</span> • {new Date(task.createdAt || 0).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
                                     </div>
                                 </div>
@@ -284,70 +290,77 @@ const TaskList: React.FC<TaskListProps> = (props) => {
                             </div>
                         </div>
 
-                        {/* RIGHT COLUMN: Action Buttons (Hidden for System Inventory Task) */}
-                        {!isSystemInventoryTask && (
-                            <div className="flex flex-shrink-0 items-center justify-center p-3 z-10">
-                                <div className="grid grid-cols-5 gap-2 items-center justify-center">
-                                    {!task.isDone ? (
-                                        <>
-                                            {!isSearchingMode && !isManualBlocked && props.hasPermission('perm_btn_resolve') && (
-                                                <button onClick={() => props.onSetInProgress(task.id)} className={`w-16 h-16 flex items-center justify-center rounded-xl transition-all active:scale-95 shadow-lg ${task.isInProgress ? 'bg-yellow-600 text-white border border-yellow-500' : 'bg-gray-700 text-yellow-500 hover:bg-gray-600 border border-gray-600'}`}>
-                                                    {task.isInProgress ? <PauseIcon className="w-10 h-10" /> : <PlayIcon className="w-10 h-10" />}
-                                                </button>
-                                            )}
-                                            {!isManualBlocked && props.hasPermission('perm_btn_copy') && (
-                                                <button onClick={() => (task.isInProgress || isSearchingMode) && handleCopyPart(task.id, task.partNumber || '')} disabled={!task.isInProgress && !isSearchingMode} className={`w-16 h-16 flex items-center justify-center rounded-lg transition-all shadow-lg border ${(!task.isInProgress && !isSearchingMode) ? 'bg-gray-700 text-gray-500 border-gray-600 cursor-not-allowed opacity-50' : (copiedId === task.id ? 'bg-green-600 border-green-500 text-white' : 'bg-blue-600 border-blue-500 text-white hover:bg-blue-500 active:scale-95')}`}>
-                                                    {copiedId === task.id ? <span className="font-bold text-xs">OK</span> : <CopyIcon className="w-8 h-8" />}
-                                                </button>
-                                            )}
-                                            {!isManualBlocked && props.hasPermission('perm_btn_missing') && (
-                                                <button onClick={(e) => (task.isInProgress || isSearchingMode) && handleMissingClick(task, e)} disabled={!task.isInProgress && !isSearchingMode} className={`w-16 h-16 flex items-center justify-center rounded-xl transition-all shadow-lg border ${(!task.isInProgress && !isSearchingMode) ? 'bg-gray-700 text-gray-500 border-gray-600 cursor-not-allowed opacity-50' : (task.isMissing ? 'bg-red-800 text-white border-red-500' : 'bg-red-600 text-white hover:bg-red-50 border-red-500 active:scale-95')}`}>
-                                                    <ExclamationIcon className="w-10 h-10" />
-                                                </button>
-                                            )}
-                                            {!isManualBlocked && props.hasPermission('perm_btn_lock') && (
-                                                <button onClick={() => props.onToggleBlock(task.id)} title={t('perm_btn_lock')} className={`w-16 h-16 flex items-center justify-center rounded-lg transition-all active:scale-95 shadow-lg ${task.isBlocked ? 'bg-gray-600 text-white border border-gray-500' : 'bg-gray-700 text-gray-400 hover:bg-gray-600 border border-gray-600'}`}><SearchIcon className="w-8 h-8" /></button>
-                                            )}
-                                            {props.hasPermission('perm_btn_block_new') && (
-                                                <button onClick={() => props.onToggleManualBlock(task.id)} className={`w-16 h-16 flex items-center justify-center rounded-lg border shadow-lg transition-all active:scale-95 ${task.isManualBlocked ? 'bg-[#4169E1] border-[#4169E1] text-white' : 'bg-black border-[#4169E1] text-[#4169E1]'}`}><LockIcon className="w-8 h-8" /></button>
-                                            )}
-                                            {!isSearchingMode && !isManualBlocked && props.hasPermission('perm_btn_finish') && (
-                                                <button onClick={() => task.isInProgress && props.onToggleTask(task.id)} disabled={!task.isInProgress} className={`w-16 h-16 flex items-center justify-center rounded-xl transition-all shadow-xl border ${task.isInProgress ? 'bg-lime-600 text-white hover:bg-lime-500 active:scale-95 border-lime-500' : 'bg-gray-700 text-gray-500 border-gray-600 cursor-not-allowed opacity-50'}`}><CheckIcon className="w-12 h-12" /></button>
-                                            )}
-                                            {!isSearchingMode && !isManualBlocked && props.hasPermission('perm_btn_edit') && (
-                                                <button onClick={() => openPriorityModal(task)} className="w-16 h-16 flex items-center justify-center rounded-lg bg-gray-700 text-blue-400 border border-gray-600 hover:bg-gray-600 hover:text-white transition-colors"><SignalIcon className="w-8 h-8" /></button>
-                                            )}
-                                            {!isSearchingMode && !isManualBlocked && props.hasPermission('perm_btn_note') && (
-                                                <button onClick={() => handleNoteClick(task)} className={`w-16 h-16 flex items-center justify-center rounded-lg border transition-colors ${task.note ? 'bg-[#fef9c3] text-gray-800 border-yellow-200' : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'}`}><ChatIcon className="w-8 h-8" /></button>
-                                            )}
-                                            {props.hasPermission('perm_btn_delete') && (
-                                                <button onClick={() => handleDeleteClick(task.id)} className="w-16 h-16 flex items-center justify-center rounded-lg bg-red-900/50 text-red-500 hover:bg-red-800 hover:text-white border border-red-800 transition-colors"><TrashIcon className="w-8 h-8" /></button>
-                                            )}
-                                            {!isSearchingMode && !isManualBlocked && props.hasPermission('perm_btn_incorrect') && (
-                                                <button 
-                                                    onClick={() => props.onMarkAsIncorrect(task.id)} 
-                                                    className="w-16 h-16 flex items-center justify-center rounded-xl transition-all shadow-lg border bg-white border-red-600 text-red-600 hover:bg-red-50 active:scale-95"
-                                                >
-                                                    <BanIcon className="w-10 h-10" />
-                                                </button>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <>
-                                            {props.hasPermission('perm_btn_copy') && (
-                                                <button onClick={() => handleCopyPart(task.id, task.partNumber || '')} className={`w-16 h-16 flex items-center justify-center rounded-xl transition-all active:scale-95 shadow-lg border ${copiedId === task.id ? 'bg-green-600 border-green-500 text-white' : 'bg-blue-600 border-blue-500 text-white hover:bg-blue-500'}`}><CopyIcon className="w-8 h-8" /></button>
-                                            )}
-                                            {props.hasPermission('perm_btn_return') && (
-                                                <button onClick={() => props.onToggleTask(task.id)} className="w-16 h-16 flex items-center justify-center rounded-xl bg-orange-600 hover:bg-orange-500 text-white shadow-md transition-all active:scale-95 border border-orange-500"><ReturnIcon className="w-10 h-10" /></button>
-                                            )}
-                                            {props.hasPermission('perm_btn_delete') && (
-                                                <button onClick={() => handleDeleteClick(task.id)} className="w-16 h-16 flex items-center justify-center rounded-lg bg-red-900/50 text-red-500 hover:bg-red-800 hover:text-white border border-red-800 transition-colors"><TrashIcon className="w-8 h-8" /></button>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
+                        {/* RIGHT COLUMN: Action Buttons */}
+                        <div className="flex flex-shrink-0 items-center justify-center p-3 z-10">
+                            <div className="grid grid-cols-5 gap-2 items-center justify-center">
+                                {isSystemInventoryTask ? (
+                                    // Špeciálne tlačidlá pre Inventúru (povolené mazanie aj po dokončení - Bod 2 požiadavky)
+                                    props.hasPermission('perm_btn_delete') && (
+                                        <button onClick={() => handleDeleteClick(task.id)} className="w-16 h-16 flex items-center justify-center rounded-lg bg-red-900/50 text-red-500 hover:bg-red-800 hover:text-white border border-red-800 transition-colors">
+                                            <TrashIcon className="w-8 h-8" />
+                                        </button>
+                                    )
+                                ) : !task.isDone ? (
+                                    // Štandardné tlačidlá pre aktívne úlohy
+                                    <>
+                                        {!isSearchingMode && !isManualBlocked && props.hasPermission('perm_btn_resolve') && (
+                                            <button onClick={() => props.onSetInProgress(task.id)} className={`w-16 h-16 flex items-center justify-center rounded-xl transition-all active:scale-95 shadow-lg ${task.isInProgress ? 'bg-yellow-600 text-white border border-yellow-500' : 'bg-gray-700 text-yellow-500 hover:bg-gray-600 border border-gray-600'}`}>
+                                                {task.isInProgress ? <PauseIcon className="w-10 h-10" /> : <PlayIcon className="w-10 h-10" />}
+                                            </button>
+                                        )}
+                                        {!isManualBlocked && props.hasPermission('perm_btn_copy') && (
+                                            <button onClick={() => (task.isInProgress || isSearchingMode) && handleCopyPart(task.id, task.partNumber || '')} disabled={!task.isInProgress && !isSearchingMode} className={`w-16 h-16 flex items-center justify-center rounded-lg transition-all shadow-lg border ${(!task.isInProgress && !isSearchingMode) ? 'bg-gray-700 text-gray-500 border-gray-600 cursor-not-allowed opacity-50' : (copiedId === task.id ? 'bg-green-600 border-green-500 text-white' : 'bg-blue-600 border-blue-500 text-white hover:bg-blue-500 active:scale-95')}`}>
+                                                {copiedId === task.id ? <span className="font-bold text-xs">OK</span> : <CopyIcon className="w-8 h-8" />}
+                                            </button>
+                                        )}
+                                        {!isManualBlocked && props.hasPermission('perm_btn_missing') && (
+                                            <button onClick={(e) => (task.isInProgress || isSearchingMode) && handleMissingClick(task, e)} disabled={!task.isInProgress && !isSearchingMode} className={`w-16 h-16 flex items-center justify-center rounded-xl transition-all shadow-lg border ${(!task.isInProgress && !isSearchingMode) ? 'bg-gray-700 text-gray-500 border-gray-600 cursor-not-allowed opacity-50' : (task.isMissing ? 'bg-red-800 text-white border-red-500' : 'bg-red-600 text-white hover:bg-red-50 border-red-500 active:scale-95')}`}>
+                                                <ExclamationIcon className="w-10 h-10" />
+                                            </button>
+                                        )}
+                                        {!isManualBlocked && props.hasPermission('perm_btn_lock') && (
+                                            <button onClick={() => props.onToggleBlock(task.id)} title={t('perm_btn_lock')} className={`w-16 h-16 flex items-center justify-center rounded-lg transition-all active:scale-95 shadow-lg ${task.isBlocked ? 'bg-gray-600 text-white border border-gray-500' : 'bg-gray-700 text-gray-400 hover:bg-gray-600 border border-gray-600'}`}><SearchIcon className="w-8 h-8" /></button>
+                                        )}
+                                        {props.hasPermission('perm_btn_block_new') && (
+                                            <button onClick={() => props.onToggleManualBlock(task.id)} className={`w-16 h-16 flex items-center justify-center rounded-lg border shadow-lg transition-all active:scale-95 ${task.isManualBlocked ? 'bg-[#4169E1] border-[#4169E1] text-white' : 'bg-black border-[#4169E1] text-[#4169E1]'}`}><LockIcon className="w-8 h-8" /></button>
+                                        )}
+                                        {!isSearchingMode && !isManualBlocked && props.hasPermission('perm_btn_finish') && (
+                                            <button onClick={() => task.isInProgress && props.onToggleTask(task.id)} disabled={!task.isInProgress} className={`w-16 h-16 flex items-center justify-center rounded-xl transition-all shadow-xl border ${task.isInProgress ? 'bg-lime-600 text-white hover:bg-lime-500 active:scale-95 border-lime-500' : 'bg-gray-700 text-gray-500 border-gray-600 cursor-not-allowed opacity-50'}`}><CheckIcon className="w-12 h-12" /></button>
+                                        )}
+                                        {!isSearchingMode && !isManualBlocked && props.hasPermission('perm_btn_edit') && (
+                                            <button onClick={() => openPriorityModal(task)} className="w-16 h-16 flex items-center justify-center rounded-lg bg-gray-700 text-blue-400 border border-gray-600 hover:bg-gray-600 hover:text-white transition-colors"><SignalIcon className="w-8 h-8" /></button>
+                                        )}
+                                        {!isSearchingMode && !isManualBlocked && props.hasPermission('perm_btn_note') && (
+                                            <button onClick={() => handleNoteClick(task)} className={`w-16 h-16 flex items-center justify-center rounded-lg border transition-colors ${task.note ? 'bg-[#fef9c3] text-gray-800 border-yellow-200' : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'}`}><ChatIcon className="w-8 h-8" /></button>
+                                        )}
+                                        {props.hasPermission('perm_btn_delete') && (
+                                            <button onClick={() => handleDeleteClick(task.id)} className="w-16 h-16 flex items-center justify-center rounded-lg bg-red-900/50 text-red-500 hover:bg-red-800 hover:text-white border border-red-800 transition-colors"><TrashIcon className="w-8 h-8" /></button>
+                                        )}
+                                        {!isSearchingMode && !isManualBlocked && props.hasPermission('perm_btn_incorrect') && (
+                                            <button 
+                                                onClick={() => props.onMarkAsIncorrect(task.id)} 
+                                                className="w-16 h-16 flex items-center justify-center rounded-xl transition-all shadow-lg border bg-white border-red-600 text-red-600 hover:bg-red-50 active:scale-95"
+                                            >
+                                                <BanIcon className="w-10 h-10" />
+                                            </button>
+                                        )}
+                                    </>
+                                ) : (
+                                    // Štandardné tlačidlá pre dokončené úlohy
+                                    <>
+                                        {props.hasPermission('perm_btn_copy') && (
+                                            <button onClick={() => handleCopyPart(task.id, task.partNumber || '')} className={`w-16 h-16 flex items-center justify-center rounded-xl transition-all active:scale-95 shadow-lg border ${copiedId === task.id ? 'bg-green-600 border-green-500 text-white' : 'bg-blue-600 border-blue-500 text-white hover:bg-blue-500'}`}><CopyIcon className="w-8 h-8" /></button>
+                                        )}
+                                        {props.hasPermission('perm_btn_return') && (
+                                            <button onClick={() => props.onToggleTask(task.id)} className="w-16 h-16 flex items-center justify-center rounded-xl bg-orange-600 hover:bg-orange-500 text-white shadow-md transition-all active:scale-95 border border-orange-500"><ReturnIcon className="w-10 h-10" /></button>
+                                        )}
+                                        {props.hasPermission('perm_btn_delete') && (
+                                            <button onClick={() => handleDeleteClick(task.id)} className="w-16 h-16 flex items-center justify-center rounded-lg bg-red-900/50 text-red-500 hover:bg-red-800 hover:text-white border border-red-800 transition-colors"><TrashIcon className="w-8 h-8" /></button>
+                                        )}
+                                    </>
+                                )}
                             </div>
-                        )}
+                        </div>
                     </div>
                 );
             })}

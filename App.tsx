@@ -639,6 +639,10 @@ const App: React.FC = () => {
     });
   };
 
+  const handleUpdateTask = async (id: string, updates: Partial<Task>) => {
+    await updateDoc(doc(db, 'tasks', id), updates);
+  };
+
   const handleToggleTask = async (id: string) => {
     const t = tasks.find(x => x.id === id);
     if(t) {
@@ -729,6 +733,7 @@ const App: React.FC = () => {
         <PartSearchScreen 
           currentUser={currentUser} currentUserRole={currentUserRole} onLogout={handleLogout}
           tasks={tasks} onAddTask={handleAddTask} onToggleTask={handleToggleTask} onEditTask={handleEditTask} onDeleteTask={handleDeleteTask}
+          onUpdateTask={handleUpdateTask}
           onToggleMissing={handleToggleMissing} onSetInProgress={handleSetInProgress} onToggleBlock={handleToggleBlock} onToggleManualBlock={handleToggleManualBlock} onMarkAsIncorrect={handleMarkAsIncorrect} onAddNote={handleAddNote} onReleaseTask={handleReleaseTask}
           users={users} onAddUser={handleAddUser} onUpdatePassword={handleUpdatePassword} onUpdateUserRole={handleUpdateUserRole} onDeleteUser={handleDeleteUser}
           parts={parts} workplaces={workplaces} missingReasons={missingReasons} logisticsOperations={logisticsOperations}
