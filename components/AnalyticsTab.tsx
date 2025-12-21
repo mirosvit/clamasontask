@@ -192,7 +192,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
                 };
             }
             const ws = workerStatsMap[worker];
-            // OPRAVA: count inkrementujeme o 1 (jedna vybavena uloha), totalVolume o vahu (palety/ks)
             ws.count += 1; 
             ws.totalVolume += weight;
 
@@ -237,6 +236,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
     if (typeof XLSX === 'undefined') return;
     const wb = XLSX.utils.book_new();
     
+    // Hárok 1: KPI Prehľad
     const kpiData = [
         { Metrika: t('kpi_total'), Hodnota: stats.total },
         { Metrika: t('kpi_worked'), Hodnota: (stats.grandTotalExecutionTime / 3600000).toFixed(2) },
@@ -248,7 +248,27 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
         { Metrika: t('kpi_incorrect'), Hodnota: stats.incorrectlyEntered },
     ];
     const wsKPI = XLSX.utils.json_to_sheet(kpiData);
-    XLSX.utils.book_append_sheet(wb, wsKPI, "KPI");
+    XLSX.utils.book_append_sheet(wb, wsKPI, t('KPI_report_sheet_name') || "KPI");
+
+    // Hárok 2: Zdrojové Dáta (Raw Data)
+    const rawData = filteredTasks.map(task => ({
+        [t('miss_th_created')]: task.createdAt ? new Date(task.createdAt).toLocaleString('sk-SK') : '-',
+        [t('task_created')]: task.createdBy || '-',
+        [t('miss_th_part')]: task.partNumber || '-',
+        [t('miss_th_wp')]: task.workplace || '-',
+        [t('quantity')]: task.quantity || '0',
+        [language === 'sk' ? 'Jednotka' : 'Unit']: task.quantityUnit || '-',
+        [t('priority_label')]: task.priority || 'NORMAL',
+        [t('status_label')]: task.isDone ? t('status_completed') : t('status_open'),
+        [t('task_completed_by')]: task.completedBy || '-',
+        [language === 'sk' ? 'Dokončené o' : 'Completed at']: task.completedAt ? new Date(task.completedAt).toLocaleString('sk-SK') : '-',
+        [language === 'sk' ? 'Norma (min)' : 'Std Time (min)']: task.standardTime || 0,
+        [language === 'sk' ? 'Typ' : 'Type']: task.type || 'production',
+        [t('btn_note')]: task.note || '-'
+    }));
+    const wsRaw = XLSX.utils.json_to_sheet(rawData);
+    XLSX.utils.book_append_sheet(wb, wsRaw, t('raw_data_sheet_name') || "Source Data");
+
     XLSX.writeFile(wb, `Report_Analytika_${new Date().toISOString().slice(0,10)}.xlsx`);
   };
 
