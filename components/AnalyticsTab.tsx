@@ -1,5 +1,6 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Task, SystemBreak } from '../App';
 import { useLanguage } from './LanguageContext';
 
@@ -19,6 +20,12 @@ const DownloadIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
+const UserIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+);
+
 const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchArchivedTasks, systemBreaks }) => {
   const [filterMode, setFilterMode] = useState<FilterMode>('ALL');
   const [customStart, setCustomStart] = useState('');
@@ -27,6 +34,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
   const [includeArchive, setIncludeArchive] = useState(false);
   const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
   const [isLoadingArchive, setIsLoadingArchive] = useState(false);
+  const [selectedWorker, setSelectedWorker] = useState<any | null>(null);
+
   const { t, language } = useLanguage();
 
   const tasks = useMemo(() => {
@@ -125,8 +134,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
   const stats = useMemo(() => {
     const workplaceCounts: Record<string, number> = {};
     const partCounts: Record<string, number> = {};
-    const logisticsRefCounts: Record<string, number> = {}; 
-    const logisticsOpCounts: Record<string, number> = {}; 
     
     let totalReactionTime = 0;
     let countReactionTime = 0;
@@ -136,7 +143,14 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
 
     const workerStatsMap: Record<string, any> = {};
 
-    const performanceTasks = filteredTasks.filter(t => t.status !== 'incorrectly_entered');
+    // Audit (Inventory) specific stats
+    const auditTasks = filteredTasks.filter(t => t.partNumber === "Počítanie zásob" && t.isDone);
+    const auditSessionsCount = auditTasks.length;
+    const auditTotalItems = auditTasks.reduce((acc, t) => acc + (parseFloat(t.quantity || '0')), 0);
+    const auditAvgItems = auditSessionsCount > 0 ? Math.round(auditTotalItems / auditSessionsCount) : 0;
+    const recentAudits = auditTasks.sort((a,b) => (b.completedAt || 0) - (a.completedAt || 0)).slice(0, 5);
+
+    const performanceTasks = filteredTasks.filter(t => t.status !== 'incorrectly_entered' && t.partNumber !== "Počítanie zásob");
     const total = filteredTasks.length;
     const incorrectlyEntered = filteredTasks.filter(t => t.status === 'incorrectly_entered').length;
     const done = performanceTasks.filter(t => t.isDone).length;
@@ -144,25 +158,16 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
     const urgent = performanceTasks.filter(t => t.priority === 'URGENT' && t.isDone).length;
     const efficiency = performanceTasks.length === 0 ? 0 : Math.round((done / performanceTasks.length) * 100);
 
-    performanceTasks.forEach(task => {
-        let part = task.partNumber;
-        let wp = task.workplace;
+    filteredTasks.forEach(task => {
         let weight = 1;
-        
         if (task.quantityUnit === 'pallet' && task.quantity) {
              const qty = parseFloat(task.quantity.replace(',', '.'));
              if (!isNaN(qty) && qty > 0) weight = qty;
         }
 
-        if (task.type === 'logistics') {
-            const refLabel = (part && part !== '-') ? part : 'N/A';
-            const opLabel = (wp && wp !== '-') ? wp : '';
-            const compoundKey = opLabel ? `${refLabel} [${opLabel}]` : refLabel;
-            logisticsRefCounts[compoundKey] = (logisticsRefCounts[compoundKey] || 0) + weight;
-            if (wp && wp !== '-') logisticsOpCounts[wp] = (logisticsOpCounts[wp] || 0) + 1; 
-        } else {
-            if (part && part !== '-') partCounts[part] = (partCounts[part] || 0) + weight;
-            if (wp && wp !== '-') workplaceCounts[wp] = (workplaceCounts[wp] || 0) + weight;
+        if (task.partNumber !== "Počítanie zásob") {
+            if (task.partNumber && task.partNumber !== '-') partCounts[task.partNumber] = (partCounts[task.partNumber] || 0) + weight;
+            if (task.workplace && task.workplace !== '-') workplaceCounts[task.workplace] = (workplaceCounts[task.workplace] || 0) + weight;
         }
 
         if (task.createdAt) {
@@ -188,29 +193,40 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
                     totalReactionMs: 0, 
                     countReaction: 0, 
                     totalExecutionMs: 0, 
-                    totalStandardMinutes: 0 
+                    totalStandardMinutes: 0,
+                    incorrectCount: 0,
+                    inventoryCount: 0,
+                    productionCount: 0,
+                    logisticsCount: 0
                 };
             }
             const ws = workerStatsMap[worker];
-            // OPRAVA: count inkrementujeme o 1 (jedna vybavena uloha), totalVolume o vahu (palety/ks)
-            ws.count += 1; 
-            ws.totalVolume += weight;
+            
+            if (task.status === 'incorrectly_entered') {
+                ws.incorrectCount++;
+            } else {
+                ws.count++;
+                ws.totalVolume += weight;
+                if (task.partNumber === "Počítanie zásob") ws.inventoryCount++;
+                else if (task.type === 'logistics') ws.logisticsCount++;
+                else ws.productionCount++;
 
-            if (task.standardTime) ws.totalStandardMinutes += task.standardTime;
+                if (task.standardTime) ws.totalStandardMinutes += task.standardTime;
 
-            if (task.createdAt) {
-                 if (task.completedAt) {
-                     const lead = task.completedAt - task.createdAt;
-                     if (lead > 0) { ws.totalLeadMs += lead; ws.countLead++; }
-                 }
-                 if (task.startedAt && task.completedAt) {
-                     const reaction = task.startedAt - task.createdAt;
-                     if (reaction > 0) { ws.totalReactionMs += reaction; ws.countReaction++; }
-                     let execution = task.completedAt - task.startedAt;
-                     const blockedTime = calculateBlockedTime(task.inventoryHistory, task.startedAt, task.completedAt);
-                     execution -= blockedTime;
-                     if (execution > 0) { ws.totalExecutionMs += execution; grandTotalExecutionTime += execution; }
-                 }
+                if (task.createdAt) {
+                     if (task.completedAt) {
+                         const lead = task.completedAt - task.createdAt;
+                         if (lead > 0) { ws.totalLeadMs += lead; ws.countLead++; }
+                     }
+                     if (task.startedAt && task.completedAt) {
+                         const reaction = task.startedAt - task.createdAt;
+                         if (reaction > 0) { ws.totalReactionMs += reaction; ws.countReaction++; }
+                         let execution = task.completedAt - task.startedAt;
+                         const blockedTime = calculateBlockedTime(task.inventoryHistory, task.startedAt, task.completedAt);
+                         execution -= blockedTime;
+                         if (execution > 0) { ws.totalExecutionMs += execution; grandTotalExecutionTime += execution; }
+                     }
+                }
             }
         }
     });
@@ -227,9 +243,13 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
         incorrectlyEntered,
         topWorkplaces: getTop(workplaceCounts, 5),
         topParts: getTop(partCounts, 5),
-        topLogRefs: getTop(logisticsRefCounts, 10),
-        logisticsOpCounts,
-        workerStats: Object.values(workerStatsMap).sort((a, b) => b.count - a.count)
+        workerStats: Object.values(workerStatsMap).sort((a, b) => b.count - a.count),
+        audit: {
+            sessions: auditSessionsCount,
+            totalItems: auditTotalItems,
+            avgItems: auditAvgItems,
+            recent: recentAudits
+        }
     };
   }, [filteredTasks, systemBreaks]);
 
@@ -237,150 +257,375 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
     if (typeof XLSX === 'undefined') return;
     const wb = XLSX.utils.book_new();
     
+    // --- SHEET 1: KPI SUMMARY ---
     const kpiData = [
         { Metrika: t('kpi_total'), Hodnota: stats.total },
-        { Metrika: t('kpi_worked'), Hodnota: (stats.grandTotalExecutionTime / 3600000).toFixed(2) },
-        { Metrika: t('kpi_lead'), Hodnota: (stats.avgLead / 60000).toFixed(2) },
-        { Metrika: t('kpi_react'), Hodnota: (stats.avgReaction / 60000).toFixed(2) },
-        { Metrika: t('kpi_effic'), Hodnota: stats.efficiency },
+        { Metrika: t('kpi_worked'), Hodnota: (stats.grandTotalExecutionTime / 3600000).toFixed(2) + " h" },
+        { Metrika: t('kpi_lead'), Hodnota: (stats.avgLead / 60000).toFixed(2) + " min" },
+        { Metrika: t('kpi_react'), Hodnota: (stats.avgReaction / 60000).toFixed(2) + " min" },
+        { Metrika: t('kpi_effic'), Hodnota: stats.efficiency + " %" },
         { Metrika: t('kpi_urgent'), Hodnota: stats.urgent },
         { Metrika: t('kpi_missing'), Hodnota: stats.missing },
         { Metrika: t('kpi_incorrect'), Hodnota: stats.incorrectlyEntered },
     ];
     const wsKPI = XLSX.utils.json_to_sheet(kpiData);
-    XLSX.utils.book_append_sheet(wb, wsKPI, "KPI");
-    XLSX.writeFile(wb, `Report_Analytika_${new Date().toISOString().slice(0,10)}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, wsKPI, "KPI Summary");
+
+    // --- SHEET 2: RAW DATA (ZDROJOVÉ DATA) ---
+    const rawData = filteredTasks.map(task => {
+        const reactionTime = task.startedAt && task.createdAt ? Math.round((task.startedAt - task.createdAt) / 60000) : null;
+        const leadTime = task.completedAt && task.createdAt ? Math.round((task.completedAt - task.createdAt) / 60000) : null;
+        const executionTime = task.completedAt && task.startedAt ? Math.round((task.completedAt - task.startedAt) / 60000) : null;
+
+        return {
+            "Dátum zadania": task.createdAt ? new Date(task.createdAt).toLocaleString('sk-SK') : '-',
+            "Zadal": task.createdBy || '-',
+            "Diel / Referencia": task.partNumber || task.text,
+            "Pracovisko": task.workplace || '-',
+            "Množstvo": task.quantity || '0',
+            "Jednotka": task.quantityUnit || '-',
+            "Typ": task.type === 'logistics' ? 'Logistika' : 'Výroba',
+            "Priorita": task.priority || 'NORMAL',
+            "Stav": task.status === 'incorrectly_entered' ? 'Chybne zadaná' : (task.isDone ? 'Dokončená' : 'Otvorená'),
+            "Začal (čas)": task.startedAt ? new Date(task.startedAt).toLocaleString('sk-SK') : '-',
+            "Dokončil (meno)": task.completedBy || '-',
+            "Dokončené (čas)": task.completedAt ? new Date(task.completedAt).toLocaleString('sk-SK') : '-',
+            "Reakcia (min)": reactionTime,
+            "Lead Time (min)": leadTime,
+            "Čistý čas práce (min)": executionTime,
+            "Poznámka": task.note || ''
+        };
+    });
+    const wsRaw = XLSX.utils.json_to_sheet(rawData);
+    XLSX.utils.book_append_sheet(wb, wsRaw, "Raw Data");
+
+    XLSX.writeFile(wb, `Audit_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
+  const handleExportWorkerKPI = (ws: any) => {
+    if (typeof XLSX === 'undefined' || !ws) return;
+    const wb = XLSX.utils.book_new();
+    const accuracy = ws.count > 0 ? Math.round((ws.count / (ws.count + ws.incorrectCount)) * 100) : 100;
+    const data = [
+        { "KPI Pasport": ws.name, "Hodnota": "" },
+        { "KPI Pasport": "-------------------", "Hodnota": "----------" },
+        { "KPI Pasport": "Vybavené úlohy", "Hodnota": ws.count },
+        { "KPI Pasport": "Chybne zadané", "Hodnota": ws.incorrectCount },
+        { "KPI Pasport": "Presnosť (Accuracy %)", "Hodnota": accuracy + " %" },
+        { "KPI Pasport": "Odpracovaný čistý čas", "Hodnota": formatDuration(ws.totalExecutionMs) },
+        { "KPI Pasport": "Priem. Reakcia", "Hodnota": formatDuration(ws.countReaction > 0 ? ws.totalReactionMs / ws.countReaction : 0) },
+        { "KPI Pasport": "Priem. Vybavenie", "Hodnota": formatDuration(ws.countLead > 0 ? ws.totalLeadMs / ws.countLead : 0) },
+        { "KPI Pasport": "Spracovaný objem (pal/ks)", "Hodnota": Number(ws.totalVolume.toFixed(1)) },
+        { "KPI Pasport": "Výroba (%)", "Hodnota": ws.count > 0 ? Math.round((ws.productionCount / ws.count) * 100) : 0 },
+        { "KPI Pasport": "Logistika (%)", "Hodnota": ws.count > 0 ? Math.round((ws.logisticsCount / ws.count) * 100) : 0 },
+        { "KPI Pasport": "Inventúry (%)", "Hodnota": ws.count > 0 ? Math.round((ws.inventoryCount / ws.count) * 100) : 0 },
+    ];
+    const sheet = XLSX.utils.json_to_sheet(data);
+    XLSX.utils.book_append_sheet(wb, sheet, "Worker KPI");
+    XLSX.writeFile(wb, `KPI_${ws.name}_${new Date().toISOString().slice(0,10)}.xlsx`);
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-8 animate-fade-in">
-        <h1 className="text-center text-2xl sm:text-3xl font-bold text-teal-400 mb-2">{t('analytics_title')}</h1>
-        <div className="flex flex-col sm:flex-row justify-end gap-3 mb-2">
-            <label className="flex items-center cursor-pointer gap-2 bg-gray-900 p-2 rounded-lg border border-gray-700">
-                <input type="checkbox" checked={includeArchive} onChange={() => setIncludeArchive(!includeArchive)} className="form-checkbox h-5 w-5 text-teal-500 rounded focus:ring-teal-500 bg-gray-700 border-gray-600"/>
-                <span className="text-sm font-bold text-teal-400">{isLoadingArchive ? t('loading_hist') : t('include_archive')}</span>
-            </label>
-            <button onClick={handleExportReport} className="flex items-center gap-2 bg-green-700 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition-colors">
-                <DownloadIcon className="w-5 h-5" />{t('download_report')}
-            </button>
-        </div>
+    <div className="max-w-6xl mx-auto space-y-8 pb-12 animate-fade-in">
+        <h1 className="text-center text-3xl font-black text-white uppercase tracking-[0.2em] mb-4">
+            {t('analytics_title')}
+        </h1>
 
-        <div className="bg-gray-800 p-4 rounded-xl shadow-md border border-gray-700 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex flex-wrap gap-2 justify-center">
-                {(['ALL', 'TODAY', 'YESTERDAY', 'WEEK', 'MONTH', 'CUSTOM'] as FilterMode[]).map(mode => (
-                    <button key={mode} onClick={() => setFilterMode(mode)} className={`px-4 py-2 rounded text-sm font-bold transition-colors ${filterMode === mode ? 'bg-teal-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>{t(`filter_${mode.toLowerCase()}` as any)}</button>
+        <div className="flex flex-col sm:flex-row justify-between gap-4 mb-2">
+            <div className="flex bg-gray-800 p-1 rounded-xl border border-gray-700">
+                {(['ALL', 'TODAY', 'WEEK', 'MONTH', 'CUSTOM'] as FilterMode[]).map(mode => (
+                    <button key={mode} onClick={() => setFilterMode(mode)} className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition-all tracking-wider ${filterMode === mode ? 'bg-[#4169E1] text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}>
+                        {t(`filter_${mode.toLowerCase()}` as any)}
+                    </button>
                 ))}
             </div>
-            {filterMode === 'CUSTOM' && (
-                <div className="flex items-center gap-2 bg-gray-900 p-2 rounded-lg border border-gray-600">
-                    <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="bg-gray-800 text-white text-sm rounded px-2 py-1 border border-gray-600 focus:border-teal-500 outline-none"/>
-                    <span className="text-gray-400">-</span>
-                    <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="bg-gray-800 text-white text-sm rounded px-2 py-1 border border-gray-600 focus:border-teal-500 outline-none"/>
+
+            <div className="flex items-center gap-3">
+                <label className="flex items-center cursor-pointer gap-2 bg-gray-800 px-4 py-2 rounded-xl border border-gray-700 hover:border-gray-500 transition-colors">
+                    <input type="checkbox" checked={includeArchive} onChange={() => setIncludeArchive(!includeArchive)} className="form-checkbox h-4 w-4 text-[#4169E1] rounded focus:ring-[#4169E1] bg-gray-700 border-gray-600"/>
+                    <span className="text-xs font-bold text-gray-400">{isLoadingArchive ? t('loading_hist') : t('include_archive')}</span>
+                </label>
+                <button onClick={handleExportReport} className="flex items-center gap-2 bg-green-700 hover:bg-green-600 text-white px-5 py-2 rounded-xl text-xs font-black shadow-lg transition-all active:scale-95 uppercase tracking-widest border-2 border-green-500">
+                    <DownloadIcon className="w-4 h-4" />{t('download_report')}
+                </button>
+            </div>
+        </div>
+
+        {filterMode === 'CUSTOM' && (
+            <div className="flex items-center justify-center gap-4 bg-gray-800/50 p-4 rounded-xl border border-gray-700 animate-fade-in">
+                <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="bg-gray-700 text-white text-sm rounded-lg px-4 py-2 border border-gray-600 focus:border-[#4169E1] outline-none font-mono"/>
+                <span className="text-gray-500 font-bold">>>></span>
+                <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="bg-gray-700 text-white text-sm rounded-lg px-4 py-2 border border-gray-600 focus:border-[#4169E1] outline-none font-mono"/>
+            </div>
+        )}
+
+        {/* TOP KPI CARDS */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+                { label: t('kpi_total'), val: stats.total, color: 'border-blue-500', icon: '📋' },
+                { label: t('kpi_worked'), val: formatDuration(stats.grandTotalExecutionTime), color: 'border-green-500', icon: '⏱️' },
+                { label: t('kpi_lead'), val: formatDuration(stats.avgLead), color: 'border-purple-500', icon: '🚀' },
+                { label: t('kpi_react'), val: formatDuration(stats.avgReaction), color: 'border-yellow-500', icon: '⚡' }
+            ].map(card => (
+                <div key={card.label} className={`bg-gray-800 p-6 rounded-2xl shadow-xl border-t-4 ${card.color} flex flex-col justify-between hover:scale-[1.02] transition-transform`}>
+                    <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2">{card.label}</p>
+                    <div className="flex items-baseline justify-between mt-1">
+                        <span className="text-3xl font-black text-white truncate">{card.val}</span>
+                        <span className="text-2xl">{card.icon}</span>
+                    </div>
                 </div>
-            )}
+            ))}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-gray-700 p-4 rounded-xl shadow-lg border-l-4 border-blue-500">
-                <p className="text-gray-400 text-sm font-bold uppercase">{t('kpi_total')}</p>
-                <p className="text-3xl font-extrabold text-white mt-1">{stats.total}</p>
-            </div>
-            <div className="bg-gray-700 p-4 rounded-xl shadow-lg border-l-4 border-green-500">
-                <p className="text-gray-400 text-sm font-bold uppercase">{t('kpi_worked')}</p>
-                <p className="text-3xl font-extrabold text-green-400 mt-1">{formatDuration(stats.grandTotalExecutionTime)}</p>
-            </div>
-            <div className="bg-gray-700 p-4 rounded-xl shadow-lg border-l-4 border-purple-500">
-                <p className="text-gray-400 text-sm font-bold uppercase">{t('kpi_lead')}</p>
-                <p className="text-3xl font-extrabold text-purple-400 mt-1">{formatDuration(stats.avgLead)}</p>
-            </div>
-             <div className="bg-gray-700 p-4 rounded-xl shadow-lg border-l-4 border-yellow-500">
-                <p className="text-gray-400 text-sm font-bold uppercase">{t('kpi_react')}</p>
-                <p className="text-3xl font-extrabold text-yellow-400 mt-1">{formatDuration(stats.avgReaction)}</p>
-            </div>
-        </div>
-
-        <div className="bg-gray-900 border border-gray-700 p-4 rounded-xl shadow-lg">
-             <h3 className="text-lg font-bold text-white mb-4 border-b border-gray-700 pb-2">{t('table_title')}</h3>
+        {/* WORKER KPI TABLE */}
+        <div className="bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden">
+             <div className="p-6 border-b border-gray-700 bg-gray-900/40 flex justify-between items-center">
+                 <h3 className="text-xl font-black text-white uppercase tracking-widest">{t('table_title')}</h3>
+                 <span className="text-[10px] text-gray-500 uppercase font-bold italic">Kliknite na meno pre detaily</span>
+             </div>
              <div className="overflow-x-auto custom-scrollbar">
-                <table className="w-full text-left border-collapse min-w-[600px]">
-                    <thead>
-                        <tr className="text-gray-400 text-sm border-b border-gray-700">
-                            <th className="py-2 px-2">{t('th_rank')}</th>
-                            <th className="py-2 px-2">{t('th_name')}</th>
-                            <th className="py-2 px-2 text-right">{t('th_done')}</th>
-                            <th className="py-2 px-2 text-right text-sky-400">{language === 'sk' ? 'Objem (pal/ks)' : 'Volume'}</th>
-                            <th className="py-2 px-2 text-right text-green-400">{t('th_work_time')}</th>
+                <table className="w-full text-left border-collapse">
+                    <thead className="bg-gray-900/60 text-gray-400 text-[10px] font-black uppercase tracking-widest border-b border-gray-700">
+                        <tr>
+                            <th className="py-4 px-6">Meno</th>
+                            <th className="py-4 px-6 text-right">Vybavené</th>
+                            <th className="py-4 px-6 text-right">Accuracy</th>
+                            <th className="py-4 px-6 text-right text-sky-400">Objem (pal/ks)</th>
+                            <th className="py-4 px-6 text-right text-green-400">Čistý Čas</th>
                         </tr>
                     </thead>
-                    <tbody className="text-sm">
-                        {stats.workerStats.map((ws: any, idx: number) => (
-                            <tr key={ws.name} className="border-b border-gray-800 hover:bg-gray-800 transition-colors">
-                                <td className="py-3 px-2 text-gray-500 font-mono">{idx + 1}</td>
-                                <td className="py-3 px-2 font-bold text-white">{ws.name}</td>
-                                <td className="py-3 px-2 text-right text-teal-400 font-bold">{ws.count}</td>
-                                <td className="py-3 px-2 text-right text-sky-400 font-bold font-mono">{Number(ws.totalVolume.toFixed(1))}</td>
-                                <td className="py-3 px-2 text-right text-green-400 font-bold font-mono">{formatDuration(ws.totalExecutionMs)}</td>
-                            </tr>
-                        ))}
+                    <tbody className="divide-y divide-gray-700/50">
+                        {stats.workerStats.map((ws: any) => {
+                            const accuracy = ws.count > 0 ? Math.round((ws.count / (ws.count + ws.incorrectCount)) * 100) : 100;
+                            return (
+                                <tr key={ws.name} onClick={() => setSelectedWorker(ws)} className="hover:bg-[#4169E1]/10 transition-all cursor-pointer group">
+                                    <td className="py-4 px-6">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs font-black text-[#4169E1] group-hover:bg-[#4169E1] group-hover:text-white transition-colors uppercase">
+                                                {ws.name.charAt(0)}
+                                            </div>
+                                            <span className="font-bold text-white tracking-wide">{ws.name}</span>
+                                        </div>
+                                    </td>
+                                    <td className="py-4 px-6 text-right text-gray-300 font-mono font-bold">{ws.count}</td>
+                                    <td className="py-4 px-6 text-right">
+                                        <span className={`font-mono font-black ${accuracy < 90 ? 'text-red-500' : 'text-teal-400'}`}>
+                                            {accuracy}%
+                                        </span>
+                                    </td>
+                                    <td className="py-4 px-6 text-right text-sky-400 font-black font-mono">{Number(ws.totalVolume.toFixed(1))}</td>
+                                    <td className="py-4 px-6 text-right text-green-400 font-black font-mono">{formatDuration(ws.totalExecutionMs)}</td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
              </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div className="bg-gray-900 border border-gray-700 p-6 rounded-xl shadow-lg">
-                <h3 className="text-lg font-bold text-white mb-4 border-b border-gray-700 pb-2">{t('chart_wp')}</h3>
-                <div className="space-y-4">
+        {/* AUDIT & INVENTORY SECTION */}
+        <div className="bg-gray-800 border border-[#4169E1]/30 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="p-6 border-b border-gray-700 bg-[#4169E1]/10 flex items-center gap-4">
+                <div className="p-3 bg-[#4169E1] rounded-xl shadow-lg">
+                    <ClipboardListIcon className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl font-black text-white uppercase tracking-widest">{t('audit_title')}</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-0">
+                {/* Audit KPIs */}
+                <div className="lg:col-span-4 p-8 border-r border-gray-700 space-y-8 bg-gray-900/20">
+                    {[
+                        { label: t('audit_sessions'), val: stats.audit.sessions, icon: '📅' },
+                        { label: t('audit_total_items'), val: stats.audit.totalItems, icon: '📦' },
+                        { label: t('audit_avg_items'), val: stats.audit.avgItems, icon: '📈' }
+                    ].map(aud => (
+                        <div key={aud.label} className="flex flex-col">
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-1">{aud.label}</p>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-3xl font-black text-[#4169E1]">{aud.val}</span>
+                                <span className="text-gray-600 text-sm font-bold uppercase">{aud.icon}</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Audit History */}
+                <div className="lg:col-span-8 p-0">
+                    <div className="p-4 bg-gray-900/40 border-b border-gray-700">
+                        <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{t('audit_history')}</h4>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-gray-900/20 text-gray-500 text-[9px] uppercase tracking-tighter">
+                                <tr>
+                                    <th className="py-3 px-6">Dátum</th>
+                                    <th className="py-3 px-6">Auditor</th>
+                                    <th className="py-3 px-6 text-right">Položiek</th>
+                                    <th className="py-3 px-6 text-right">Trvanie</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-700/50">
+                                {stats.audit.recent.map(audit => (
+                                    <tr key={audit.id} className="hover:bg-gray-700/20">
+                                        <td className="py-4 px-6 text-xs text-gray-400 font-mono">
+                                            {new Date(audit.completedAt || 0).toLocaleDateString('sk-SK')}
+                                        </td>
+                                        <td className="py-4 px-6 text-xs font-bold text-white uppercase">{audit.completedBy}</td>
+                                        <td className="py-4 px-6 text-right text-[#4169E1] font-black">{audit.quantity}</td>
+                                        <td className="py-4 px-6 text-right text-xs text-gray-500">
+                                            {formatDuration((audit.completedAt || 0) - (audit.startedAt || 0))}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {/* TOP CHARTS (MODERNIZED) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="bg-gray-800 border border-gray-700 p-8 rounded-2xl shadow-xl">
+                <h3 className="text-sm font-black text-gray-400 mb-6 uppercase tracking-widest border-b border-gray-700 pb-2">{t('chart_wp')}</h3>
+                <div className="space-y-6">
                     {stats.topWorkplaces.map(([name, count], idx) => (
                         <div key={name} className="relative">
-                            <div className="flex justify-between text-sm mb-1">
-                                <span className="text-gray-300 font-mono">{idx + 1}. {name}</span>
-                                <span className="text-teal-400 font-bold">{Number(count.toFixed(1))}</span>
+                            <div className="flex justify-between text-xs mb-2">
+                                <span className="text-gray-300 font-bold">{idx + 1}. {name}</span>
+                                <span className="text-[#4169E1] font-black">{Number(count.toFixed(1))}</span>
                             </div>
-                            <div className="w-full bg-gray-700 rounded-full h-2.5">
-                                <div className="bg-teal-600 h-2.5 rounded-full" style={{ width: `${(count / (stats.topWorkplaces[0]?.[1] || 1)) * 100}%` }}></div>
+                            <div className="w-full bg-gray-900 rounded-full h-2 shadow-inner overflow-hidden">
+                                <div className="bg-[#4169E1] h-full rounded-full shadow-[0_0_10px_rgba(65,105,225,0.4)]" style={{ width: `${(count / (stats.topWorkplaces[0]?.[1] || 1)) * 100}%` }}></div>
                             </div>
                         </div>
                     ))}
                 </div>
             </div>
 
-            <div className="bg-gray-900 border border-gray-700 p-6 rounded-xl shadow-lg">
-                <h3 className="text-lg font-bold text-white mb-4 border-b border-gray-700 pb-2">{t('chart_parts')}</h3>
-                <div className="space-y-4">
+            <div className="bg-gray-800 border border-gray-700 p-8 rounded-2xl shadow-xl">
+                <h3 className="text-sm font-black text-gray-400 mb-6 uppercase tracking-widest border-b border-gray-700 pb-2">{t('chart_parts')}</h3>
+                <div className="space-y-6">
                      {stats.topParts.map(([name, count], idx) => (
                         <div key={name} className="relative">
-                            <div className="flex justify-between text-sm mb-1">
-                                <span className="text-gray-300 font-mono">{idx + 1}. {name}</span>
-                                <span className="text-blue-400 font-bold">{Number(count.toFixed(1))}</span>
+                            <div className="flex justify-between text-xs mb-2">
+                                <span className="text-gray-300 font-bold">{idx + 1}. {name}</span>
+                                <span className="text-teal-400 font-black">{Number(count.toFixed(1))}</span>
                             </div>
-                            <div className="w-full bg-gray-700 rounded-full h-2.5">
-                                <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${(count / (stats.topParts[0]?.[1] || 1)) * 100}%` }}></div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            <div className="bg-gray-900 border border-gray-700 p-6 rounded-xl shadow-lg sm:col-span-2">
-                <h3 className="text-lg font-bold text-sky-400 mb-4 border-b border-gray-700 pb-2">{t('chart_log_refs')}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                     {stats.topLogRefs.map(([name, count], idx) => (
-                        <div key={name} className="relative">
-                            <div className="flex justify-between text-sm mb-1">
-                                <span className="text-gray-300 font-mono">{idx + 1}. {name}</span>
-                                <span className="text-sky-400 font-bold">{Number(count.toFixed(1))}</span>
-                            </div>
-                            <div className="w-full bg-gray-700 rounded-full h-2.5">
-                                <div className="bg-sky-600 h-2.5 rounded-full" style={{ width: `${(count / (stats.topLogRefs[0]?.[1] || 1)) * 100}%` }}></div>
+                            <div className="w-full bg-gray-900 rounded-full h-2 shadow-inner overflow-hidden">
+                                <div className="bg-teal-600 h-full rounded-full shadow-[0_0_10px_rgba(20,184,166,0.4)]" style={{ width: `${(count / (stats.topParts[0]?.[1] || 1)) * 100}%` }}></div>
                             </div>
                         </div>
                     ))}
                 </div>
             </div>
         </div>
+
+        {/* WORKER PASSPORT MODAL */}
+        {selectedWorker && createPortal(
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-fade-in" onClick={() => setSelectedWorker(null)}>
+                <div className="bg-gray-800 border-2 border-[#4169E1] rounded-3xl shadow-[0_0_50px_rgba(65,105,225,0.3)] w-full max-w-2xl p-0 overflow-hidden relative" onClick={e => e.stopPropagation()}>
+                    {/* Modal Header */}
+                    <div className="bg-[#4169E1] p-8 text-white flex justify-between items-center relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-24 opacity-10 rotate-12">
+                            <UserIcon className="w-64 h-64" />
+                        </div>
+                        <div className="relative z-10">
+                            <p className="text-[10px] font-black uppercase tracking-[0.3em] mb-1 opacity-70">Detailný KPI Pasport</p>
+                            <h2 className="text-4xl font-black uppercase tracking-widest leading-none">{selectedWorker.name}</h2>
+                        </div>
+                        <button onClick={() => setSelectedWorker(null)} className="relative z-10 bg-white/20 hover:bg-white/40 p-2 rounded-full transition-all">
+                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    </div>
+
+                    <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                        {/* Summary Metrics */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {[
+                                { l: "Accuracy", v: (selectedWorker.count > 0 ? Math.round((selectedWorker.count / (selectedWorker.count + selectedWorker.incorrectCount)) * 100) : 100) + "%", c: "text-teal-400" },
+                                { l: "Lead Time", v: formatDuration(selectedWorker.countLead > 0 ? selectedWorker.totalLeadMs / selectedWorker.countLead : 0), c: "text-white" },
+                                { l: "Vybavené", v: selectedWorker.count, c: "text-[#4169E1]" },
+                                { l: "Chybné", v: selectedWorker.incorrectCount, c: "text-red-500" }
+                            ].map(m => (
+                                <div key={m.l} className="bg-gray-900/50 p-4 rounded-2xl border border-gray-700">
+                                    <p className="text-[9px] font-bold text-gray-500 uppercase mb-1">{m.l}</p>
+                                    <p className={`text-xl font-black ${m.c} tracking-tight`}>{m.v}</p>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Work Mix */}
+                        <div>
+                             <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 border-l-4 border-teal-500 pl-3">{t('work_mix')}</h3>
+                             <div className="flex h-12 w-full rounded-xl overflow-hidden shadow-inner bg-gray-900/50">
+                                 {selectedWorker.count > 0 ? (
+                                     <>
+                                        <div className="bg-teal-500 flex items-center justify-center transition-all hover:brightness-110" style={{ width: `${(selectedWorker.productionCount / selectedWorker.count) * 100}%` }} title="Výroba">
+                                            {selectedWorker.productionCount > 0 && <span className="text-[10px] font-black text-black">V</span>}
+                                        </div>
+                                        <div className="bg-sky-500 flex items-center justify-center transition-all hover:brightness-110" style={{ width: `${(selectedWorker.logisticsCount / selectedWorker.count) * 100}%` }} title="Logistika">
+                                            {selectedWorker.logisticsCount > 0 && <span className="text-[10px] font-black text-black">L</span>}
+                                        </div>
+                                        <div className="bg-[#4169E1] flex items-center justify-center transition-all hover:brightness-110" style={{ width: `${(selectedWorker.inventoryCount / selectedWorker.count) * 100}%` }} title="Inventúra">
+                                            {selectedWorker.inventoryCount > 0 && <span className="text-[10px] font-black text-white">I</span>}
+                                        </div>
+                                     </>
+                                 ) : (
+                                     <div className="flex-1 flex items-center justify-center text-gray-700 text-xs italic uppercase">Žiadne dáta</div>
+                                 )}
+                             </div>
+                             <div className="flex gap-4 mt-3 text-[9px] font-black uppercase text-gray-500">
+                                 <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded bg-teal-500"></div>Výroba ({selectedWorker.productionCount})</div>
+                                 <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded bg-sky-500"></div>Logistika ({selectedWorker.logisticsCount})</div>
+                                 <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded bg-[#4169E1]"></div>Inventúra ({selectedWorker.inventoryCount})</div>
+                             </div>
+                        </div>
+
+                        {/* Performance Details */}
+                        <div className="space-y-4">
+                            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 border-l-4 border-yellow-500 pl-3">Efektivita a objem</h3>
+                            <div className="space-y-4 bg-gray-900/30 p-6 rounded-2xl border border-gray-700">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm text-gray-400 font-bold">Celkovo norma minút:</span>
+                                    <span className="text-lg font-black text-teal-400 font-mono">{Math.round(selectedWorker.totalStandardMinutes)} min</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm text-gray-400 font-bold">Čistý odpracovaný čas:</span>
+                                    <span className="text-lg font-black text-white font-mono">{formatDuration(selectedWorker.totalExecutionMs)}</span>
+                                </div>
+                                <div className="pt-3 border-t border-gray-700 flex justify-between items-center">
+                                    <span className="text-sm text-gray-400 font-bold">Priemerná reakcia:</span>
+                                    <span className="text-lg font-black text-yellow-500 font-mono">{formatDuration(selectedWorker.countReaction > 0 ? selectedWorker.totalReactionMs / selectedWorker.countReaction : 0)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Modal Footer / Export */}
+                    <div className="p-8 bg-gray-900/60 flex flex-col sm:flex-row gap-4 border-t border-gray-700">
+                        <button 
+                            onClick={() => handleExportWorkerKPI(selectedWorker)}
+                            className="flex-1 bg-green-700 hover:bg-green-600 text-white font-black py-4 rounded-2xl transition-all active:scale-95 uppercase tracking-widest flex items-center justify-center gap-3 border-b-4 border-green-900"
+                        >
+                            <DownloadIcon className="w-5 h-5" />
+                            {t('export_worker_kpi')}
+                        </button>
+                    </div>
+                </div>
+            </div>,
+            document.body
+        )}
     </div>
   );
 };
+
+// Re-using defined icons or creating local ones
+const ClipboardListIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+    </svg>
+);
 
 export default AnalyticsTab;

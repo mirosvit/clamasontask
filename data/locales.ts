@@ -1,7 +1,6 @@
 
 export const translations = {
   sk: {
-    // ... existujúce kľúče ...
     status_blocked: "ZABLOKOVANÉ",
     miss_tab_title: "Prehľad chýbajúceho tovaru",
     miss_kpi_total: "Aktuálne chýba",
@@ -385,9 +384,18 @@ export const translations = {
     log_th_status: "Stav",
     log_th_completed_by: "Dokončil",
     log_sheet_name: "Logistický Prehľad",
+    th_accuracy: "Presnosť (%)",
+    th_inventories: "Inventúry",
+    worker_kpi_title: "Pasport skladníka: {name}",
+    export_worker_kpi: "EXPORT KPI (XLSX)",
+    work_mix: "Rozdelenie práce",
+    audit_title: "LOGISTICKÝ AUDIT & INVENTÚRY",
+    audit_sessions: "Počet relácií",
+    audit_total_items: "Spracovaných položiek",
+    audit_avg_items: "Výkon (pol/audit)",
+    audit_history: "Posledné audity",
   },
   en: {
-    // ... existing keys ...
     status_blocked: "BLOCKED",
     miss_tab_title: "Missing Items Report",
     miss_kpi_total: "Currently Missing",
@@ -770,5 +778,15 @@ export const translations = {
     log_th_status: "Status",
     log_th_completed_by: "Completed By",
     log_sheet_name: "Logistics Overview",
+    th_accuracy: "Accuracy (%)",
+    th_inventories: "Inventories",
+    worker_kpi_title: "Worker Passport: {name}",
+    export_worker_kpi: "EXPORT KPI (XLSX)",
+    work_mix: "Work Mix",
+    audit_title: "LOGISTICS AUDIT & INVENTORY",
+    audit_sessions: "Audit sessions",
+    audit_total_items: "Items processed",
+    audit_avg_items: "Performance (itms/audit)",
+    audit_history: "Recent audits",
   }
 };
