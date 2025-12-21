@@ -314,6 +314,9 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
             requiredQty: Math.ceil(item.quantity * displayedBomQuantity)
         }));
   }, [displayedBomParent, displayedBomQuantity, bomItems]);
+
+  // Zjednotené štýly pre vstupné polia - znížená výška o 10% (z py-3.5 na py-3)
+  const inputBaseClass = "w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 placeholder:font-mono focus:outline-none focus:ring-2 transition-all font-mono uppercase text-lg";
   
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-white">
@@ -434,10 +437,13 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                                     <div>
                                         <label className="block text-gray-300 text-sm font-bold mb-2 uppercase tracking-wide">{t('workplace')}</label>
                                         <div className="relative">
-                                            <select value={selectedWorkplace || ''} onChange={(e) => setSelectedWorkplace(e.target.value)} className="block appearance-none w-full bg-gray-700 border border-gray-600 text-white py-3 px-4 pr-8 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors">
-                                                <option value="">{t('workplace_placeholder')}</option>
+                                            <select value={selectedWorkplace || ''} onChange={(e) => setSelectedWorkplace(e.target.value)} className="block appearance-none w-full bg-gray-700 border border-gray-600 text-white py-3 px-4 pr-8 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors font-mono uppercase text-lg">
+                                                <option value="" className="font-sans normal-case">{t('workplace_placeholder')}</option>
                                                 {workplaces.map((wp) => (<option key={wp.id} value={wp.value}>{wp.value}</option>))}
                                             </select>
+                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+                                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                                            </div>
                                         </div>
                                     </div>
                                 </>
@@ -445,15 +451,18 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                                 <>
                                     <div>
                                         <label className="block text-gray-300 text-sm font-bold mb-2 uppercase tracking-wide">{t('log_reference')}</label>
-                                        <input type="text" value={logisticsRef} onChange={(e) => setLogisticsRef(e.target.value)} placeholder={t('log_reference_place')} className="w-full pl-4 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-colors" />
+                                        <input type="text" value={logisticsRef} onChange={(e) => setLogisticsRef(e.target.value)} placeholder={t('log_reference_place')} className={`${inputBaseClass} focus:ring-sky-500 focus:border-sky-500`} />
                                     </div>
                                     <div>
                                         <label className="block text-gray-300 text-sm font-bold mb-2 uppercase tracking-wide">{t('log_operation')}</label>
                                         <div className="relative">
-                                            <select value={logisticsOp} onChange={(e) => setLogisticsOp(e.target.value)} className="block appearance-none w-full bg-gray-700 border border-gray-600 text-white py-3 px-4 pr-8 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-colors">
-                                                <option value="">{t('workplace_placeholder')}</option>
+                                            <select value={logisticsOp} onChange={(e) => setLogisticsOp(e.target.value)} className="block appearance-none w-full bg-gray-700 border border-gray-600 text-white py-3 px-4 pr-8 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-colors font-mono uppercase text-lg">
+                                                <option value="" className="font-sans normal-case">{t('workplace_placeholder')}</option>
                                                 {logisticsOperationsList.map((op) => (<option key={op.id} value={op.value}>{op.value}</option>))}
                                             </select>
+                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+                                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                                            </div>
                                         </div>
                                     </div>
                                 </>
@@ -461,7 +470,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                             <div>
                                 <label className="block text-gray-300 text-sm font-bold mb-2 uppercase tracking-wide">{t('quantity')}</label>
                                 <div className="flex flex-col sm:flex-row gap-3">
-                                    <input type="number" inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value)} className={`w-full sm:w-1/2 px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-lg font-mono placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors ${entryMode === 'production' ? 'focus:ring-teal-500' : 'focus:ring-sky-500'}`} placeholder={t('pcs_placeholder')} />
+                                    <input type="number" inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value)} className={`${inputBaseClass} sm:w-1/2 ${entryMode === 'production' ? 'focus:ring-teal-500' : 'focus:ring-sky-500'}`} placeholder={t('pcs_placeholder')} />
                                     <div className="flex w-full sm:w-1/2 bg-gray-700 rounded-lg p-1 border border-gray-600">
                                         <button onClick={() => setQuantityUnit('pcs')} disabled={entryMode === 'logistics'} className={`flex-1 py-2 rounded text-sm font-bold transition-all ${quantityUnit === 'pcs' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'} ${entryMode === 'logistics' ? 'opacity-30 cursor-not-allowed' : ''}`}>{t('unit_pcs_short')}</button>
                                         <button onClick={() => setQuantityUnit('boxes')} className={`flex-1 py-2 rounded text-sm font-bold transition-all ${quantityUnit === 'boxes' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}>{t('unit_boxes_short')}</button>
@@ -492,7 +501,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
           {activeTab === 'tasks' && hasPermission('perm_tab_tasks') && (
             <div className="animate-fade-in pb-20">
               <div className="mb-4 flex justify-center">
-                  <input type="text" value={taskSearchQuery} onChange={e => setTaskSearchQuery(e.target.value)} className="w-full max-w-md px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all" placeholder={t('task_search_placeholder')} />
+                  <input type="text" value={taskSearchQuery} onChange={e => setTaskSearchQuery(e.target.value)} className="w-full max-w-md px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 placeholder:font-mono focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase" placeholder={t('task_search_placeholder')} />
               </div>
               <TaskList currentUser={currentUserRole} currentUserName={currentUser} tasks={tasks.filter(t => { const q = taskSearchQuery.toLowerCase(); return (t.partNumber && t.partNumber.toLowerCase().includes(q)) || (t.text && t.text.toLowerCase().includes(q)) || (t.workplace && t.workplace.toLowerCase().includes(q)); })} onToggleTask={onToggleTask} onEditTask={onEditTask} onDeleteTask={onDeleteTask} onToggleMissing={onToggleMissing} onSetInProgress={onSetInProgress} onToggleBlock={onToggleBlock} onToggleManualBlock={onToggleManualBlock} onMarkAsIncorrect={onMarkAsIncorrect} onAddNote={onAddNote} onReleaseTask={onReleaseTask} missingReasons={missingReasons} hasPermission={hasPermission} />
             </div>
@@ -534,7 +543,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                                               inputMode="numeric"
                                               value={bomQuantity} 
                                               onChange={(e) => setBomQuantity(e.target.value)} 
-                                              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white font-mono placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all" 
+                                              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white font-mono placeholder-gray-500 placeholder:font-mono focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all text-lg" 
                                               placeholder="Napr. 500" 
                                           />
                                       </div>
@@ -543,9 +552,9 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                                           <select 
                                               value={bomSelectedWorkplace || ''} 
                                               onChange={(e) => setBomSelectedWorkplace(e.target.value)} 
-                                              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                                              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase text-lg"
                                           >
-                                              <option value="">{t('workplace_placeholder')}</option>
+                                              <option value="" className="font-sans normal-case">{t('workplace_placeholder')}</option>
                                               {workplaces.map(wp => <option key={wp.id} value={wp.value}>{wp.value}</option>)}
                                           </select>
                                       </div>
@@ -670,7 +679,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
               </div>
           )}
            {activeTab === 'missing' && hasPermission('perm_tab_missing') && <MissingItemsTab tasks={tasks} onDeleteMissingItem={props.onDeleteMissingItem} hasPermission={hasPermission} />}
-           {/* Fix: Pass missing required onAddTask and onToggleTask props to InventoryTab */}
            {activeTab === 'inventory' && hasPermission('perm_tab_inventory') && <InventoryTab currentUser={currentUser} tasks={tasks} onAddTask={onAddTask} onUpdateTask={onUpdateTask} onToggleTask={onToggleTask} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} parts={parts.map(p => p.value)} onRequestPart={props.onRequestPart} />}
            {activeTab === 'logistics' && hasPermission('perm_tab_logistics_center') && <LogisticsCenterTab tasks={tasks} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} />}
            {activeTab === 'permissions' && hasPermission('perm_tab_permissions') && <PermissionsTab roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={onDeleteRole} onUpdatePermission={onUpdatePermission} onVerifyAdminPassword={onVerifyAdminPassword} />}

@@ -14,6 +14,7 @@ interface TaskListProps {
   onDeleteTask: (id: string) => void;
   onToggleMissing: (id: string, reason?: string) => void;
   onSetInProgress: (id: string) => void;
+  onToggleTaskInProgress?: (id: string) => void; // Optional alias
   onToggleBlock: (id: string) => void;
   onToggleManualBlock: (id: string) => void;
   onMarkAsIncorrect: (id: string) => void;
@@ -179,7 +180,7 @@ const TaskList: React.FC<TaskListProps> = (props) => {
                 // --- DETEKCIA ŠPECIÁLNEJ ÚLOHY ---
                 const isSystemInventoryTask = task.partNumber === "Počítanie zásob";
                 
-                // --- FILTER VIDITEĽNOSTI INVENTÚRY (Bod 1 požiadavky) ---
+                // --- FILTER VIDITEĽNOSTI INVENTÚRY ---
                 if (isSystemInventoryTask && !props.hasPermission('perm_tab_inventory')) {
                     return null;
                 }
@@ -230,12 +231,16 @@ const TaskList: React.FC<TaskListProps> = (props) => {
                         )}
 
                         <div className="flex-grow p-4 flex flex-col gap-1 min-w-0 relative">
-                            {isSystemInventoryTask && !task.isDone && (
-                                <div className="absolute left-0 top-0 p-1">
-                                    <span className="bg-[#4169E1] text-white text-[10px] font-bold uppercase tracking-widest px-1 rounded border border-[#4169E1]">INVENTÚRA</span>
-                                </div>
-                            )}
                             <div className="relative z-10">
+                                {/* Indigo štítok pre INVENTÚRU (rovnaký štýl ako hľadá sa tovar) */}
+                                {isSystemInventoryTask && !task.isDone && (
+                                    <div className="mb-1">
+                                        <span className="bg-[#4169E1] text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded animate-pulse border border-[#3151b1] shadow-[0_0_10px_rgba(65,105,225,0.4)] inline-block">
+                                            📋 {t('tab_inventory')} {task.inProgressBy ? `• ${task.inProgressBy}` : ''}
+                                        </span>
+                                    </div>
+                                )}
+
                                 {/* PULZUJÚCI ŠTÍTOK PRE URGENTNÉ ÚLOHY (ORANŽOVÝ) */}
                                 {isUrgent && !isManualBlocked && (
                                     <div className="mb-1">
@@ -254,10 +259,10 @@ const TaskList: React.FC<TaskListProps> = (props) => {
                                     </div>
                                 )}
 
-                                {/* NOVÝ ŠTÍTOK PRE ZABLOKOVANÉ ÚLOHY (MODRÝ) */}
+                                {/* NOVÝ ŠTÍTOK PRE ZABLOKOVANÉ ÚLOHY (TMAVOMODRÝ) */}
                                 {isManualBlocked && !task.isDone && (
                                     <div className="mb-1">
-                                        <span className="bg-[#4169E1] text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded animate-pulse border border-[#3151b1] shadow-[0_0_10px_rgba(65,105,225,0.4)] inline-block">
+                                        <span className="bg-[#1e1b4b] text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-[#312e81] shadow-sm inline-block">
                                             🚫 {t('status_blocked')}
                                         </span>
                                     </div>
@@ -280,10 +285,10 @@ const TaskList: React.FC<TaskListProps> = (props) => {
                                     </div>
                                 </div>
                                 <div className="flex flex-wrap gap-2 items-center">
-                                    <span className={`text-lg font-bold uppercase tracking-wider ${task.isDone ? 'text-gray-600' : isManualBlocked ? 'text-gray-600' : 'text-cyan-400'}`}>{task.workplace || "---"}</span>
+                                    <span className={`text-lg font-bold uppercase tracking-wider ${task.isDone ? 'text-gray-600' : isManualBlocked ? 'text-gray-600' : isSystemInventoryTask ? 'text-[#4169E1]' : 'text-cyan-400'}`}>{task.workplace || "---"}</span>
                                     {task.note && <span className="inline-block px-2 py-0.5 rounded bg-[#fef9c3] text-gray-800 text-xs font-bold shadow-sm border border-yellow-200 leading-tight">{task.note}</span>}
                                 </div>
-                                {task.isInProgress && (
+                                {task.isInProgress && !isSystemInventoryTask && (
                                     <div className="flex"><span className="text-[#FFD700] text-xs font-bold uppercase tracking-wide border border-[#FFD700]/50 bg-[#FFD700]/10 px-2 py-0.5 rounded animate-pulse">{t('status_resolving')} {task.inProgressBy}</span></div>
                                 )}
 
@@ -303,7 +308,7 @@ const TaskList: React.FC<TaskListProps> = (props) => {
                         <div className="flex flex-shrink-0 items-center justify-center p-3 z-10">
                             <div className="grid grid-cols-5 gap-2 items-center justify-center">
                                 {isSystemInventoryTask ? (
-                                    // Špeciálne tlačidlá pre Inventúru (povolené mazanie aj po dokončení - Bod 2 požiadavky)
+                                    // Špeciálne tlačidlá pre Inventúru (povolené mazanie aj po dokončení)
                                     props.hasPermission('perm_btn_delete') && (
                                         <button onClick={() => handleDeleteClick(task.id)} className="w-16 h-16 flex items-center justify-center rounded-lg bg-red-900/50 text-red-500 hover:bg-red-800 hover:text-white border border-red-800 transition-colors">
                                             <TrashIcon className="w-8 h-8" />
@@ -331,7 +336,7 @@ const TaskList: React.FC<TaskListProps> = (props) => {
                                             <button onClick={() => props.onToggleBlock(task.id)} title={t('perm_btn_lock')} className={`w-16 h-16 flex items-center justify-center rounded-lg transition-all active:scale-95 shadow-lg ${task.isBlocked ? 'bg-gray-600 text-white border border-gray-500' : 'bg-gray-700 text-gray-400 hover:bg-gray-600 border border-gray-600'}`}><SearchIcon className="w-8 h-8" /></button>
                                         )}
                                         {props.hasPermission('perm_btn_block_new') && (
-                                            <button onClick={() => props.onToggleManualBlock(task.id)} className={`w-16 h-16 flex items-center justify-center rounded-lg border shadow-lg transition-all active:scale-95 ${task.isManualBlocked ? 'bg-[#4169E1] border-[#4169E1] text-white' : 'bg-black border-[#4169E1] text-[#4169E1]'}`}><LockIcon className="w-8 h-8" /></button>
+                                            <button onClick={() => props.onToggleManualBlock(task.id)} className={`w-16 h-16 flex items-center justify-center rounded-lg border shadow-lg transition-all active:scale-95 ${task.isManualBlocked ? 'bg-[#1e1b4b] border-[#312e81] text-white' : 'bg-black border-[#4169E1] text-[#4169E1]'}`}><LockIcon className="w-8 h-8" /></button>
                                         )}
                                         {!isSearchingMode && !isManualBlocked && props.hasPermission('perm_btn_finish') && (
                                             <button onClick={() => task.isInProgress && props.onToggleTask(task.id)} disabled={!task.isInProgress} className={`w-16 h-16 flex items-center justify-center rounded-xl transition-all shadow-xl border ${task.isInProgress ? 'bg-lime-600 text-white hover:bg-lime-500 active:scale-95 border-lime-500' : 'bg-gray-700 text-gray-500 border-gray-600 cursor-not-allowed opacity-50'}`}><CheckIcon className="w-12 h-12" /></button>

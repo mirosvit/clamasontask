@@ -143,7 +143,7 @@ const PartNumberInput: React.FC<PartNumberInputProps> = ({ parts, onPartSelect, 
   return (
     <div className="relative" ref={containerRef}>
       <div className="relative">
-        <span className="absolute inset-y-0 left-0 flex items-center pl-3">
+        <span className="absolute inset-y-0 left-0 flex items-center pl-4">
           <SearchIcon className="h-5 w-5 text-gray-500" />
         </span>
         <input
@@ -154,7 +154,7 @@ const PartNumberInput: React.FC<PartNumberInputProps> = ({ parts, onPartSelect, 
           onKeyDown={handleInternalKeyDown}
           onFocus={() => setIsDropdownVisible(true)}
           placeholder={placeholder || t('input_wildcard_hint')}
-          className="w-full pl-10 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors"
+          className="w-full pl-11 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 placeholder:font-mono focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors font-mono uppercase text-lg"
         />
       </div>
 
@@ -166,7 +166,7 @@ const PartNumberInput: React.FC<PartNumberInputProps> = ({ parts, onPartSelect, 
             <li
                 key={index}
                 onClick={() => handleSelectPart(part)}
-                className="px-4 py-2 text-gray-300 hover:bg-teal-600 hover:text-white cursor-pointer transition-colors duration-150"
+                className="px-4 py-2 text-gray-300 hover:bg-teal-600 hover:text-white cursor-pointer transition-colors duration-150 font-mono"
             >
                 {part}
             </li>
