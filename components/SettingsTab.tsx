@@ -190,7 +190,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
     setTimeout(() => setSuccessMsg(''), 3000);
   };
 
-  // --- FILTROVANIE DUPLICÍT UŽÍVATEĽOV ---
   const uniqueUsers = useMemo(() => {
       const seen = new Set();
       return users.filter(user => {
@@ -201,7 +200,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
       });
   }, [users]);
 
-  // Helper to open confirm modal
   const openConfirmModal = (title: string, message: string, action: () => void) => {
       setConfirmModal({
           isOpen: true,
@@ -220,7 +218,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
       closeConfirmModal();
   };
 
-  // --- Filter Helpers ---
   const filteredParts = parts.filter(p => 
       p.value.toLowerCase().includes(partSearch.toLowerCase()) || 
       (p.description && p.description.toLowerCase().includes(partSearch.toLowerCase()))
@@ -229,7 +226,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
   const filteredReasons = missingReasons.filter(r => r.value.toLowerCase().includes(reasonSearch.toLowerCase()));
   const filteredLogOps = logisticsOperations.filter(op => op.value.toLowerCase().includes(logOpSearch.toLowerCase()));
 
-  // --- User Handlers ---
   const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUser.trim() || !newPass.trim()) { setUserError(t('user_fill')); return; }
@@ -259,7 +255,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
       );
   };
 
-  // --- DB Handlers ---
   const handleAddSinglePart = (e: React.FormEvent) => {
     e.preventDefault();
     if(newPart.trim()) {
@@ -457,7 +452,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
       item.childPart.toLowerCase().includes(bomSearchQuery.toLowerCase())
   );
   
-  // Security Handlers
   const handleToggleMaintenance = () => {
       onUpdateSystemConfig({ maintenanceMode: !systemConfig.maintenanceMode });
   };
@@ -494,7 +488,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
       showSuccess(t('sec_ip_removed'));
   };
 
-
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-8 animate-fade-in relative">
       {successMsg && <div className="fixed top-4 right-4 bg-green-600 text-white p-4 rounded-lg shadow-xl z-50 animate-bounce">{successMsg}</div>}
@@ -507,7 +500,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
           </div>
           {partRequests.length > 0 || bomRequests.length > 0 ? ( 
               <div className="space-y-3">
-                  {/* Part Requests */}
                   {partRequests.map(req => (
                       <div key={req.id} className="flex flex-col sm:flex-row sm:items-center justify-between bg-gray-800 p-4 rounded-lg border border-gray-700">
                           <div>
@@ -523,7 +515,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                           </div>
                       </div>
                   ))}
-                  {/* BOM Requests */}
                   {bomRequests.map(req => (
                       <div key={req.id} className="flex flex-col sm:flex-row sm:items-center justify-between bg-gray-800 p-4 rounded-lg border border-gray-700">
                           <div>
@@ -591,9 +582,8 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
         </form>
       </div>
 
-      {/* ZVYŠOK KOMPONENTU OSTÁVA NEZMENENÝ */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* ... (ostatné sekcie PARTS, WORKPLACES atď.) */}
+        {/* 2. PARTS */}
         <div className="bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-gray-700 flex flex-col h-full">
           <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-2">
               <h2 className="text-xl font-bold text-teal-400">{t('sect_parts')}</h2>
@@ -628,6 +618,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
           )}
         </div>
 
+        {/* 3. WORKPLACES */}
         <div className="bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-gray-700 flex flex-col h-full">
           <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-2">
               <h2 className="text-xl font-bold text-teal-400">{t('sect_wp')}</h2>
@@ -656,6 +647,236 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
             </>
           )}
         </div>
+
+        {/* 4. MISSING REASONS */}
+        <div className="bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-gray-700 flex flex-col h-full">
+          <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-2">
+              <h2 className="text-xl font-bold text-teal-400">{t('sect_reasons')}</h2>
+          </div>
+          <div className="mb-2 relative"><SearchIcon className="absolute top-2 left-2 w-4 h-4 text-gray-500"/><input value={reasonSearch} onChange={e=>setReasonSearch(e.target.value)} className="w-full pl-8 pr-2 py-1 bg-gray-800 border border-gray-600 rounded text-sm text-white" placeholder={t('search_db_placeholder')} /></div>
+          <div className="flex-1 overflow-y-auto max-h-60 bg-gray-800 rounded mb-4 p-2 space-y-1 custom-scrollbar">
+            {filteredReasons.map(item => (
+              <div key={item.id} className="flex justify-between items-center bg-gray-700 px-3 py-1 rounded hover:bg-gray-600">
+                <span className="text-sm">{item.value}</span>
+                {canManageDB && <button onClick={() => handleDeleteReasonClick(item)} className="text-red-400 hover:text-red-200">×</button>}
+              </div>
+            ))}
+          </div>
+          {canManageDB && (
+            <form onSubmit={handleAddReason} className="flex gap-2">
+                <input value={newMissingReason} onChange={e => setNewMissingReason(e.target.value)} placeholder={t('new_reason_place')} className="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm" />
+                <button type="submit" className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded text-sm">{t('add_single')}</button>
+            </form>
+          )}
+        </div>
+
+        {/* 5. LOGISTICS OPERATIONS */}
+        <div className="bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-gray-700 flex flex-col h-full">
+          <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-2">
+              <h2 className="text-xl font-bold text-teal-400">{t('sect_log_ops')}</h2>
+          </div>
+          <div className="mb-2 relative"><SearchIcon className="absolute top-2 left-2 w-4 h-4 text-gray-500"/><input value={logOpSearch} onChange={e=>setLogOpSearch(e.target.value)} className="w-full pl-8 pr-2 py-1 bg-gray-800 border border-gray-600 rounded text-sm text-white" placeholder={t('search_db_placeholder')} /></div>
+          <div className="flex-1 overflow-y-auto max-h-60 bg-gray-800 rounded mb-4 p-2 space-y-1 custom-scrollbar">
+            {filteredLogOps.map(item => (
+              <div key={item.id} className="flex justify-between items-center bg-gray-700 px-3 py-1 rounded hover:bg-gray-600">
+                <span className="text-sm font-mono">{item.value} {item.standardTime ? `(${item.standardTime} min)` : ''}</span>
+                {canManageLogOps && <button onClick={() => handleDeleteLogOpClick(item)} className="text-red-400 hover:text-red-200">×</button>}
+              </div>
+            ))}
+          </div>
+          {canManageLogOps && (
+            <form onSubmit={handleAddLogOp} className="flex gap-2">
+                <input value={newLogOp} onChange={e => setNewLogOp(e.target.value)} placeholder={t('new_op_place')} className="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm" />
+                <input type="number" value={newLogOpTime} onChange={e => setNewLogOpTime(e.target.value)} placeholder="min" className="w-16 bg-gray-700 border border-gray-600 rounded text-white text-center text-sm" />
+                <button type="submit" className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded text-sm">{t('add_single')}</button>
+            </form>
+          )}
+        </div>
+
+        {/* 6. DATA MAINTENANCE */}
+        <div className="bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-gray-700">
+          <h2 className="text-xl font-bold text-teal-400 mb-6 border-b border-gray-700 pb-2">{t('sect_maint')}</h2>
+          <p className="text-sm text-gray-400 mb-4">{t('maint_desc')}</p>
+          <div className="space-y-3">
+              <button 
+                  onClick={handleRunArchiving} 
+                  disabled={isArchiving}
+                  className={`w-full py-3 px-4 rounded-lg font-bold shadow-lg transition-all flex items-center justify-center gap-2 ${isArchiving ? 'bg-gray-700 text-gray-500' : 'bg-purple-700 hover:bg-purple-600 text-white active:scale-95'}`}
+              >
+                  {isArchiving ? t('archiving') : t('archive_btn')}
+              </button>
+              <div className="grid grid-cols-2 gap-2 mt-6">
+                  <a href="https://console.firebase.google.com/" target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center p-3 bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-700 transition-colors">
+                      <span className="text-xs font-bold text-teal-400">{t('sect_maint_db_link')}</span>
+                  </a>
+                  <a href="https://github.com/mirosvit/clamasontask" target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center p-3 bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-700 transition-colors">
+                      <span className="text-xs font-bold text-teal-400">{t('sect_maint_gh_link')}</span>
+                  </a>
+              </div>
+          </div>
+        </div>
+
+        {/* 7. BREAK MANAGEMENT */}
+        <div className="bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-gray-700">
+          <h2 className="text-xl font-bold text-teal-400 mb-6 border-b border-gray-700 pb-2">{t('sect_breaks')}</h2>
+          <div className="space-y-2 mb-4 max-h-40 overflow-y-auto custom-scrollbar">
+              {breakSchedules.map(b => (
+                  <div key={b.id} className="flex justify-between items-center bg-gray-800 px-3 py-2 rounded">
+                      <span className="text-sm font-mono font-bold text-white">{b.start} - {b.end}</span>
+                      <button onClick={() => handleDeleteBreakClick(b.id)} className="text-red-400 hover:text-red-200">×</button>
+                  </div>
+              ))}
+          </div>
+          <form onSubmit={handleAddBreak} className="flex gap-2 items-center bg-gray-800 p-3 rounded-lg">
+              <input type="time" value={newBreakStart} onChange={e => setNewBreakStart(e.target.value)} required className="bg-gray-700 text-white rounded px-2 py-1 text-sm flex-1" />
+              <span className="text-gray-500">-</span>
+              <input type="time" value={newBreakEnd} onChange={e => setNewBreakEnd(e.target.value)} required className="bg-gray-700 text-white rounded px-2 py-1 text-sm flex-1" />
+              <button type="submit" className="bg-teal-600 text-white px-3 py-1 rounded text-sm font-bold">Add</button>
+          </form>
+        </div>
+
+        {/* 8. PWA INSTALLATION */}
+        <div className="bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-gray-700">
+          <h2 className="text-xl font-bold text-teal-400 mb-6 border-b border-gray-700 pb-2">{t('sect_pwa')}</h2>
+          <p className="text-sm text-gray-400 mb-6">{t('pwa_desc')}</p>
+          <button 
+              onClick={onInstallApp}
+              disabled={!installPrompt}
+              className={`w-full py-4 rounded-xl font-black transition-all shadow-xl flex items-center justify-center gap-3 ${!installPrompt ? 'bg-gray-800 text-gray-600 border-2 border-gray-700 cursor-not-allowed opacity-50' : 'bg-blue-600 hover:bg-blue-500 text-white border-2 border-blue-400 active:scale-95'}`}
+          >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              {installPrompt ? t('pwa_install_btn') : t('pwa_installed')}
+          </button>
+        </div>
+
+        {/* 9. BOM DATABASE */}
+        <div className="bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-gray-700 md:col-span-2">
+            <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-2">
+                <h2 className="text-xl font-bold text-teal-400">{t('sect_bom')}</h2>
+                {isAdmin && bomItems.length > 0 && <button onClick={handleDeleteAllBOMConfirm} className="text-xs bg-red-900 hover:bg-red-800 text-red-100 px-3 py-1 rounded">{t('delete_all')}</button>}
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-1 space-y-4">
+                    <form onSubmit={handleAddBOM} className="bg-gray-800 p-4 rounded-lg space-y-3">
+                        <h3 className="text-sm font-bold text-gray-300 uppercase">{t('bom_add_single')}</h3>
+                        <input value={bomParent} onChange={e=>setBomParent(e.target.value.toUpperCase())} placeholder={t('bom_parent_place')} className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm font-mono" />
+                        <input value={bomChild} onChange={e=>setBomChild(e.target.value.toUpperCase())} placeholder={t('bom_child_place')} className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm font-mono" />
+                        <input type="number" step="0.0001" value={bomQty} onChange={e=>setBomQty(e.target.value)} placeholder={t('bom_qty_place')} className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm font-mono" />
+                        <button type="submit" className="w-full bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded text-sm font-bold">{t('add_single')}</button>
+                    </form>
+                    <div className="bg-gray-800 p-4 rounded-lg space-y-2">
+                        <h3 className="text-sm font-bold text-gray-300 uppercase">{t('bom_bulk_label')}</h3>
+                        <textarea value={bomBulk} onChange={e=>setBomBulk(e.target.value)} className="w-full h-32 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-xs font-mono" placeholder="PARENT;CHILD;QTY" />
+                        <button onClick={handleBulkAddBOM} className="w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-bold">{t('bom_bulk_btn')}</button>
+                    </div>
+                </div>
+                <div className="lg:col-span-2 flex flex-col h-full min-h-[400px]">
+                    <div className="mb-3 relative">
+                        <SearchIcon className="absolute top-2.5 left-3 w-4 h-4 text-gray-500" />
+                        <input value={bomSearchQuery} onChange={e=>setBomSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-sm text-white" placeholder={t('bom_search_placeholder')} />
+                    </div>
+                    <div className="flex-1 overflow-y-auto max-h-[450px] bg-gray-800 rounded-lg p-2 custom-scrollbar">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-gray-900/50 text-gray-500 text-[10px] uppercase font-bold sticky top-0">
+                                <tr>
+                                    <th className="p-2">{t('bom_parent_place')}</th>
+                                    <th className="p-2">{t('bom_child_place')}</th>
+                                    <th className="p-2 text-right">{t('bom_qty_place')}</th>
+                                    <th className="p-2"></th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-700/30">
+                                {filteredBOMItems.map(item => (
+                                    <tr key={item.id} className="hover:bg-gray-700/30">
+                                        <td className="p-2 font-mono text-white">{item.parentPart}</td>
+                                        <td className="p-2 font-mono text-gray-400">{item.childPart}</td>
+                                        <td className="p-2 text-right font-mono text-teal-400">{item.quantity}</td>
+                                        <td className="p-2 text-right">
+                                            <button onClick={() => handleDeleteBOMClick(item)} className="text-red-500 hover:text-red-400 p-1">×</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {/* 10. SECURITY & MAINTENANCE */}
+        <div className="bg-gray-900 rounded-xl p-4 sm:p-6 shadow-lg border border-gray-700 md:col-span-2">
+            <h2 className="text-xl font-bold text-teal-400 mb-6 border-b border-gray-700 pb-2">{t('sect_security')}</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Maintenance Toggle */}
+                <div className="space-y-4">
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-200">{t('sec_maint_mode')}</h3>
+                        <p className="text-sm text-gray-500 mb-4">{t('sec_maint_desc')}</p>
+                        <div className="flex items-center gap-4">
+                            <button 
+                                onClick={handleToggleMaintenance}
+                                className={`px-6 py-2 rounded-lg font-bold text-sm transition-all ${systemConfig.maintenanceMode ? 'bg-red-600 text-white shadow-lg shadow-red-900/40' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
+                            >
+                                {systemConfig.maintenanceMode ? t('sec_btn_disable') : t('sec_btn_enable')}
+                            </button>
+                            <span className={`text-xs font-black uppercase tracking-widest ${systemConfig.maintenanceMode ? 'text-red-500 animate-pulse' : 'text-gray-600'}`}>
+                                {systemConfig.maintenanceMode ? t('sec_maint_active') : t('sec_maint_inactive')}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 space-y-3">
+                        <h4 className="text-sm font-bold text-gray-400 uppercase">{t('sec_schedule_title')}</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-[10px] text-gray-500 uppercase mb-1">{t('sec_start')}</label>
+                                <input type="datetime-local" value={scheduleStart} onChange={e=>setScheduleStart(e.target.value)} className="w-full bg-gray-700 text-white text-xs rounded p-2 border border-gray-600" />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] text-gray-500 uppercase mb-1">{t('sec_end')}</label>
+                                <input type="datetime-local" value={scheduleEnd} onChange={e=>setScheduleEnd(e.target.value)} className="w-full bg-gray-700 text-white text-xs rounded p-2 border border-gray-600" />
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                             <button onClick={handleSaveMaintenanceSchedule} className="flex-1 bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold py-2 rounded transition-all">{t('sec_btn_schedule')}</button>
+                             <button onClick={handleClearSchedule} className="bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs font-bold py-2 px-3 rounded transition-all">{t('sec_btn_clear_schedule')}</button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* IP Whitelist */}
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                        <h3 className="text-lg font-bold text-gray-200">{t('sec_ip_whitelist')}</h3>
+                        <button 
+                            onClick={handleToggleIpCheck}
+                            className={`text-[10px] font-black px-2 py-1 rounded border transition-all ${systemConfig.ipCheckEnabled ? 'bg-green-900/30 text-green-400 border-green-700' : 'bg-gray-800 text-gray-500 border-gray-700'}`}
+                        >
+                            {systemConfig.ipCheckEnabled ? t('sec_ip_check_enabled') : t('sec_ip_check_disabled')}
+                        </button>
+                    </div>
+                    <p className="text-sm text-gray-500">{t('sec_ip_desc')}</p>
+                    <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
+                        <div className="flex justify-between items-center mb-3">
+                            <span className="text-xs text-gray-400">{t('sec_my_ip')}</span>
+                            <span className="text-xs font-mono font-bold text-teal-400 bg-gray-900 px-2 py-0.5 rounded border border-gray-700">{myIp}</span>
+                        </div>
+                        <div className="space-y-2 mb-4 max-h-32 overflow-y-auto custom-scrollbar pr-2">
+                            {(systemConfig.allowedIPs || []).map(ip => (
+                                <div key={ip} className="flex justify-between items-center bg-gray-900 px-3 py-1.5 rounded border border-gray-700">
+                                    <span className="text-xs font-mono text-gray-300">{ip}</span>
+                                    <button onClick={() => handleRemoveIp(ip)} className="text-red-500 hover:text-red-400">×</button>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="flex gap-2">
+                            <input value={newIp} onChange={e=>setNewIp(e.target.value)} placeholder={t('sec_ip_placeholder')} className="flex-1 bg-gray-700 text-white text-xs rounded px-3 py-2 border border-gray-600 focus:border-teal-500" />
+                            <button onClick={handleAddIp} className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-4 rounded transition-all">+</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
       </div>
 
       {/* Confirmation Modal Portal */}
@@ -667,11 +888,11 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                            <ExclamationIcon className="w-8 h-8 text-red-500" />
                        </div>
                        <h3 className="text-xl font-bold text-white mb-2">{confirmModal.title}</h3>
-                       <p className="text-gray-400 text-sm">{confirmModal.message}</p>
+                       <div className="text-gray-400 text-sm">{confirmModal.message}</div>
                    </div>
                    <div className="flex gap-3">
-                       <button onClick={closeConfirmModal} className="flex-1 py-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 font-bold transition-colors">{t('btn_cancel')}</button>
-                       <button onClick={handleConfirmAction} className="flex-1 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold transition-colors shadow-lg flex items-center justify-center gap-2">
+                       <button onClick={closeConfirmModal} className="flex-1 py-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 font-bold transition-colors uppercase text-xs">{t('btn_cancel')}</button>
+                       <button onClick={handleConfirmAction} className="flex-1 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold transition-colors shadow-lg flex items-center justify-center gap-2 uppercase text-xs">
                            <TrashIcon className="w-5 h-5" />
                            {t('btn_confirm_delete')}
                        </button>
