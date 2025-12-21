@@ -120,7 +120,7 @@ const TaskList: React.FC<TaskListProps> = (props) => {
     };
 
     const handleNoteClick = (task: Task) => {
-        const isNoteLocked = task.auditFinalBadge && !props.hasPermission('perm_btn_audit');
+        const isNoteLocked = !!(task.auditFinalBadge && !props.hasPermission('perm_btn_audit'));
         if (isNoteLocked) return;
 
         setNoteId(noteId === task.id ? null : task.id);
@@ -190,7 +190,7 @@ const TaskList: React.FC<TaskListProps> = (props) => {
                 const isAuditInProgress = task.isAuditInProgress;
                 const isUrgent = task.priority === 'URGENT' && !task.isDone;
                 const isSystemInventoryTask = task.partNumber === "Počítanie zásob";
-                const isNoteLockedByAudit = task.auditFinalBadge && !props.hasPermission('perm_btn_audit');
+                const isNoteLockedByAudit = !!(task.auditFinalBadge && !props.hasPermission('perm_btn_audit'));
                 
                 if (isSystemInventoryTask && !props.hasPermission('perm_tab_inventory')) {
                     return null;

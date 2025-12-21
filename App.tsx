@@ -81,6 +81,7 @@ export interface Notification {
     partNumber: string;
     reason: string;
     reportedBy: string;
+    targetUser: string; // Pridané pre filtrovanie adresáta
     timestamp: number;
 }
 
@@ -343,7 +344,13 @@ const App: React.FC = () => {
   
   useEffect(() => { const q = query(collection(db, 'part_requests')); return onSnapshot(q, s => setPartRequests(s.docs.map(d => ({id:d.id, ...d.data()} as PartRequest)))); }, []);
   useEffect(() => { const q = query(collection(db, 'bom_requests')); return onSnapshot(q, s => setBomRequests(s.docs.map(d => ({id:d.id, ...d.data()} as BOMRequest)))); }, []);
-  useEffect(() => { return onSnapshot(collection(db, 'notifications'), s => setNotifications(s.docs.map(d => ({id:d.id, ...d.data()} as Notification)))); }, []);
+  
+  // OPTIMALIZÁCIA: Notifikácie počúva len ten užívateľ, ktorému sú určené
+  useEffect(() => { 
+      if (!isAuthenticated || !currentUser) return;
+      const q = query(collection(db, 'notifications'), where('targetUser', '==', currentUser)); 
+      return onSnapshot(q, s => setNotifications(s.docs.map(d => ({id:d.id, ...d.data()} as Notification)))); 
+  }, [isAuthenticated, currentUser]);
   
   useEffect(() => { 
       const q = query(collection(db, 'system_breaks')); 
@@ -433,8 +440,16 @@ const App: React.FC = () => {
       if(t) {
           const isMissing = !t.isMissing;
           await updateDoc(doc(db,'tasks',id), { isMissing, missingReportedBy: isMissing?currentUser:null, missingReason: isMissing?(reason||'Iné'):null, isInProgress: false, inProgressBy: null, isBlocked: false, isManualBlocked: false, isAuditInProgress: false, auditBy: null });
-          if (isMissing) {
-              await addDoc(collection(db, 'notifications'), { partNumber: t.partNumber || 'Unknown', reason: reason || 'Iné', reportedBy: currentUser, timestamp: Date.now() });
+          
+          // Ak sa položka nahlasuje ako chýbajúca a má tvorcu, pošleme mu notifikáciu
+          if (isMissing && t.createdBy && t.createdBy !== currentUser) {
+              await addDoc(collection(db, 'notifications'), { 
+                  partNumber: t.partNumber || 'Unknown', 
+                  reason: reason || 'Iné', 
+                  reportedBy: currentUser, 
+                  targetUser: t.createdBy, // Iba tento užívateľ notifikáciu uvidí
+                  timestamp: Date.now() 
+              });
           }
       } 
   };

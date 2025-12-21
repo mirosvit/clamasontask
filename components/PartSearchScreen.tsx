@@ -725,7 +725,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
               <div className="bg-gray-800 border-2 border-[#926a05] rounded-xl shadow-2xl w-full max-w-md p-6 relative" onClick={e => e.stopPropagation()}>
                   <h3 className="text-xl font-bold text-white mb-6 text-center uppercase tracking-wide">{t('audit_start_title')}</h3>
                   <p className="text-gray-300 text-center mb-8">
-                      {t('audit_start_desc', { part: auditStartTask.partNumber })}
+                      {t('audit_start_desc', { part: auditStartTask.partNumber || '' })}
                   </p>
                   <div className="flex gap-3">
                       <button onClick={() => setAuditStartTask(null)} className="flex-1 py-4 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 font-bold transition-colors uppercase text-xs">{t('btn_cancel')}</button>
