@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import PartNumberInput from './PartNumberInput';
 import TaskList from './TaskList';
 import SettingsTab from './SettingsTab';
@@ -31,6 +32,8 @@ interface PartSearchScreenProps {
   onAddNote: (id: string, note: string) => void;
   onDeleteMissingItem: (id: string) => void;
   onReleaseTask: (id: string) => void;
+  onStartAudit: (id: string) => void;
+  onFinishAudit: (id: string, result: 'found' | 'missing', note: string) => void;
   users: UserData[];
   onAddUser: (user: UserData) => void;
   onUpdatePassword: (username: string, newPass: string) => void;
@@ -132,6 +135,12 @@ const ActivityIcon: React.FC<{ className?: string }> = ({ className }) => (
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
     </svg>
 );
+const ClipboardCheckIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor">
+        <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+        <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm9.707 5.707a1 1 0 00-1.414-1.414L9 12.586l-1.293-1.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+    </svg>
+);
 
 const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   const { 
@@ -162,6 +171,10 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   const [activeTab, setActiveTab] = useState<'entry' | 'tasks' | 'settings' | 'analytics' | 'bom' | 'missing' | 'logistics' | 'permissions' | 'inventory'>('entry');
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const [auditStartTask, setAuditStartTask] = useState<Task | null>(null);
+  const [auditFinishTask, setAuditFinishTask] = useState<Task | null>(null);
+  const [auditNote, setAuditNote] = useState('');
 
   const [bomParentQuery, setBomParentQuery] = useState('');
   const [bomQuantity, setBomQuantity] = useState('');
@@ -305,6 +318,31 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
     }
   };
 
+  const handleAuditClick = (task: Task) => {
+      if (task.isAuditInProgress) {
+          setAuditFinishTask(task);
+          setAuditNote('');
+      } else {
+          setAuditStartTask(task);
+      }
+  };
+
+  const handleConfirmStartAudit = () => {
+      if (auditStartTask) {
+          props.onStartAudit(auditStartTask.id);
+          setAuditStartTask(null);
+      }
+  };
+
+  const handleConfirmFinishAudit = (result: 'found' | 'missing') => {
+      if (auditFinishTask && auditNote.trim()) {
+          props.onFinishAudit(auditFinishTask.id, result, auditNote.trim());
+          setAuditFinishTask(null);
+      } else {
+          alert(t('fill_all_fields'));
+      }
+  };
+
   const bomResults = useMemo(() => {
     if (!displayedBomParent || !displayedBomQuantity) return [];
     return bomItems
@@ -315,7 +353,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
         }));
   }, [displayedBomParent, displayedBomQuantity, bomItems]);
 
-  // Zjednotené štýly pre vstupné polia - znížená výška o 10% (z py-3.5 na py-3)
   const inputBaseClass = "w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 placeholder:font-mono focus:outline-none focus:ring-2 transition-all font-mono uppercase text-lg";
   
   return (
@@ -367,7 +404,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
              </div>
           </div>
           <div className="flex items-center gap-3 z-10">
-            {/* User Info Pill */}
             <div className="hidden sm:flex items-center gap-2 bg-gray-800 border border-gray-700 px-3 py-1.5 rounded-full shadow-sm">
                 <UserIcon className="w-4 h-4 text-teal-400" />
                 <div className="flex flex-col">
@@ -503,7 +539,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
               <div className="mb-4 flex justify-center">
                   <input type="text" value={taskSearchQuery} onChange={e => setTaskSearchQuery(e.target.value)} className="w-full max-w-md px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 placeholder:font-mono focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase" placeholder={t('task_search_placeholder')} />
               </div>
-              <TaskList currentUser={currentUserRole} currentUserName={currentUser} tasks={tasks.filter(t => { const q = taskSearchQuery.toLowerCase(); return (t.partNumber && t.partNumber.toLowerCase().includes(q)) || (t.text && t.text.toLowerCase().includes(q)) || (t.workplace && t.workplace.toLowerCase().includes(q)); })} onToggleTask={onToggleTask} onEditTask={onEditTask} onDeleteTask={onDeleteTask} onToggleMissing={onToggleMissing} onSetInProgress={onSetInProgress} onToggleBlock={onToggleBlock} onToggleManualBlock={onToggleManualBlock} onMarkAsIncorrect={onMarkAsIncorrect} onAddNote={onAddNote} onReleaseTask={onReleaseTask} missingReasons={missingReasons} hasPermission={hasPermission} />
+              <TaskList currentUser={currentUserRole} currentUserName={currentUser} tasks={tasks.filter(t => { const q = taskSearchQuery.toLowerCase(); return (t.partNumber && t.partNumber.toLowerCase().includes(q)) || (t.text && t.text.toLowerCase().includes(q)) || (t.workplace && t.workplace.toLowerCase().includes(q)); })} onToggleTask={onToggleTask} onEditTask={onEditTask} onDeleteTask={onDeleteTask} onToggleMissing={onToggleMissing} onSetInProgress={onSetInProgress} onToggleBlock={onToggleBlock} onToggleManualBlock={onToggleManualBlock} onMarkAsIncorrect={onMarkAsIncorrect} onAddNote={onAddNote} onReleaseTask={onReleaseTask} onAuditPart={handleAuditClick} missingReasons={missingReasons} hasPermission={hasPermission} />
             </div>
           )}
 
@@ -515,7 +551,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                   <div className="max-w-7xl mx-auto">
                       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                           
-                          {/* PANEL VSTUPOV */}
                           <div className="lg:col-span-4 space-y-6">
                               <div className="bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-700">
                                   <div className="flex items-center gap-3 mb-6">
@@ -597,7 +632,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                               )}
                           </div>
 
-                          {/* PANEL VÝSLEDKOV */}
                           <div className="lg:col-span-8">
                               {bomResults.length > 0 ? (
                                   <div className="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 overflow-hidden flex flex-col h-full">
@@ -684,6 +718,65 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
            {activeTab === 'permissions' && hasPermission('perm_tab_permissions') && <PermissionsTab roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={onDeleteRole} onUpdatePermission={onUpdatePermission} onVerifyAdminPassword={onVerifyAdminPassword} />}
         </div>
       </div>
+
+      {/* Audit Start Modal */}
+      {auditStartTask && createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setAuditStartTask(null)}>
+              <div className="bg-gray-800 border-2 border-[#926a05] rounded-xl shadow-2xl w-full max-w-md p-6 relative" onClick={e => e.stopPropagation()}>
+                  <h3 className="text-xl font-bold text-white mb-6 text-center uppercase tracking-wide">{t('audit_start_title')}</h3>
+                  <p className="text-gray-300 text-center mb-8">
+                      {t('audit_start_desc', { part: auditStartTask.partNumber })}
+                  </p>
+                  <div className="flex gap-3">
+                      <button onClick={() => setAuditStartTask(null)} className="flex-1 py-4 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 font-bold transition-colors uppercase text-xs">{t('btn_cancel')}</button>
+                      <button onClick={handleConfirmStartAudit} className="flex-1 py-4 bg-[#926a05] hover:bg-[#a67c06] text-white rounded-lg font-bold transition-colors shadow-lg uppercase text-xs">
+                          {language === 'sk' ? 'Potvrdiť začiatok' : 'Confirm Start'}
+                      </button>
+                  </div>
+              </div>
+          </div>,
+          document.body
+      )}
+
+      {/* Audit Finish Modal */}
+      {auditFinishTask && createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setAuditFinishTask(null)}>
+              <div className="bg-gray-800 border-2 border-[#926a05] rounded-xl shadow-2xl w-full max-w-lg p-6 relative" onClick={e => e.stopPropagation()}>
+                  <h3 className="text-xl font-bold text-white mb-6 text-center uppercase tracking-wide">{t('audit_finish_title')}</h3>
+                  
+                  <div className="mb-6">
+                      <label className="block text-gray-400 text-xs font-bold uppercase mb-2">{t('audit_finish_note')}</label>
+                      <textarea 
+                        value={auditNote}
+                        onChange={(e) => setAuditNote(e.target.value)}
+                        className="w-full bg-gray-700 border border-gray-600 rounded-lg text-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#926a05] h-32"
+                        placeholder="..."
+                        autoFocus
+                      />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                      <button 
+                        onClick={() => handleConfirmFinishAudit('found')}
+                        disabled={!auditNote.trim()}
+                        className={`py-4 rounded-lg font-bold transition-all shadow-lg uppercase text-xs flex items-center justify-center gap-2 ${!auditNote.trim() ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-green-600 hover:bg-green-500 text-white'}`}
+                      >
+                          ✅ {t('audit_found_btn')}
+                      </button>
+                      <button 
+                        onClick={() => handleConfirmFinishAudit('missing')}
+                        disabled={!auditNote.trim()}
+                        className={`py-4 rounded-lg font-bold transition-all shadow-lg uppercase text-xs flex items-center justify-center gap-2 ${!auditNote.trim() ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-red-600 hover:bg-red-500 text-white'}`}
+                      >
+                          ❌ {t('audit_missing_btn')}
+                      </button>
+                  </div>
+
+                  <button onClick={() => setAuditFinishTask(null)} className="w-full py-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 font-bold transition-colors uppercase text-[10px]">{t('btn_cancel')}</button>
+              </div>
+          </div>,
+          document.body
+      )}
     </div>
   );
 };
