@@ -1,5 +1,6 @@
+
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, enableMultiTabIndexedDbPersistence } from "firebase/firestore";
 
 // Your web app's Firebase configuration for sklad-ulohy
 const firebaseConfig = {
@@ -16,3 +17,14 @@ const app = initializeApp(firebaseConfig);
 
 // Export the database for use in the application
 export const db = getFirestore(app);
+
+// Aktivácia lokálnej perzistencie dát (minimalizácia Reads)
+enableMultiTabIndexedDbPersistence(db).catch((err) => {
+    if (err.code === 'failed-precondition') {
+        // Viacero tabov otvorených naraz, perzistencia funguje len v jednom (pri starších verziách)
+        console.warn('Firestore persistence failed: Multiple tabs open');
+    } else if (err.code === 'unimplemented') {
+        // Prehliadač nepodporuje IndexedDB
+        console.warn('Firestore persistence is not available in this browser');
+    }
+});
