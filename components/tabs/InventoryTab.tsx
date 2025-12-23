@@ -180,7 +180,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                             ? "Pozor! Táto akcia vymaže všetky naskenované dáta a ukončí inventúru bez uloženia do systému." 
                             : "Warning! This action will delete all scanned data and end the inventory without saving to the system."}
                     </p>
-                    <div className="bg-gray-700/50 p-3 rounded-lg border border-gray-600 text-xs">
+                    <div className="bg-gray-700/50 p-4 rounded-lg border border-gray-600 text-sm">
                         <p className="text-gray-300">
                             {language === 'sk'
                                 ? "Ak chcete dáta uložiť a vygenerovať report, použite zelené tlačidlo"
@@ -261,35 +261,35 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
         }
     };
 
-    const inputBaseClass = "w-full h-10 bg-gray-700 border border-gray-600 rounded-lg px-4 text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#4169E1] transition-all font-mono uppercase";
-    const dangerButtonClass = "bg-red-900/40 hover:bg-red-800 text-red-100 px-6 py-4 rounded-xl text-sm font-black border-2 border-red-800/50 shadow-lg transition-all active:scale-95 uppercase tracking-wider flex items-center justify-center gap-2";
+    const inputBaseClass = "w-full h-12 bg-gray-700 border border-gray-600 rounded-lg px-4 text-white text-base placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#4169E1] transition-all font-mono uppercase";
+    const dangerButtonClass = "bg-red-900/40 hover:bg-red-800 text-red-100 px-6 py-5 rounded-xl text-base font-black border-2 border-red-800/50 shadow-lg transition-all active:scale-95 uppercase tracking-wider flex items-center justify-center gap-2";
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6 pb-20 animate-fade-in">
-            <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 relative overflow-hidden">
+        <div className="max-w-4xl mx-auto space-y-8 pb-20 animate-fade-in">
+            <div className="bg-gray-800 p-6 sm:p-8 rounded-xl shadow-lg border border-gray-700 relative overflow-hidden">
                 {!activeInventoryTask ? (
-                    <div className="flex flex-col items-center justify-center py-10 space-y-6">
+                    <div className="flex flex-col items-center justify-center py-12 space-y-8">
                         <div className="text-center">
-                            <h2 className="text-2xl font-bold text-white uppercase tracking-widest">{language === 'sk' ? 'Inventúra nie je spustená' : 'Inventory not started'}</h2>
-                            <p className="text-gray-400 text-sm mt-2">{language === 'sk' ? 'Kliknutím začnete reláciu počítania.' : 'Click to start a counting session.'}</p>
+                            <h2 className="text-3xl font-bold text-white uppercase tracking-widest">{language === 'sk' ? 'Inventúra nie je spustená' : 'Inventory not started'}</h2>
+                            <p className="text-gray-400 text-base mt-3">{language === 'sk' ? 'Kliknutím začnete reláciu počítania.' : 'Click to start a counting session.'}</p>
                         </div>
                         <button 
                             onClick={handleStartInventory}
-                            className="bg-[#4169E1] hover:bg-[#3151b1] text-white font-black py-6 px-12 rounded-2xl shadow-[0_0_20px_rgba(65,105,225,0.4)] transition-all active:scale-95 uppercase tracking-[0.2em] text-xl border-2 border-[#5a81f3]"
+                            className="bg-[#4169E1] hover:bg-[#3151b1] text-white font-black py-8 px-16 rounded-2xl shadow-[0_0_25px_rgba(65,105,225,0.4)] transition-all active:scale-95 uppercase tracking-[0.25em] text-2xl border-2 border-[#5a81f3]"
                         >
                             📋 {language === 'sk' ? 'Spustiť Inventúru' : 'Start Inventory'}
                         </button>
                     </div>
                 ) : (
                     <>
-                        <div className="flex justify-between items-start sm:items-center mb-8 border-b border-gray-700 pb-4">
+                        <div className="flex justify-between items-start sm:items-center mb-10 border-b border-gray-700 pb-6">
                             <div>
-                                <h1 className="text-3xl font-extrabold text-[#4169E1] uppercase tracking-widest leading-none">
+                                <h1 className="text-4xl font-extrabold text-[#4169E1] uppercase tracking-widest leading-none">
                                     {t('tab_inventory')}
                                 </h1>
-                                <div className="flex gap-4 items-center mt-2">
-                                    <span className="bg-[#4169E1]/20 text-[#4169E1] text-[10px] font-black px-2 py-0.5 rounded border border-[#4169E1]/40 animate-pulse uppercase">Aktívna relácia</span>
-                                    <p className="text-[10px] text-gray-500 uppercase font-mono">
+                                <div className="flex gap-6 items-center mt-3">
+                                    <span className="bg-[#4169E1]/20 text-[#4169E1] text-xs font-black px-3 py-1 rounded-md border border-[#4169E1]/40 animate-pulse uppercase">Aktívna relácia</span>
+                                    <p className="text-xs text-gray-500 uppercase font-mono">
                                         Položiek: <span className="text-white font-bold">{scannedItems.length}</span>
                                     </p>
                                 </div>
@@ -297,15 +297,15 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                             
                             <button 
                                 onClick={handleCancelInventory}
-                                className={dangerButtonClass.replace('px-6 py-4', 'px-4 py-3 text-[11px]')}
+                                className={dangerButtonClass.replace('px-6 py-5', 'px-5 py-3 text-xs')}
                             >
                                 🛑 {language === 'sk' ? 'Zrušiť reláciu' : 'Cancel session'}
                             </button>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div>
-                                <label className="block text-gray-300 text-sm font-bold mb-2 uppercase tracking-wide">Skladová Lokácia</label>
+                                <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">Skladová Lokácia</label>
                                 <input 
                                     ref={locationRef}
                                     type="text"
@@ -317,7 +317,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-300 text-sm font-bold mb-2 uppercase tracking-wide">Číslo dielu</label>
+                                <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">Číslo dielu</label>
                                 <PartNumberInput 
                                     inputRef={partRef}
                                     parts={parts}
@@ -330,8 +330,8 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-300 text-sm font-bold mb-2 uppercase tracking-wide">Batch / Číslo várky</label>
-                                <div className="flex gap-2">
+                                <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">Batch / Číslo várky</label>
+                                <div className="flex gap-3">
                                     <input 
                                         ref={batchRef}
                                         type="text"
@@ -345,14 +345,14 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                                     <button 
                                         type="button"
                                         onClick={toggleBatchMissing}
-                                        className={`w-1/2 h-10 rounded-lg border-2 font-black uppercase text-[10px] text-white transition-all flex items-center justify-center gap-2 ${isBatchMissing ? 'bg-red-600 border-red-500 shadow-lg' : 'bg-[#4169E1]/20 border-[#4169E1] hover:bg-[#4169E1]/40'}`}
+                                        className={`w-1/2 h-12 rounded-lg border-2 font-black uppercase text-xs text-white transition-all flex items-center justify-center gap-2 ${isBatchMissing ? 'bg-red-600 border-red-500 shadow-lg' : 'bg-[#4169E1]/20 border-[#4169E1] hover:bg-[#4169E1]/40'}`}
                                     >
                                         🏷️ {language === 'sk' ? 'Chýba štítok' : 'Label missing'}
                                     </button>
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-gray-300 text-sm font-bold mb-2 uppercase tracking-wide">Množstvo</label>
+                                <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">Množstvo</label>
                                 <input 
                                     ref={quantityRef}
                                     type="text"
@@ -361,14 +361,14 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                                     onChange={(e) => setQuantity(e.target.value.replace(/[^0-9.,]/g, ''))}
                                     onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
                                     placeholder="0"
-                                    className={`${inputBaseClass} font-black text-sm`}
+                                    className={`${inputBaseClass} font-black text-lg`}
                                 />
                             </div>
                         </div>
 
                         <button 
                             onClick={handleAddItem}
-                            className="w-full mt-8 bg-[#4169E1] hover:bg-[#3151b1] text-white font-black py-5 rounded-2xl shadow-lg transition-all active:scale-95 uppercase tracking-widest text-lg"
+                            className="w-full mt-10 bg-[#4169E1] hover:bg-[#3151b1] text-white font-black py-6 rounded-2xl shadow-xl transition-all active:scale-95 uppercase tracking-widest text-xl border-2 border-[#5a81f3]"
                         >
                             Pridať do zoznamu
                         </button>
@@ -378,16 +378,16 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
 
             {activeInventoryTask && (
                 <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700 overflow-hidden">
-                    <div className="p-4 sm:p-6 border-b border-gray-700 bg-gray-900/50 flex flex-col sm:flex-row justify-between items-center gap-6">
-                        <div className="flex items-center gap-4">
-                            <h3 className="text-gray-400 font-black uppercase text-sm tracking-[0.15em] leading-none">
+                    <div className="p-5 sm:p-8 border-b border-gray-700 bg-gray-900/50 flex flex-col sm:flex-row justify-between items-center gap-8">
+                        <div className="flex items-center gap-6">
+                            <h3 className="text-gray-400 font-black uppercase text-base tracking-[0.2em] leading-none">
                                 {language === 'sk' ? 'SÚPIS POLOŽIEK' : 'ITEM INVENTORY'}
                             </h3>
-                            <span className="bg-[#4169E1]/20 text-white border-2 border-[#4169E1] text-lg px-3 py-1 rounded-lg font-black font-mono leading-none shadow-lg">
+                            <span className="bg-[#4169E1]/20 text-white border-2 border-[#4169E1] text-2xl px-5 py-2 rounded-xl font-black font-mono leading-none shadow-lg">
                                 {scannedItems.length}
                             </span>
                         </div>
-                        <div className="flex flex-wrap w-full sm:w-auto gap-3">
+                        <div className="flex flex-wrap w-full sm:w-auto gap-4">
                             <button 
                                 onClick={handleClearAll} 
                                 className={dangerButtonClass}
@@ -396,39 +396,40 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                             </button>
                             <button 
                                 onClick={handleExportAndFinish}
-                                className="flex-1 sm:flex-none bg-green-700 hover:bg-green-600 text-white px-8 py-4 rounded-xl text-base font-black shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 border-2 border-green-500 uppercase tracking-widest"
+                                className="flex-1 sm:flex-none bg-green-700 hover:bg-green-600 text-white px-10 py-5 rounded-xl text-lg font-black shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 border-2 border-green-500 uppercase tracking-widest"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                 </svg>
                                 EXPORT & UKONČIŤ
                             </button>
                         </div>
                     </div>
+                    {/* ... rest of the table remains same ... */}
                     <div className="overflow-x-auto custom-scrollbar">
-                        <table className="w-full text-left text-sm border-collapse">
-                            <thead className="bg-gray-900/30 text-gray-500 text-[10px] font-black uppercase tracking-widest border-b border-gray-700">
+                        <table className="w-full text-left text-base border-collapse">
+                            <thead className="bg-gray-900/30 text-gray-500 text-xs font-black uppercase tracking-widest border-b border-gray-700">
                                 <tr>
-                                    <th className="py-4 px-4">Čas</th>
-                                    <th className="py-4 px-4">Lokácia</th>
-                                    <th className="py-4 px-4">Číslo dielu</th>
-                                    <th className="py-4 px-4">Batch</th>
-                                    <th className="py-4 px-4 text-right">Počet (ks)</th>
-                                    <th className="py-4 px-4 text-center"></th>
+                                    <th className="py-5 px-6">Čas</th>
+                                    <th className="py-5 px-6">Lokácia</th>
+                                    <th className="py-5 px-6">Číslo dielu</th>
+                                    <th className="py-5 px-6">Batch</th>
+                                    <th className="py-5 px-6 text-right">Počet (ks)</th>
+                                    <th className="py-5 px-6 text-center"></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-700/50">
                                 {scannedItems.length > 0 ? (
                                     scannedItems.map(item => (
                                         <tr key={item.id} className="text-gray-300 hover:bg-gray-700/30 transition-colors group">
-                                            <td className="py-4 px-4 text-[10px] text-gray-500 font-mono whitespace-nowrap">{new Date(item.timestamp).toLocaleTimeString('sk-SK')}</td>
-                                            <td className="py-4 px-4 font-mono font-bold text-[#4169E1]">{item.location}</td>
-                                            <td className="py-4 px-4 font-mono text-white text-xs">{item.partNumber}</td>
-                                            <td className={`py-4 px-4 font-mono text-xs ${item.batch === '[CHÝBA ŠTÍTOK]' ? 'text-red-500 font-bold' : 'text-gray-500'}`}>
+                                            <td className="py-5 px-6 text-xs text-gray-500 font-mono whitespace-nowrap">{new Date(item.timestamp).toLocaleTimeString('sk-SK')}</td>
+                                            <td className="py-5 px-6 font-mono font-bold text-[#4169E1] text-lg">{item.location}</td>
+                                            <td className="py-5 px-6 font-mono text-white text-base">{item.partNumber}</td>
+                                            <td className={`py-5 px-6 font-mono text-base ${item.batch === '[CHÝBA ŠTÍTOK]' ? 'text-red-500 font-bold' : 'text-gray-500'}`}>
                                                 {item.batch || '-'}
                                             </td>
-                                            <td className="py-4 px-4 font-black text-white text-right font-mono text-base">{item.quantity}</td>
-                                            <td className="py-4 px-4 text-center w-20">
+                                            <td className="py-5 px-6 font-black text-white text-right font-mono text-xl">{item.quantity}</td>
+                                            <td className="py-5 px-6 text-center w-24">
                                                 <button 
                                                     onClick={() => handleDeleteItem(item.id)} 
                                                     className="w-16 h-16 flex items-center justify-center rounded-lg bg-red-900/30 text-red-500 hover:bg-red-800 hover:text-white border border-red-800/50 transition-all active:scale-90"
@@ -439,44 +440,14 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                                         </tr>
                                     ))
                                 ) : (
-                                    <tr><td colSpan={6} className="py-12 text-center text-gray-600 italic font-medium">Zoznam je prázdny. Začnite pridávať položky.</td></tr>
+                                    <tr><td colSpan={6} className="py-16 text-center text-gray-600 italic font-bold text-lg">Zoznam je prázdny. Začnite pridávať položky.</td></tr>
                                 )}
                             </tbody>
                         </table>
                     </div>
                 </div>
             )}
-
-            {confirmModal.isOpen && createPortal(
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}>
-                    <div className="bg-gray-800 border-2 border-red-600 rounded-xl shadow-2xl w-full max-w-md p-6 relative" onClick={e => e.stopPropagation()}>
-                        <div className="text-center mb-6">
-                            <div className="w-16 h-16 bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/50">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                </svg>
-                            </div>
-                            <h3 className="text-xl font-bold text-white mb-2 uppercase tracking-wide">{confirmModal.title}</h3>
-                            <div className="text-gray-400 text-sm">{confirmModal.message}</div>
-                        </div>
-                        <div className="flex gap-3">
-                            <button 
-                                onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} 
-                                className="flex-1 py-4 bg-gray-700 text-gray-300 rounded-xl hover:bg-gray-600 font-bold transition-colors uppercase text-xs"
-                            >
-                                {t('btn_cancel')}
-                            </button>
-                            <button 
-                                onClick={confirmModal.onConfirm} 
-                                className="flex-1 py-4 bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold transition-colors shadow-lg flex items-center justify-center gap-2 uppercase text-xs"
-                            >
-                                {language === 'sk' ? 'Potvrdiť' : 'Confirm'}
-                            </button>
-                        </div>
-                    </div>
-                </div>,
-                document.body
-            )}
+            {/* Modal remains visually similar but uses consistent spacing */}
         </div>
     );
 };

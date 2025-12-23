@@ -123,7 +123,7 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
     <div className="relative" ref={containerRef}>
       <div className="relative">
         <span className="absolute inset-y-0 left-0 flex items-center pl-4">
-          <SearchIcon className="h-4 w-4 text-gray-500" />
+          <SearchIcon className="h-5 w-5 text-gray-500" />
         </span>
         <input
           type="text"
@@ -133,7 +133,7 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
           onKeyDown={handleInternalKeyDown}
           onFocus={() => setIsDropdownVisible(true)}
           placeholder={placeholder || t('input_wildcard_hint')}
-          className="w-full h-10 pl-10 pr-4 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase text-sm"
+          className="w-full h-12 pl-12 pr-4 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase text-base"
         />
       </div>
 
@@ -144,7 +144,7 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
             <li
                 key={index}
                 onClick={() => handleSelectPart(part)}
-                className="px-4 py-2 text-gray-300 hover:bg-teal-600 hover:text-white cursor-pointer transition-colors duration-150 font-mono text-sm"
+                className="px-4 py-3 text-gray-300 hover:bg-teal-600 hover:text-white cursor-pointer transition-colors duration-150 font-mono text-base"
             >
                 {part}
             </li>
@@ -159,7 +159,7 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
                 type="button"
                 onMouseDown={handleRequestClick}
                 disabled={reportStatus !== 'idle'}
-                className={`w-full py-3 px-4 font-bold rounded-lg shadow-md flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.01] ${
+                className={`w-full py-4 px-4 font-bold rounded-lg shadow-md flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.01] ${
                     reportStatus === 'success' 
                     ? 'bg-green-600 border border-green-500 text-white cursor-default' 
                     : reportStatus === 'loading'
@@ -168,17 +168,17 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
                 }`}
             >
                 {reportStatus === 'loading' ? (
-                     <span>{t('report_btn_loading')}</span>
+                     <span className="text-base">{t('report_btn_loading')}</span>
                 ) : reportStatus === 'success' ? (
-                     <span>{t('report_btn_success')}</span>
+                     <span className="text-base">{t('report_btn_success')}</span>
                 ) : (
                     <>
-                        <PlusIcon className="w-5 h-5 text-yellow-200" />
-                        <span>{t('report_btn_idle')} <strong>{query}</strong></span>
+                        <PlusIcon className="w-6 h-6 text-yellow-200" />
+                        <span className="text-base">{t('report_btn_idle')} <strong>{query}</strong></span>
                     </>
                 )}
             </button>
-            <p className="text-center text-xs text-gray-500 mt-1">
+            <p className="text-center text-sm text-gray-500 mt-2">
                 {reportStatus === 'success' ? t('report_hint_success') : t('report_hint_idle')}
             </p>
         </div>

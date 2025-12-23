@@ -91,29 +91,29 @@ const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, permissions, onA
     };
 
     return (
-        <div className="max-w-6xl mx-auto space-y-8 pb-8 animate-fade-in relative">
-            <h1 className="text-center text-2xl sm:text-3xl font-bold text-orange-400 mb-6 sm:mb-8">{t('sect_roles')}</h1>
+        <div className="max-w-6xl mx-auto space-y-10 pb-12 animate-fade-in relative">
+            <h1 className="text-center text-3xl sm:text-4xl font-extrabold text-orange-400 mb-8 uppercase tracking-widest">{t('sect_roles')}</h1>
             
             {permGroups.map(group => (
-                 <div key={group.name} className="bg-gray-900 rounded-xl p-6 shadow-lg border border-gray-700">
-                     <h3 className="text-lg font-bold text-gray-300 mb-4 border-b border-gray-700 pb-2">{t(group.name as any)}</h3>
+                 <div key={group.name} className="bg-gray-900 rounded-2xl p-8 shadow-xl border border-gray-700">
+                     <h3 className="text-xl font-black text-gray-300 mb-6 border-b border-gray-700 pb-3 uppercase tracking-wider">{t(group.name as any)}</h3>
                      <div className="overflow-x-auto custom-scrollbar"> 
-                         <table className="min-w-[600px] w-full text-left text-sm border-collapse">
+                         <table className="min-w-[700px] w-full text-left text-base border-collapse">
                              <thead>
                                  <tr className="border-b-2 border-gray-700">
-                                     <th className="py-3 px-4 text-gray-400 font-semibold w-1/3 min-w-[200px]">{t('permission_label')}</th> 
+                                     <th className="py-4 px-5 text-gray-400 font-bold w-1/3 min-w-[250px] uppercase text-xs tracking-widest">{t('permission_label')}</th> 
                                      {sortedRoles.map(role => (
-                                         <th key={role.id} className="py-3 px-4 text-white font-bold text-center">
-                                             <div className="flex items-center justify-center gap-1">
+                                         <th key={role.id} className="py-4 px-5 text-white font-black text-center text-sm tracking-tight">
+                                             <div className="flex items-center justify-center gap-3">
                                                  {role.name}
                                                  {role.name !== 'ADMIN' && (
                                                      <button 
                                                          type="button"
                                                          onClick={(e) => handleDeleteClick(e, role)} 
-                                                         className="ml-2 text-red-600 hover:text-red-400 transition-colors p-1 focus:outline-none"
+                                                         className="text-red-600 hover:text-red-400 transition-all p-1.5 hover:scale-110 active:scale-90"
                                                          title={t('perm_btn_delete')}
                                                      >
-                                                         <TrashIcon className="w-4 h-4" />
+                                                         <TrashIcon className="w-5 h-5" />
                                                      </button>
                                                  )}
                                              </div>
@@ -121,17 +121,17 @@ const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, permissions, onA
                                      ))}
                                  </tr>
                              </thead>
-                             <tbody>
+                             <tbody className="divide-y divide-gray-800">
                                  {group.perms.map(perm => (
-                                     <tr key={perm} className="border-b border-gray-800 hover:bg-gray-800/50">
-                                         <td className="py-3 px-4 text-gray-300">{t(perm as any)}</td>
+                                     <tr key={perm} className="hover:bg-gray-800/50 transition-colors">
+                                         <td className="py-5 px-5 text-gray-300 font-medium">{t(perm as any)}</td>
                                          {sortedRoles.map(role => (
-                                             <td key={`${role.id}-${perm}`} className="py-3 px-4 text-center">
+                                             <td key={`${role.id}-${perm}`} className="py-5 px-5 text-center">
                                                  <input 
                                                      type="checkbox" 
                                                      checked={hasPermission(role.id, perm)} 
                                                      onChange={(e) => onUpdatePermission(perm, role.name, e.target.checked)}
-                                                     className="w-5 h-5 text-orange-500 bg-gray-700 border-gray-600 rounded focus:ring-orange-500 focus:ring-2" 
+                                                     className="w-6 h-6 text-orange-500 bg-gray-700 border-gray-600 rounded-md focus:ring-orange-500 focus:ring-offset-gray-900 focus:ring-2 cursor-pointer" 
                                                  />
                                              </td>
                                          ))}
@@ -143,31 +143,31 @@ const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, permissions, onA
                  </div>
              ))}
             
-            <div className="bg-gray-900 rounded-xl p-6 shadow-lg border border-gray-700">
-                 <h3 className="text-lg font-bold text-gray-300 mb-4">{t('role_add_new_title')}</h3> 
-                 <form onSubmit={handleAddRole} className="flex flex-col sm:flex-row gap-2 max-w-sm mt-4">
-                     <input value={newRoleName} onChange={e => setNewRoleName(e.target.value)} placeholder={t('role_name_place')} className="flex-1 h-10 bg-gray-700 border border-gray-600 rounded px-4 text-white text-sm uppercase font-mono placeholder-gray-500" />
-                     <button type="submit" className="h-10 bg-orange-600 hover:bg-orange-700 text-white px-6 rounded font-black uppercase text-[10px] tracking-widest">PRIDAŤ</button>
+            <div className="bg-gray-900 rounded-2xl p-8 shadow-xl border border-gray-700">
+                 <h3 className="text-xl font-black text-gray-300 mb-6 uppercase tracking-wider">{t('role_add_new_title')}</h3> 
+                 <form onSubmit={handleAddRole} className="flex flex-col sm:flex-row gap-4 max-w-md mt-6">
+                     <input value={newRoleName} onChange={e => setNewRoleName(e.target.value)} placeholder={t('role_name_place')} className="flex-1 h-12 bg-gray-700 border border-gray-600 rounded-xl px-5 text-white text-base uppercase font-mono placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                     <button type="submit" className="h-12 bg-orange-600 hover:bg-orange-700 text-white px-8 rounded-xl font-black uppercase text-xs tracking-widest border-2 border-orange-500 shadow-lg active:scale-95 transition-all">PRIDAŤ</button>
                  </form>
              </div>
 
              {deleteModalRole && createPortal(
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in" onClick={handleCloseModal}>
-                    <div className="bg-gray-800 border-2 border-red-600 rounded-xl shadow-2xl w-full max-w-md p-6 relative" onClick={e => e.stopPropagation()}>
-                        <div className="text-center mb-6">
-                            <div className="w-16 h-16 bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/50">
-                                <LockIcon className="w-8 h-8 text-red-500" />
+                    <div className="bg-gray-800 border-2 border-red-600 rounded-2xl shadow-2xl w-full max-w-md p-8 relative" onClick={e => e.stopPropagation()}>
+                        <div className="text-center mb-8">
+                            <div className="w-20 h-20 bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/50">
+                                <LockIcon className="w-10 h-10 text-red-500" />
                             </div>
-                            <h3 className="text-xl font-bold text-white mb-2">{t('role_delete_modal_title')}</h3>
-                            <p className="text-gray-400 text-sm">
+                            <h3 className="text-2xl font-black text-white mb-3 uppercase tracking-tighter">{t('role_delete_modal_title')}</h3>
+                            <p className="text-gray-400 text-base">
                                 {t('role_delete_confirm')}
                                 <br/>
-                                <span className="font-bold text-red-400">{deleteModalRole.name}</span>
+                                <span className="font-black text-red-400 text-lg mt-1 block">{deleteModalRole.name}</span>
                             </p>
                         </div>
                         
-                        <div className="mb-6">
-                            <label className="block text-gray-400 text-xs font-bold uppercase mb-2">{t('role_delete_pass_label')}</label>
+                        <div className="mb-8">
+                            <label className="block text-gray-400 text-sm font-black uppercase mb-3 tracking-widest">{t('role_delete_pass_label')}</label>
                             <input 
                                 type="password" 
                                 value={passwordInput} 
@@ -175,26 +175,26 @@ const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, permissions, onA
                                     setPasswordInput(e.target.value);
                                     setError('');
                                 }}
-                                className="w-full h-10 bg-gray-700 border border-gray-600 rounded-lg text-white px-4 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm placeholder-gray-500"
+                                className="w-full h-12 bg-gray-700 border border-gray-600 rounded-xl text-white px-5 focus:outline-none focus:ring-2 focus:ring-red-500 text-base placeholder-gray-500"
                                 placeholder="********"
                                 autoFocus
                             />
-                            {error && <p className="text-red-500 text-sm mt-2 font-bold animate-pulse">{error}</p>}
+                            {error && <p className="text-red-500 text-sm mt-3 font-bold animate-pulse">{error}</p>}
                         </div>
 
-                        <div className="flex gap-3">
+                        <div className="flex gap-4">
                              <button 
                                 onClick={handleCloseModal} 
-                                className="flex-1 h-10 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 font-bold transition-colors uppercase text-[10px]"
+                                className="flex-1 h-12 bg-gray-700 text-gray-300 rounded-xl hover:bg-gray-600 font-black transition-all uppercase text-xs"
                             >
                                 {t('btn_cancel')}
                             </button>
                             <button 
                                 onClick={handleConfirmDelete} 
                                 disabled={!passwordInput}
-                                className={`flex-1 h-10 text-white rounded-lg font-bold transition-colors shadow-lg flex items-center justify-center gap-2 uppercase text-[10px] ${!passwordInput ? 'bg-red-900/50 cursor-not-allowed text-gray-400' : 'bg-red-600 hover:bg-red-700'}`}
+                                className={`flex-1 h-12 text-white rounded-xl font-black transition-all shadow-xl flex items-center justify-center gap-3 uppercase text-xs border-2 ${!passwordInput ? 'bg-red-900/50 border-red-900/50 cursor-not-allowed text-gray-400' : 'bg-red-600 hover:bg-red-700 border-red-500'}`}
                             >
-                                <TrashIcon className="w-5 h-5" />
+                                <TrashIcon className="w-6 h-6" />
                                 {t('role_delete_btn')}
                             </button>
                         </div>

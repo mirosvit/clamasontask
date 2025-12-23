@@ -217,6 +217,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
 
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-white">
+      {/* Notifications ... */}
       {notifications.length > 0 && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
               <div className="bg-gray-800 rounded-2xl max-w-2xl w-full p-8 shadow-2xl border border-gray-700 animate-fade-in">
@@ -257,46 +258,48 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
           </div>
       )}
 
+      {/* Break Banner ... */}
       {props.isBreakActive && (
         <div className="w-full px-2 sm:px-4 pt-2 z-50 bg-gray-900">
-            <div className="w-full bg-red-600 text-white py-4 rounded-xl shadow-[0_0_20px_rgba(220,38,38,0.6)] flex items-center justify-center gap-3 animate-pulse border-2 border-red-400">
-                <ClockIcon className="w-8 h-8 flex-shrink-0" />
-                <span className="font-extrabold text-xl sm:text-2xl uppercase tracking-widest leading-none text-center">PREBIEHA PRESTÁVKA</span>
+            <div className="w-full bg-red-600 text-white py-5 rounded-xl shadow-[0_0_20px_rgba(220,38,38,0.6)] flex items-center justify-center gap-4 animate-pulse border-2 border-red-400">
+                <ClockIcon className="w-10 h-10 flex-shrink-0" />
+                <span className="font-black text-2xl sm:text-3xl uppercase tracking-[0.2em] leading-none text-center">PREBIEHA PRESTÁVKA</span>
             </div>
         </div>
       )}
 
       {showSuccessMessage && (
-        <div className="fixed top-20 right-4 bg-green-600 text-white p-4 rounded-lg shadow-xl z-50 animate-bounce">{t('sent_msg')}</div>
+        <div className="fixed top-24 right-6 bg-green-600 text-white px-6 py-4 rounded-xl shadow-2xl z-50 animate-bounce font-black tracking-widest">✓ {t('sent_msg')}</div>
       )}
 
       <AppHeader currentUser={currentUser} currentUserRole={currentUserRole} onLogout={onLogout} language={language} setLanguage={setLanguage} t={t} isFullscreen={isFullscreen} onToggleFullscreen={handleToggleFullscreen} installPrompt={installPrompt} onInstallApp={onInstallApp} hasPermission={hasPermission} />
       
       {isDataLoading && activeTab === 'entry' ? (
           <div className="flex-grow flex items-center justify-center bg-gray-900">
-              <div className="text-center space-y-4">
-                  <div className="inline-block w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-teal-400 font-bold animate-pulse uppercase tracking-widest text-sm">Synchronizujem databázu dielov...</p>
-                  <p className="text-gray-600 text-xs">Toto môže chvíľu trvať pri prvom spustení.</p>
+              <div className="text-center space-y-6">
+                  <div className="inline-block w-14 h-14 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-teal-400 font-black animate-pulse uppercase tracking-[0.2em] text-base">Synchronizujem databázu dielov...</p>
+                  <p className="text-gray-600 text-sm">Toto môže chvíľu trvať pri prvom spustení.</p>
               </div>
           </div>
       ) : (
           <>
             <TabNavigator activeTab={activeTab} setActiveTab={setActiveTab} hasPermission={hasPermission} t={t} counts={{ tasks: unfinishedTasksCount, pendingRequests: pendingRequestsCount }} />
 
-            <div className="flex-grow overflow-y-auto p-2 md:p-6 custom-scrollbar">
+            <div className="flex-grow overflow-y-auto p-3 md:p-8 custom-scrollbar">
                 <div className="max-w-7xl mx-auto w-full h-full">
                 {activeTab === 'entry' && hasPermission('perm_tab_entry') && (
                     <ProductionEntry mode={entryMode} setMode={setEntryMode} selectedPart={selectedPart} setSelectedPart={setSelectedPart} selectedWorkplace={selectedWorkplace} setSelectedWorkplace={setSelectedWorkplace} logisticsRef={logisticsRef} setLogisticsRef={setLogisticsRef} logisticsOp={logisticsOp} setLogisticsOp={setLogisticsOp} quantity={quantity} setQuantity={setQuantity} quantityUnit={quantityUnit} setQuantityUnit={setQuantityUnit} priority={priority} setPriority={setPriority} parts={parts} workplaces={workplaces} logisticsOperationsList={logisticsOperationsList} t={t} language={language} hasPermission={hasPermission} handleAdd={handleSendToTasks} onRequestPart={props.onRequestPart} />
                 )}
                 {activeTab === 'tasks' && hasPermission('perm_tab_tasks') && (
                     <div className="animate-fade-in pb-20">
-                    <div className="mb-4 flex justify-center">
-                        <input type="text" value={taskSearchQuery} onChange={e => setTaskSearchQuery(e.target.value)} className="w-full max-w-md h-10 px-4 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase text-sm" placeholder={t('task_search_placeholder')} />
+                    <div className="mb-6 flex justify-center">
+                        <input type="text" value={taskSearchQuery} onChange={e => setTaskSearchQuery(e.target.value)} className="w-full max-w-lg h-12 px-6 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase text-base" placeholder={t('task_search_placeholder')} />
                     </div>
                     <TaskList currentUser={currentUserRole} currentUserName={currentUser} tasks={tasks.filter(t => { const q = taskSearchQuery.toLowerCase(); return (t.partNumber && t.partNumber.toLowerCase().includes(q)) || (t.text && t.text.toLowerCase().includes(q)) || (t.workplace && t.workplace.toLowerCase().includes(q)); })} onToggleTask={onToggleTask} onEditTask={onEditTask} onDeleteTask={onDeleteTask} onToggleMissing={onToggleMissing} onSetInProgress={onSetInProgress} onToggleBlock={onToggleBlock} onToggleManualBlock={onToggleManualBlock} onMarkAsIncorrect={onMarkAsIncorrect} onAddNote={onAddNote} onReleaseTask={onReleaseTask} onAuditPart={handleAuditClick} missingReasons={missingReasons} hasPermission={hasPermission} />
                     </div>
                 )}
+                {/* Other tabs ... */}
                 {activeTab === 'analytics' && hasPermission('perm_tab_analytics') && <AnalyticsTab tasks={tasks} onFetchArchivedTasks={props.onFetchArchivedTasks} systemBreaks={props.systemBreaks} />}
                 {activeTab === 'settings' && hasPermission('perm_tab_settings') && <SettingsTab hasPermission={hasPermission} currentUserRole={currentUserRole} users={users} onAddUser={props.onAddUser} onUpdatePassword={props.onUpdatePassword} onUpdateUserRole={props.onUpdateUserRole} onDeleteUser={props.onDeleteUser} parts={parts} workplaces={workplaces} missingReasons={missingReasons} onAddPart={props.onAddPart} onBatchAddParts={props.onBatchAddParts} onDeletePart={props.onDeletePart} onDeleteAllParts={props.onDeleteAllParts} onAddWorkplace={props.onAddWorkplace} onBatchAddWorkplaces={props.onBatchAddWorkplaces} onDeleteWorkplace={props.onDeleteWorkplace} onDeleteAllWorkplaces={props.onDeleteAllWorkplaces} onAddMissingReason={props.onAddMissingReason} onDeleteMissingReason={props.onDeleteMissingReason} logisticsOperations={logisticsOperationsList} onAddLogisticsOperation={props.onAddLogisticsOperation} onDeleteLogisticsOperation={props.onDeleteLogisticsOperation} partRequests={props.partRequests} onApprovePartRequest={onApprovePartRequest} onRejectPartRequest={id => props.onRejectPartRequest(id)} onArchiveTasks={onArchiveTasks} breakSchedules={breakSchedules} onAddBreakSchedule={props.onAddBreakSchedule} onDeleteBreakSchedule={props.onDeleteBreakSchedule} bomItems={bomItems} bomRequests={bomRequests} onAddBOMItem={props.onAddBOMItem} onBatchAddBOMItems={props.onBatchAddBOMItems} onDeleteBOMItem={props.onDeleteBOMItem} onDeleteAllBOMItems={props.onDeleteAllBOMItems} onApproveBOMRequest={onApproveBOMRequest} onRejectBOMRequest={id => props.onRejectBOMRequest(id)} roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={onDeleteRole} onUpdatePermission={onUpdatePermission} installPrompt={installPrompt} onInstallApp={onInstallApp} systemConfig={systemConfig} onUpdateSystemConfig={onUpdateSystemConfig} dbLoadWarning={dbLoadWarning} />}
                 {activeTab === 'bom' && hasPermission('perm_tab_bom') && <BOMScreen parts={parts} workplaces={workplaces} bomItems={bomItems} onAddTask={onAddTask} onRequestBOM={props.onRequestBOM} t={t} language={language} />}
@@ -311,12 +314,12 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
 
       {auditStartTask && createPortal(
           <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setAuditStartTask(null)}>
-              <div className="bg-gray-800 border-2 border-[#926a05] rounded-xl shadow-2xl w-full max-w-md p-6 relative" onClick={e => e.stopPropagation()}>
-                  <h3 className="text-xl font-bold text-white mb-6 text-center uppercase tracking-wide">{t('audit_start_title')}</h3>
-                  <p className="text-gray-300 text-center mb-8">{t('audit_start_desc', { part: (auditStartTask?.partNumber || '') as string })}</p>
-                  <div className="flex gap-3">
-                      <button onClick={() => setAuditStartTask(null)} className="flex-1 py-4 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 font-bold transition-colors uppercase text-xs">{t('btn_cancel')}</button>
-                      <button onClick={handleConfirmStartAudit} className="flex-1 py-4 bg-[#926a05] hover:bg-[#a67c06] text-white rounded-lg font-bold transition-colors shadow-lg uppercase text-xs">{language === 'sk' ? 'Potvrdiť začiatok' : 'Confirm Start'}</button>
+              <div className="bg-gray-800 border-2 border-[#926a05] rounded-xl shadow-2xl w-full max-w-md p-8 relative" onClick={e => e.stopPropagation()}>
+                  <h3 className="text-2xl font-black text-white mb-6 text-center uppercase tracking-widest">{t('audit_start_title')}</h3>
+                  <p className="text-gray-300 text-center mb-10 text-base leading-relaxed">{t('audit_start_desc', { part: (auditStartTask?.partNumber || '') as string })}</p>
+                  <div className="flex gap-4">
+                      <button onClick={() => setAuditStartTask(null)} className="flex-1 py-5 bg-gray-700 text-gray-300 rounded-xl hover:bg-gray-600 font-black transition-all uppercase text-xs tracking-widest">{t('btn_cancel')}</button>
+                      <button onClick={handleConfirmStartAudit} className="flex-1 py-5 bg-[#926a05] hover:bg-[#a67c06] text-white rounded-xl font-black transition-all shadow-xl uppercase text-xs tracking-widest border-2 border-[#b68406]">Potvrdiť začiatok</button>
                   </div>
               </div>
           </div>,
@@ -325,17 +328,17 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
 
       {auditFinishTask && createPortal(
           <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setAuditFinishTask(null)}>
-              <div className="bg-gray-800 border-2 border-[#926a05] rounded-xl shadow-2xl w-full max-w-lg p-6 relative" onClick={e => e.stopPropagation()}>
-                  <h3 className="text-xl font-bold text-white mb-6 text-center uppercase tracking-wide">{t('audit_finish_title')}</h3>
-                  <div className="mb-6">
-                      <label className="block text-gray-400 text-xs font-bold uppercase mb-2">{t('audit_finish_note')}</label>
-                      <textarea value={auditNote} onChange={(e) => setAuditNote(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg text-white px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#926a05] h-32 text-sm" placeholder="..." autoFocus />
+              <div className="bg-gray-800 border-2 border-[#926a05] rounded-xl shadow-2xl w-full max-w-lg p-8 relative" onClick={e => e.stopPropagation()}>
+                  <h3 className="text-2xl font-black text-white mb-8 text-center uppercase tracking-widest">{t('audit_finish_title')}</h3>
+                  <div className="mb-8">
+                      <label className="block text-gray-400 text-xs font-black uppercase mb-3 tracking-[0.2em]">{t('audit_finish_note')}</label>
+                      <textarea value={auditNote} onChange={(e) => setAuditNote(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-xl text-white px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[#926a05] h-40 text-base font-medium placeholder-gray-500" placeholder="..." autoFocus />
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                      <button onClick={() => handleConfirmFinishAudit('found', auditNote)} disabled={!auditNote.trim()} className={`py-4 rounded-lg font-bold transition-all shadow-lg uppercase text-xs flex items-center justify-center gap-2 ${!auditNote.trim() ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-green-600 border border-green-500 text-white'}`}>✅ {t('audit_found_btn')}</button>
-                      <button onClick={() => handleConfirmFinishAudit('missing', auditNote)} disabled={!auditNote.trim()} className={`py-4 rounded-lg font-bold transition-all shadow-lg uppercase text-xs flex items-center justify-center gap-2 ${!auditNote.trim() ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-red-600 border border-red-500 text-white'}`}>❌ {t('audit_missing_btn')}</button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                      <button onClick={() => handleConfirmFinishAudit('found', auditNote)} disabled={!auditNote.trim()} className={`py-5 rounded-xl font-black transition-all shadow-xl uppercase text-xs tracking-widest flex items-center justify-center gap-2 border-2 ${!auditNote.trim() ? 'bg-gray-700 text-gray-500 border-gray-700 cursor-not-allowed' : 'bg-green-600 border-green-500 text-white'}`}>✅ {t('audit_found_btn')}</button>
+                      <button onClick={() => handleConfirmFinishAudit('missing', auditNote)} disabled={!auditNote.trim()} className={`py-5 rounded-xl font-black transition-all shadow-xl uppercase text-xs tracking-widest flex items-center justify-center gap-2 border-2 ${!auditNote.trim() ? 'bg-gray-700 text-gray-500 border-gray-700 cursor-not-allowed' : 'bg-red-600 border-red-500 text-white'}`}>❌ {t('audit_missing_btn')}</button>
                   </div>
-                  <button onClick={() => setAuditFinishTask(null)} className="w-full py-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 font-bold transition-colors uppercase text-[10px]">{t('btn_cancel')}</button>
+                  <button onClick={() => setAuditFinishTask(null)} className="w-full py-4 bg-gray-700 text-gray-300 rounded-xl hover:bg-gray-600 font-black transition-all uppercase text-[10px] tracking-widest">{t('btn_cancel')}</button>
               </div>
           </div>,
           document.body

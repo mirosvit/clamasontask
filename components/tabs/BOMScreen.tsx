@@ -119,17 +119,17 @@ const BOMScreen: React.FC<BOMScreenProps> = ({
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 
                 <div className="lg:col-span-4 space-y-6">
-                    <div className="bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-700">
-                        <div className="flex items-center gap-3 mb-6">
+                    <div className="bg-gray-800 p-8 rounded-2xl shadow-xl border border-gray-700">
+                        <div className="flex items-center gap-3 mb-8">
                             <div className="p-2 bg-teal-500/20 rounded-lg">
-                                <ClipboardListIcon className="w-6 h-6 text-teal-400" />
+                                <ClipboardListIcon className="w-8 h-8 text-teal-400" />
                             </div>
-                            <h2 className="text-xl font-bold text-white">{t('bom_title')}</h2>
+                            <h2 className="text-2xl font-bold text-white uppercase tracking-tight">{t('bom_title')}</h2>
                         </div>
                         
-                        <div className="space-y-4">
+                        <div className="space-y-6">
                             <div>
-                                <label className="block text-gray-400 text-xs font-bold mb-2 uppercase tracking-wider">{t('bom_parent')}</label>
+                                <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">{t('bom_parent')}</label>
                                 <PartNumberInput 
                                     parts={parts.map(p => p.value)} 
                                     value={bomParentQuery} 
@@ -139,22 +139,22 @@ const BOMScreen: React.FC<BOMScreenProps> = ({
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-xs font-bold mb-2 uppercase tracking-wider">{t('bom_qty')}</label>
+                                <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">{t('bom_qty')}</label>
                                 <input 
                                     type="number" 
                                     inputMode="numeric"
                                     value={bomQuantity} 
                                     onChange={(e) => setBomQuantity(e.target.value)} 
-                                    className="w-full h-10 px-4 bg-gray-700 border border-gray-600 rounded-lg text-white font-mono placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all text-sm uppercase" 
+                                    className="w-full h-12 px-4 bg-gray-700 border border-gray-600 rounded-lg text-white font-mono placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all text-base uppercase" 
                                     placeholder="500" 
                                 />
                             </div>
                             <div>
-                                <label className="block text-gray-400 text-xs font-bold mb-2 uppercase tracking-wider">{t('bom_select_wp')}</label>
+                                <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">{t('bom_select_wp')}</label>
                                 <select 
                                     value={bomSelectedWorkplace || ''} 
                                     onChange={(e) => setBomSelectedWorkplace(e.target.value)} 
-                                    className="w-full h-10 px-4 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase text-sm"
+                                    className="w-full h-12 px-4 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase text-base"
                                 >
                                     <option value="" className="font-sans normal-case">{t('workplace_placeholder')}</option>
                                     {workplaces.map(wp => <option key={wp.id} value={wp.value}>{wp.value}</option>)}
@@ -163,9 +163,9 @@ const BOMScreen: React.FC<BOMScreenProps> = ({
                             
                             <button 
                                 onClick={handleCalculateBOM} 
-                                className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-teal-900/20 transform transition-all active:scale-95 flex items-center justify-center gap-2"
+                                className="w-full h-14 bg-teal-600 hover:bg-teal-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-teal-900/20 transform transition-all active:scale-95 flex items-center justify-center gap-3 text-lg uppercase tracking-widest"
                             >
-                                <ActivityIcon className="h-5 w-5" />
+                                <ActivityIcon className="h-6 w-6" />
                                 {t('bom_calc_btn')}
                             </button>
 
@@ -173,7 +173,7 @@ const BOMScreen: React.FC<BOMScreenProps> = ({
                                 <button 
                                     onClick={handleRequestNewBOM}
                                     disabled={bomRequestStatus !== 'idle'}
-                                    className={`w-full py-3 rounded-xl border text-sm font-bold transition-all ${
+                                    className={`w-full h-12 rounded-xl border text-base font-bold transition-all uppercase tracking-wide ${
                                         bomRequestStatus === 'success' ? 'bg-green-600 border-green-500 text-white' : 
                                         bomRequestStatus === 'loading' ? 'bg-gray-700 border-gray-600 text-gray-400 animate-pulse' :
                                         'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700'
@@ -187,13 +187,13 @@ const BOMScreen: React.FC<BOMScreenProps> = ({
 
                     {bomResults.length > 0 && (
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
-                                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">{language === 'sk' ? 'Komponenty' : 'Components'}</p>
-                                <p className="text-2xl font-black text-white">{bomResults.length}</p>
+                            <div className="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-md">
+                                <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em]">{language === 'sk' ? 'Komponenty' : 'Components'}</p>
+                                <p className="text-3xl font-black text-white mt-1">{bomResults.length}</p>
                             </div>
-                            <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
-                                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">{language === 'sk' ? 'Zostáva' : 'Remaining'}</p>
-                                <p className="text-2xl font-black text-orange-400">{bomResults.length - clickedBOMTasks.size}</p>
+                            <div className="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-md">
+                                <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em]">{language === 'sk' ? 'Zostáva' : 'Remaining'}</p>
+                                <p className="text-3xl font-black text-orange-400 mt-1">{bomResults.length - clickedBOMTasks.size}</p>
                             </div>
                         </div>
                     )}
@@ -202,18 +202,18 @@ const BOMScreen: React.FC<BOMScreenProps> = ({
                 <div className="lg:col-span-8">
                     {bomResults.length > 0 ? (
                         <div className="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 overflow-hidden flex flex-col h-full">
-                            <div className="p-6 border-b border-gray-700 flex justify-between items-center bg-gray-900/30">
+                            <div className="p-6 sm:p-8 border-b border-gray-700 flex justify-between items-center bg-gray-900/40">
                                 <div>
-                                    <h3 className="text-xl font-bold text-white font-mono uppercase">
+                                    <h3 className="text-2xl font-black text-white font-mono uppercase tracking-tight">
                                         {displayedBomParent}
                                     </h3>
-                                    <p className="text-sm text-gray-500">
-                                        {t('bom_results')} <span className="text-teal-400 font-bold">{displayedBomQuantity} ks</span>
+                                    <p className="text-base text-gray-500 mt-1">
+                                        {t('bom_results')} <span className="text-teal-400 font-black">{displayedBomQuantity} ks</span>
                                     </p>
                                 </div>
                                 <button 
                                     onClick={() => handleCreateAllBOMTasks(bomResults)}
-                                    className="bg-sky-600 hover:bg-sky-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg transition-all active:scale-95 flex items-center gap-2"
+                                    className="bg-sky-600 hover:bg-sky-500 text-white px-8 py-3.5 rounded-xl text-base font-black shadow-lg transition-all active:scale-95 flex items-center gap-3 uppercase tracking-widest border-2 border-sky-500"
                                 >
                                     🚀 {language === 'sk' ? 'Odoslať Všetko' : 'Send All'}
                                 </button>
@@ -221,12 +221,12 @@ const BOMScreen: React.FC<BOMScreenProps> = ({
 
                             <div className="overflow-x-auto flex-grow custom-scrollbar">
                                 <table className="w-full text-left">
-                                    <thead className="bg-gray-900/50 text-gray-400 text-[10px] font-bold uppercase tracking-widest border-b border-gray-700">
+                                    <thead className="bg-gray-900/50 text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] border-b border-gray-700">
                                         <tr>
-                                            <th className="py-4 px-6">{t('bom_child')}</th>
-                                            <th className="py-4 px-6 text-center">{language === 'sk' ? 'Spotreba/ks' : 'Usage/pc'}</th>
-                                            <th className="py-4 px-6 text-right">{t('bom_req_qty')}</th>
-                                            <th className="py-4 px-6 text-center">{language === 'sk' ? 'Akcia' : 'Action'}</th>
+                                            <th className="py-5 px-8">{t('bom_child')}</th>
+                                            <th className="py-5 px-8 text-center">{language === 'sk' ? 'Spotreba/ks' : 'Usage/pc'}</th>
+                                            <th className="py-5 px-8 text-right">{t('bom_req_qty')}</th>
+                                            <th className="py-5 px-8 text-center">{language === 'sk' ? 'Akcia' : 'Action'}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-700/50">
@@ -234,27 +234,27 @@ const BOMScreen: React.FC<BOMScreenProps> = ({
                                             const isSent = clickedBOMTasks.has(res.childPart);
                                             return (
                                                 <tr key={res.childPart} className={`transition-colors ${isSent ? 'bg-teal-500/5 opacity-60' : 'hover:bg-gray-700/30'}`}>
-                                                    <td className="py-5 px-6">
-                                                        <p className={`font-mono font-bold ${isSent ? 'text-gray-500' : 'text-white'}`}>{res.childPart}</p>
-                                                        <p className="text-[10px] text-gray-500">Standard Component</p>
+                                                    <td className="py-6 px-8">
+                                                        <p className={`font-mono font-bold text-base ${isSent ? 'text-gray-500' : 'text-white'}`}>{res.childPart}</p>
+                                                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tight">Standard Component</p>
                                                     </td>
-                                                    <td className="py-5 px-6 text-center text-gray-400 font-mono text-xs">
+                                                    <td className="py-6 px-8 text-center text-gray-400 font-mono text-sm">
                                                         {res.quantity}
                                                     </td>
-                                                    <td className="py-5 px-6 text-right">
-                                                        <span className={`text-lg font-bold font-mono ${isSent ? 'text-gray-500' : 'text-teal-400'}`}>
-                                                            {res.requiredQty} <span className="text-xs font-normal">ks</span>
+                                                    <td className="py-6 px-8 text-right">
+                                                        <span className={`text-xl font-black font-mono ${isSent ? 'text-gray-500' : 'text-teal-400'}`}>
+                                                            {res.requiredQty} <span className="text-xs font-normal opacity-70">ks</span>
                                                         </span>
                                                     </td>
-                                                    <td className="py-5 px-6 text-center">
+                                                    <td className="py-6 px-8 text-center">
                                                         <button 
                                                             onClick={() => !isSent && handleCreateBOMTask(res.childPart, res.requiredQty)}
                                                             disabled={isSent}
-                                                            className={`inline-flex items-center justify-center p-2 rounded-lg transition-all ${
-                                                                isSent ? 'bg-gray-700 text-teal-500' : 'bg-teal-600/20 text-teal-400 hover:bg-teal-600 hover:text-white'
+                                                            className={`inline-flex items-center justify-center h-14 w-14 rounded-xl transition-all shadow-lg border-2 ${
+                                                                isSent ? 'bg-gray-700 text-teal-500 border-gray-600' : 'bg-teal-600/20 text-teal-400 hover:bg-teal-600 hover:text-white border-teal-500/30 active:scale-90'
                                                             }`}
                                                         >
-                                                            {isSent ? <CheckCircleIcon className="w-6 h-6" /> : <PlusIcon className="w-6 h-6" />}
+                                                            {isSent ? <CheckCircleIcon className="w-8 h-8" /> : <PlusIcon className="w-8 h-8" />}
                                                         </button>
                                                     </td>
                                                 </tr>
@@ -265,12 +265,12 @@ const BOMScreen: React.FC<BOMScreenProps> = ({
                             </div>
                         </div>
                     ) : (
-                        <div className="h-full flex flex-col items-center justify-center bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-700 p-12 text-center">
-                            <div className="w-20 h-20 bg-gray-700 rounded-full flex items-center justify-center mb-6">
-                                <SearchIcon className="w-10 h-10 text-gray-500" />
+                        <div className="h-full flex flex-col items-center justify-center bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-700 p-12 text-center shadow-inner">
+                            <div className="w-24 h-24 bg-gray-700 rounded-full flex items-center justify-center mb-6 shadow-xl border border-gray-600">
+                                <SearchIcon className="w-12 h-12 text-gray-500" />
                             </div>
-                            <h3 className="text-xl font-bold text-gray-400 mb-2">{language === 'sk' ? 'Žiadne dáta na zobrazenie' : 'No data to display'}</h3>
-                            <p className="text-gray-500 max-w-xs">{language === 'sk' ? 'Zadajte číslo výrobku a plánované množstvo pre výpočet potrebného materiálu.' : 'Enter product number and planned quantity to calculate required material.'}</p>
+                            <h3 className="text-2xl font-black text-gray-400 mb-3 uppercase tracking-tighter">{language === 'sk' ? 'Žiadne dáta na zobrazenie' : 'No data to display'}</h3>
+                            <p className="text-gray-500 max-w-xs text-base font-medium leading-relaxed">{language === 'sk' ? 'Zadajte číslo výrobku a plánované množstvo pre výpočet potrebného materiálu.' : 'Enter product number and planned quantity to calculate required material.'}</p>
                         </div>
                     )}
                 </div>
