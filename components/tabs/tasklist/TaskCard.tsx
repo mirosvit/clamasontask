@@ -32,9 +32,10 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
   const { t, language } = useLanguage();
   const { task } = props;
 
-  const isSearchingMode = task.isBlocked;
-  const isManualBlocked = task.isManualBlocked;
-  const isAuditInProgress = task.isAuditInProgress;
+  // Oprava TS2322: vynútenie boolean typu pomocou !! operátora
+  const isSearchingMode = !!task.isBlocked;
+  const isManualBlocked = !!task.isManualBlocked;
+  const isAuditInProgress = !!task.isAuditInProgress;
   const isUrgent = task.priority === 'URGENT' && !task.isDone;
   const isNoteLockedByAudit = !!(task.auditFinalBadge && !props.hasPermission('perm_btn_audit'));
 
