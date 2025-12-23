@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, memo } from 'react';
 import { useLanguage } from './LanguageContext';
 
 interface PartNumberInputProps {
@@ -8,9 +8,9 @@ interface PartNumberInputProps {
   onInputChange?: (value: string) => void;
   placeholder?: string;
   value: string | null;
-  onRequestPart?: (part: string) => Promise<boolean>; // Returns boolean based on success
-  inputRef?: React.RefObject<HTMLInputElement>; // Added for focus management
-  onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>; // Added for keyboard navigation
+  onRequestPart?: (part: string) => Promise<boolean>;
+  inputRef?: React.RefObject<HTMLInputElement>;
+  onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
 }
 
 const SearchIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -25,52 +25,42 @@ const PlusIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
-const PartNumberInput: React.FC<PartNumberInputProps> = ({ parts, onPartSelect, onInputChange, placeholder, value, onRequestPart, inputRef, onKeyDown }) => {
+const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSelect, onInputChange, placeholder, value, onRequestPart, inputRef, onKeyDown }) => {
   const [query, setQuery] = useState<string>('');
-  const [filteredParts, setFilteredParts] = useState<string[]>([]);
   const [isDropdownVisible, setIsDropdownVisible] = useState<boolean>(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const { t } = useLanguage();
   
-  // Status state for the report button
   const [reportStatus, setReportStatus] = useState<'idle' | 'loading' | 'success'>('idle');
 
   useEffect(() => {
-    // Sync internal query state with external value prop
     setQuery(value || '');
   }, [value]);
 
-  useEffect(() => {
+  // OPTIMALIZOVANÉ FILTROVANIE: useMemo namiesto useEffect + obmedzenie na top 50 výsledkov
+  const filteredParts = useMemo(() => {
     const trimmedQuery = query.trim();
+    if (trimmedQuery === '') return parts.slice(0, 50);
 
-    if (trimmedQuery === '') {
-      setFilteredParts(parts);
-    } else if (trimmedQuery.includes('*')) {
-      // --- WILDCARD SEARCH LOGIC ---
+    let results: string[] = [];
+    if (trimmedQuery.includes('*')) {
       try {
-        // Escape regex special chars EXCEPT *
         const escapeRegex = (str: string) => str.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
-        
-        // Convert user's "*" to regex ".*"
-        // Anchor to start (^) and end ($) to match the whole pattern structure defined by user
         const pattern = trimmedQuery.split('*').map(escapeRegex).join('.*');
         const regex = new RegExp(`^${pattern}$`, 'i');
-
-        setFilteredParts(parts.filter(part => regex.test(part)));
+        results = parts.filter(part => regex.test(part));
       } catch (e) {
-        setFilteredParts([]);
+        results = [];
       }
     } else {
-      // --- STANDARD SUBSTRING SEARCH ---
-      setFilteredParts(
-        parts.filter(part =>
-          part.toLowerCase().includes(trimmedQuery.toLowerCase())
-        )
-      );
+      const q = trimmedQuery.toLowerCase();
+      results = parts.filter(part => part.toLowerCase().includes(q));
     }
+
+    // Limitovanie na 50 položiek pre plynulý render
+    return results.slice(0, 50);
   }, [query, parts]);
 
-  // Reset report status when query changes
   useEffect(() => {
     setReportStatus('idle');
   }, [query]);
@@ -82,9 +72,7 @@ const PartNumberInput: React.FC<PartNumberInputProps> = ({ parts, onPartSelect, 
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleSelectPart = (part: string) => {
@@ -99,10 +87,12 @@ const PartNumberInput: React.FC<PartNumberInputProps> = ({ parts, onPartSelect, 
     setQuery(newValue);
     if (onInputChange) onInputChange(newValue);
     
-    if (parts.includes(newValue)) {
-      onPartSelect(newValue);
+    // Rýchly check existencie
+    const exactMatch = parts.find(p => p.toLowerCase() === newValue.trim().toLowerCase());
+    if (exactMatch) {
+      onPartSelect(exactMatch);
     } else {
-      onPartSelect(null); // Clear selection if text doesn't match a full part
+      onPartSelect(null);
     }
   };
 
@@ -114,20 +104,13 @@ const PartNumberInput: React.FC<PartNumberInputProps> = ({ parts, onPartSelect, 
   };
 
   const handleRequestClick = async (e: React.MouseEvent) => {
-    // Prevent default to ensure focus logic doesn't interfere
     e.preventDefault();
-    
     if (onRequestPart && query.trim()) {
         setReportStatus('loading');
-        
-        // Call the async function from App.tsx
         const success = await onRequestPart(query.trim());
-        
         if (success) {
             setReportStatus('success');
             setIsDropdownVisible(false);
-            // Reset status is handled by component unmounting/value changing usually,
-            // but we can set a timeout to reset to idle if the input persists
             setTimeout(() => setReportStatus('idle'), 3000);
         } else {
             setReportStatus('idle');
@@ -135,9 +118,8 @@ const PartNumberInput: React.FC<PartNumberInputProps> = ({ parts, onPartSelect, 
     }
   };
 
-  // Determine if we should show the "Report" button
-  const isExactMatch = parts.some(p => p.toLowerCase() === query.trim().toLowerCase());
-  const hasWildcard = query.includes('*'); // Don't allow reporting wildcards
+  const isExactMatch = useMemo(() => parts.some(p => p.toLowerCase() === query.trim().toLowerCase()), [query, parts]);
+  const hasWildcard = query.includes('*');
   const showReportButton = onRequestPart && query.trim() !== '' && !isExactMatch && !hasWildcard;
 
   return (
@@ -158,7 +140,6 @@ const PartNumberInput: React.FC<PartNumberInputProps> = ({ parts, onPartSelect, 
         />
       </div>
 
-      {/* Standard Dropdown for Matches */}
       {isDropdownVisible && filteredParts.length > 0 && (
         <div className="absolute z-10 w-full mt-2 bg-gray-700 border border-gray-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
           <ul className="py-1">
@@ -175,7 +156,6 @@ const PartNumberInput: React.FC<PartNumberInputProps> = ({ parts, onPartSelect, 
         </div>
       )}
 
-      {/* Prominent Report Button (Outside Dropdown) */}
       {showReportButton && (
         <div className="mt-2 animate-fade-in">
              <button
@@ -208,6 +188,6 @@ const PartNumberInput: React.FC<PartNumberInputProps> = ({ parts, onPartSelect, 
       )}
     </div>
   );
-};
+});
 
 export default PartNumberInput;

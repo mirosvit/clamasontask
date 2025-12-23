@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { Task, SystemBreak } from '../App';
-import { useLanguage } from './LanguageContext';
+import { Task, SystemBreak } from '../../App';
+import { useLanguage } from '../LanguageContext';
 
 declare var XLSX: any;
 
@@ -154,7 +154,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
              if (!isNaN(qty) && qty > 0) weight = qty;
         }
 
-        if (task.type === 'logistics') {
+        if (task.isLogistics) {
             const refLabel = (part && part !== '-') ? part : 'N/A';
             const opLabel = (wp && wp !== '-') ? wp : '';
             const compoundKey = opLabel ? `${refLabel} [${opLabel}]` : refLabel;
@@ -263,7 +263,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
         [t('task_completed_by')]: task.completedBy || '-',
         [language === 'sk' ? 'Dokončené o' : 'Completed at']: task.completedAt ? new Date(task.completedAt).toLocaleString('sk-SK') : '-',
         [language === 'sk' ? 'Norma (min)' : 'Std Time (min)']: task.standardTime || 0,
-        [language === 'sk' ? 'Typ' : 'Type']: task.type || 'production',
+        [language === 'sk' ? 'Typ' : 'Type']: task.isLogistics ? 'logistics' : 'production',
         [t('btn_note')]: task.note || '-'
     }));
     const wsRaw = XLSX.utils.json_to_sheet(rawData);

@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
-import { Task } from '../App';
-import { useLanguage } from './LanguageContext';
+import { Task } from '../../App';
+import { useLanguage } from '../LanguageContext';
 
 declare var XLSX: any;
 

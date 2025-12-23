@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { DBItem } from '../App';
-import { useLanguage } from './LanguageContext';
+import React, { useState, useMemo, memo } from 'react';
+import { DBItem } from '../../App';
+import { useLanguage } from '../LanguageContext';
 
 interface PartsSectionProps {
   parts: DBItem[];
@@ -10,14 +10,21 @@ interface PartsSectionProps {
   onDeleteAllParts: () => void;
 }
 
-const PartsSection: React.FC<PartsSectionProps> = ({ parts, onAddPart, onBatchAddParts, onDeletePart, onDeleteAllParts }) => {
+const PartsSection: React.FC<PartsSectionProps> = memo(({ parts, onAddPart, onBatchAddParts, onDeletePart, onDeleteAllParts }) => {
   const { t } = useLanguage();
   const [newPart, setNewPart] = useState('');
   const [newPartDesc, setNewPartDesc] = useState('');
   const [bulkParts, setBulkParts] = useState('');
   const [partSearch, setPartSearch] = useState('');
 
-  const filteredParts = parts.filter(p => p.value.toLowerCase().includes(partSearch.toLowerCase()) || (p.description && p.description.toLowerCase().includes(partSearch.toLowerCase())));
+  const filteredParts = useMemo(() => {
+      const q = partSearch.toLowerCase();
+      if (!q) return parts;
+      return parts.filter(p => 
+        p.value.toLowerCase().includes(q) || 
+        (p.description && p.description.toLowerCase().includes(q))
+      );
+  }, [parts, partSearch]);
 
   const cardClass = "bg-gray-800/40 border border-slate-700/50 rounded-2xl p-6 shadow-2xl backdrop-blur-sm";
   const inputClass = "w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono";
@@ -55,6 +62,6 @@ const PartsSection: React.FC<PartsSectionProps> = ({ parts, onAddPart, onBatchAd
       </div>
     </div>
   );
-};
+});
 
 export default PartsSection;

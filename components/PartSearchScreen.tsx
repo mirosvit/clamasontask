@@ -1,14 +1,15 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import TaskList from './TaskList';
-import SettingsTab from './SettingsTab';
-import AnalyticsTab from './AnalyticsTab';
-import MissingItemsTab from './MissingItemsTab';
-import LogisticsCenterTab from './LogisticsCenterTab';
-import InventoryTab from './InventoryTab';
-import PermissionsTab from './PermissionsTab';
-import BOMScreen from './BOMScreen';
-import ProductionEntry from './ProductionEntry';
+import TaskList from './tabs/TaskList';
+import SettingsTab from './settings/SettingsTab';
+import AnalyticsTab from './tabs/AnalyticsTab';
+import MissingItemsTab from './tabs/MissingItemsTab';
+import LogisticsCenterTab from './tabs/LogisticsCenterTab';
+import InventoryTab from './tabs/InventoryTab';
+import PermissionsTab from './tabs/PermissionsTab';
+import BOMScreen from './tabs/BOMScreen';
+import ProductionEntry from './tabs/ProductionEntry';
 import AppHeader from './AppHeader';
 import TabNavigator from './TabNavigator';
 import { UserData, DBItem, PartRequest, BreakSchedule, SystemBreak, BOMItem, BOMRequest, Role, Permission, Task, Notification as AppNotification, PriorityLevel, SystemConfig } from '../App';
@@ -21,7 +22,7 @@ interface PartSearchScreenProps {
   currentUserRole: 'ADMIN' | 'USER' | 'LEADER';
   onLogout: () => void;
   tasks: Task[];
-  onAddTask: (partNumber: string, workplace: string | null, quantity: string | null, quantityUnit: string | null, priority: PriorityLevel, type?: 'production' | 'logistics') => void; 
+  onAddTask: (partNumber: string, workplace: string | null, quantity: string | null, quantityUnit: string | null, priority: PriorityLevel, isLogistics?: boolean) => void; 
   onUpdateTask: (id: string, updates: Partial<Task>) => void;
   onToggleTask: (id: string) => void;
   onMarkAsIncorrect: (id: string) => void;
@@ -34,6 +35,8 @@ interface PartSearchScreenProps {
   onAddNote: (id: string, note: string) => void;
   onDeleteMissingItem: (id: string) => void;
   onReleaseTask: (id: string) => void;
+  onArchiveTasks: () => Promise<{ success: boolean; count?: number; error?: string; message?: string }>;
+  onFetchArchivedTasks: () => Promise<Task[]>;
   onStartAudit: (id: string) => void;
   onFinishAudit: (id: string, result: 'found' | 'missing', note: string) => void;
   users: UserData[];
@@ -61,8 +64,6 @@ interface PartSearchScreenProps {
   onRequestPart: (part: string) => Promise<boolean>;
   onApprovePartRequest: (req: PartRequest) => void;
   onRejectPartRequest: (id: string) => void;
-  onArchiveTasks: () => Promise<{ success: boolean; count?: number; error?: string; message?: string }>;
-  onFetchArchivedTasks: () => Promise<Task[]>;
   breakSchedules: BreakSchedule[];
   systemBreaks: SystemBreak[];
   isBreakActive: boolean;
@@ -145,6 +146,11 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   const unfinishedTasksCount = tasks.filter(t => !t.isDone).length;
   const pendingRequestsCount = props.partRequests.length + props.bomRequests.length;
   
+  const partNumbersList = useMemo(() => parts.map(p => p.value), [parts]);
+
+  // Diagnostický indikátor načítania
+  const isDataLoading = parts.length === 0 || workplaces.length === 0;
+
   const logisticsOperationsList = useMemo(() => {
       if (props.logisticsOperations && props.logisticsOperations.length > 0) {
           return props.logisticsOperations;
@@ -171,13 +177,13 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
             alert(t('fill_all_fields')); 
             return;
         }
-        onAddTask(selectedPart.value, selectedWorkplace, quantity, quantityUnit, priority, 'production');
+        onAddTask(selectedPart.value, selectedWorkplace, quantity, quantityUnit, priority, false);
     } else {
         if (!logisticsRef || !logisticsOp || !quantity) {
             alert(t('fill_all_fields'));
             return;
         }
-        onAddTask(logisticsRef, logisticsOp, quantity, quantityUnit, priority, 'logistics');
+        onAddTask(logisticsRef, logisticsOp, quantity, quantityUnit, priority, true);
     }
 
     setSelectedPart(null);
@@ -185,11 +191,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
     setLogisticsRef('');
     setLogisticsOp('');
     setQuantity('');
-    if (entryMode === 'logistics') {
-         setQuantityUnit('pallet'); 
-    } else {
-         setQuantityUnit('pcs'); 
-    }
+    if (entryMode === 'logistics') { setQuantityUnit('pallet'); } else { setQuantityUnit('pcs'); }
     setPriority('NORMAL'); 
     setShowSuccessMessage(true);
     setTimeout(() => setShowSuccessMessage(false), 2000);
@@ -208,29 +210,11 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   };
 
   const handleAuditClick = (task: Task) => {
-      if (task.isAuditInProgress) {
-          setAuditFinishTask(task);
-          setAuditNote('');
-      } else {
-          setAuditStartTask(task);
-      }
+      if (task.isAuditInProgress) { setAuditFinishTask(task); setAuditNote(''); } else { setAuditStartTask(task); }
   };
 
-  const handleConfirmStartAudit = () => {
-      if (auditStartTask) {
-          props.onStartAudit(auditStartTask.id);
-          setAuditStartTask(null);
-      }
-  };
-
-  const handleConfirmFinishAudit = (result: 'found' | 'missing', note: string) => {
-      if (auditFinishTask && note.trim()) {
-          props.onFinishAudit(auditFinishTask.id, result, note.trim());
-          setAuditFinishTask(null);
-      } else {
-          alert(t('fill_all_fields'));
-      }
-  };
+  const handleConfirmStartAudit = () => { if (auditStartTask) { props.onStartAudit(auditStartTask.id); setAuditStartTask(null); } };
+  const handleConfirmFinishAudit = (result: 'found' | 'missing', note: string) => { if (auditFinishTask && note.trim()) { props.onFinishAudit(auditFinishTask.id, result, note.trim()); setAuditFinishTask(null); } else { alert(t('fill_all_fields')); } };
 
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-white">
@@ -241,15 +225,11 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                       <h3 className="text-3xl font-black text-teal-400 uppercase tracking-tighter">{t('alert_missing_title')}</h3>
                       <span className="bg-teal-500/20 text-teal-400 px-3 py-1 rounded-full text-xs font-bold">{notifications.length}</span>
                   </div>
-                  
                   <div className="space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
                       {notifications.map(notif => {
                           const isAudit = notif.reason.toUpperCase().includes('AUDIT');
-                          const itemBgClass = isAudit 
-                            ? "bg-amber-900/20 border-amber-800/40" 
-                            : "bg-red-900/20 border-red-800/40";
+                          const itemBgClass = isAudit ? "bg-amber-900/20 border-amber-800/40" : "bg-red-900/20 border-red-800/40";
                           const iconColorClass = isAudit ? "text-amber-400" : "text-red-400";
-                          
                           return (
                               <div key={notif.id} className={`${itemBgClass} border p-5 rounded-xl flex items-center justify-between gap-6 transition-all hover:bg-opacity-30`}>
                                   <div className="flex-grow min-w-0">
@@ -271,14 +251,8 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                           );
                       })}
                   </div>
-                  
                   <div className="mt-8 flex gap-4">
-                      <button 
-                        onClick={() => notifications.forEach(n => props.onClearNotification(n.id))} 
-                        className="flex-1 py-4 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-black text-lg shadow-xl transition-all active:scale-[0.98] uppercase tracking-widest"
-                      >
-                          {t('alert_btn_ok')}
-                      </button>
+                      <button onClick={() => notifications.forEach(n => props.onClearNotification(n.id))} className="flex-1 py-4 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-black text-lg shadow-xl transition-all active:scale-[0.98] uppercase tracking-widest">{t('alert_btn_ok')}</button>
                   </div>
               </div>
           </div>
@@ -294,150 +268,74 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
       )}
 
       {showSuccessMessage && (
-        <div className="fixed top-20 right-4 bg-green-600 text-white p-4 rounded-lg shadow-xl z-50 animate-bounce">
-          {t('sent_msg')}
-        </div>
+        <div className="fixed top-20 right-4 bg-green-600 text-white p-4 rounded-lg shadow-xl z-50 animate-bounce">{t('sent_msg')}</div>
       )}
 
-      <AppHeader 
-        currentUser={currentUser}
-        currentUserRole={currentUserRole}
-        onLogout={onLogout}
-        language={language}
-        setLanguage={setLanguage}
-        t={t}
-        isFullscreen={isFullscreen}
-        onToggleFullscreen={handleToggleFullscreen}
-        installPrompt={installPrompt}
-        onInstallApp={onInstallApp}
-        hasPermission={hasPermission}
-      />
-
-      <TabNavigator 
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        hasPermission={hasPermission}
-        t={t}
-        counts={{
-          tasks: unfinishedTasksCount,
-          pendingRequests: pendingRequestsCount
-        }}
-      />
-
-      <div className="flex-grow overflow-y-auto p-2 md:p-6 custom-scrollbar">
-        <div className="max-w-7xl mx-auto w-full h-full">
-          {activeTab === 'entry' && hasPermission('perm_tab_entry') && (
-            <ProductionEntry 
-              mode={entryMode}
-              setMode={setEntryMode}
-              selectedPart={selectedPart}
-              setSelectedPart={setSelectedPart}
-              selectedWorkplace={selectedWorkplace}
-              setSelectedWorkplace={setSelectedWorkplace}
-              logisticsRef={logisticsRef}
-              setLogisticsRef={setLogisticsRef}
-              logisticsOp={logisticsOp}
-              setLogisticsOp={setLogisticsOp}
-              quantity={quantity}
-              setQuantity={setQuantity}
-              quantityUnit={quantityUnit}
-              setQuantityUnit={setQuantityUnit}
-              priority={priority}
-              setPriority={setPriority}
-              parts={parts}
-              workplaces={workplaces}
-              logisticsOperationsList={logisticsOperationsList}
-              t={t}
-              language={language}
-              hasPermission={hasPermission}
-              handleAdd={handleSendToTasks}
-              onRequestPart={props.onRequestPart}
-            />
-          )}
-          
-          {activeTab === 'tasks' && hasPermission('perm_tab_tasks') && (
-            <div className="animate-fade-in pb-20">
-              <div className="mb-4 flex justify-center">
-                  <input type="text" value={taskSearchQuery} onChange={e => setTaskSearchQuery(e.target.value)} className="w-full max-w-md px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 placeholder:font-mono focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase" placeholder={t('task_search_placeholder')} />
+      <AppHeader currentUser={currentUser} currentUserRole={currentUserRole} onLogout={onLogout} language={language} setLanguage={setLanguage} t={t} isFullscreen={isFullscreen} onToggleFullscreen={handleToggleFullscreen} installPrompt={installPrompt} onInstallApp={onInstallApp} hasPermission={hasPermission} />
+      
+      {isDataLoading && activeTab === 'entry' ? (
+          <div className="flex-grow flex items-center justify-center bg-gray-900">
+              <div className="text-center space-y-4">
+                  <div className="inline-block w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-teal-400 font-bold animate-pulse uppercase tracking-widest text-sm">Synchronizujem databázu dielov...</p>
+                  <p className="text-gray-600 text-xs">Toto môže chvíľu trvať pri prvom spustení.</p>
               </div>
-              <TaskList currentUser={currentUserRole} currentUserName={currentUser} tasks={tasks.filter(t => { const q = taskSearchQuery.toLowerCase(); return (t.partNumber && t.partNumber.toLowerCase().includes(q)) || (t.text && t.text.toLowerCase().includes(q)) || (t.workplace && t.workplace.toLowerCase().includes(q)); })} onToggleTask={onToggleTask} onEditTask={onEditTask} onDeleteTask={onDeleteTask} onToggleMissing={onToggleMissing} onSetInProgress={onSetInProgress} onToggleBlock={onToggleBlock} onToggleManualBlock={onToggleManualBlock} onMarkAsIncorrect={onMarkAsIncorrect} onAddNote={onAddNote} onReleaseTask={onReleaseTask} onAuditPart={handleAuditClick} missingReasons={missingReasons} hasPermission={hasPermission} />
+          </div>
+      ) : (
+          <>
+            <TabNavigator activeTab={activeTab} setActiveTab={setActiveTab} hasPermission={hasPermission} t={t} counts={{ tasks: unfinishedTasksCount, pendingRequests: pendingRequestsCount }} />
+
+            <div className="flex-grow overflow-y-auto p-2 md:p-6 custom-scrollbar">
+                <div className="max-w-7xl mx-auto w-full h-full">
+                {activeTab === 'entry' && hasPermission('perm_tab_entry') && (
+                    <ProductionEntry mode={entryMode} setMode={setEntryMode} selectedPart={selectedPart} setSelectedPart={setSelectedPart} selectedWorkplace={selectedWorkplace} setSelectedWorkplace={setSelectedWorkplace} logisticsRef={logisticsRef} setLogisticsRef={setLogisticsRef} logisticsOp={logisticsOp} setLogisticsOp={setLogisticsOp} quantity={quantity} setQuantity={setQuantity} quantityUnit={quantityUnit} setQuantityUnit={setQuantityUnit} priority={priority} setPriority={setPriority} parts={parts} workplaces={workplaces} logisticsOperationsList={logisticsOperationsList} t={t} language={language} hasPermission={hasPermission} handleAdd={handleSendToTasks} onRequestPart={props.onRequestPart} />
+                )}
+                {activeTab === 'tasks' && hasPermission('perm_tab_tasks') && (
+                    <div className="animate-fade-in pb-20">
+                    <div className="mb-4 flex justify-center">
+                        <input type="text" value={taskSearchQuery} onChange={e => setTaskSearchQuery(e.target.value)} className="w-full max-w-md px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 placeholder:font-mono focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase" placeholder={t('task_search_placeholder')} />
+                    </div>
+                    <TaskList currentUser={currentUserRole} currentUserName={currentUser} tasks={tasks.filter(t => { const q = taskSearchQuery.toLowerCase(); return (t.partNumber && t.partNumber.toLowerCase().includes(q)) || (t.text && t.text.toLowerCase().includes(q)) || (t.workplace && t.workplace.toLowerCase().includes(q)); })} onToggleTask={onToggleTask} onEditTask={onEditTask} onDeleteTask={onDeleteTask} onToggleMissing={onToggleMissing} onSetInProgress={onSetInProgress} onToggleBlock={onToggleBlock} onToggleManualBlock={onToggleManualBlock} onMarkAsIncorrect={onMarkAsIncorrect} onAddNote={onAddNote} onReleaseTask={onReleaseTask} onAuditPart={handleAuditClick} missingReasons={missingReasons} hasPermission={hasPermission} />
+                    </div>
+                )}
+                {activeTab === 'analytics' && hasPermission('perm_tab_analytics') && <AnalyticsTab tasks={tasks} onFetchArchivedTasks={props.onFetchArchivedTasks} systemBreaks={props.systemBreaks} />}
+                {activeTab === 'settings' && hasPermission('perm_tab_settings') && <SettingsTab hasPermission={hasPermission} currentUserRole={currentUserRole} users={users} onAddUser={props.onAddUser} onUpdatePassword={props.onUpdatePassword} onUpdateUserRole={props.onUpdateUserRole} onDeleteUser={props.onDeleteUser} parts={parts} workplaces={workplaces} missingReasons={missingReasons} onAddPart={props.onAddPart} onBatchAddParts={props.onBatchAddParts} onDeletePart={props.onDeletePart} onDeleteAllParts={props.onDeleteAllParts} onAddWorkplace={props.onAddWorkplace} onBatchAddWorkplaces={props.onBatchAddWorkplaces} onDeleteWorkplace={props.onDeleteWorkplace} onDeleteAllWorkplaces={props.onDeleteAllWorkplaces} onAddMissingReason={props.onAddMissingReason} onDeleteMissingReason={props.onDeleteMissingReason} logisticsOperations={logisticsOperationsList} onAddLogisticsOperation={props.onAddLogisticsOperation} onDeleteLogisticsOperation={props.onDeleteLogisticsOperation} partRequests={props.partRequests} onApprovePartRequest={onApprovePartRequest} onRejectPartRequest={id => props.onRejectPartRequest(id)} onArchiveTasks={onArchiveTasks} breakSchedules={breakSchedules} onAddBreakSchedule={props.onAddBreakSchedule} onDeleteBreakSchedule={props.onDeleteBreakSchedule} bomItems={bomItems} bomRequests={bomRequests} onAddBOMItem={props.onAddBOMItem} onBatchAddBOMItems={props.onBatchAddBOMItems} onDeleteBOMItem={props.onDeleteBOMItem} onDeleteAllBOMItems={props.onDeleteAllBOMItems} onApproveBOMRequest={onApproveBOMRequest} onRejectBOMRequest={id => props.onRejectBOMRequest(id)} roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={onDeleteRole} onUpdatePermission={onUpdatePermission} installPrompt={installPrompt} onInstallApp={onInstallApp} systemConfig={systemConfig} onUpdateSystemConfig={onUpdateSystemConfig} dbLoadWarning={dbLoadWarning} />}
+                {activeTab === 'bom' && hasPermission('perm_tab_bom') && <BOMScreen parts={parts} workplaces={workplaces} bomItems={bomItems} onAddTask={onAddTask} onRequestBOM={props.onRequestBOM} t={t} language={language} />}
+                {activeTab === 'missing' && hasPermission('perm_tab_missing') && <MissingItemsTab tasks={tasks} onDeleteMissingItem={props.onDeleteMissingItem} hasPermission={hasPermission} />}
+                {activeTab === 'inventory' && hasPermission('perm_tab_inventory') && <InventoryTab currentUser={currentUser} tasks={tasks} onAddTask={onAddTask} onUpdateTask={onUpdateTask} onToggleTask={onToggleTask} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} parts={partNumbersList} onRequestPart={props.onRequestPart} />}
+                {activeTab === 'logistics' && hasPermission('perm_tab_logistics_center') && <LogisticsCenterTab tasks={tasks} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} />}
+                {activeTab === 'permissions' && hasPermission('perm_tab_permissions') && <PermissionsTab roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={onDeleteRole} onUpdatePermission={onUpdatePermission} onVerifyAdminPassword={onVerifyAdminPassword} />}
+                </div>
             </div>
-          )}
+          </>
+      )}
 
-          {activeTab === 'analytics' && hasPermission('perm_tab_analytics') && <AnalyticsTab tasks={tasks} onFetchArchivedTasks={props.onFetchArchivedTasks} systemBreaks={props.systemBreaks} />}
-          {activeTab === 'settings' && hasPermission('perm_tab_settings') && <SettingsTab hasPermission={hasPermission} currentUserRole={currentUserRole} users={users} onAddUser={props.onAddUser} onUpdatePassword={props.onUpdatePassword} onUpdateUserRole={props.onUpdateUserRole} onDeleteUser={props.onDeleteUser} parts={parts} workplaces={workplaces} missingReasons={missingReasons} onAddPart={props.onAddPart} onBatchAddParts={props.onBatchAddParts} onDeletePart={props.onDeletePart} onDeleteAllParts={props.onDeleteAllParts} onAddWorkplace={props.onAddWorkplace} onBatchAddWorkplaces={props.onBatchAddWorkplaces} onDeleteWorkplace={props.onDeleteWorkplace} onDeleteAllWorkplaces={props.onDeleteAllWorkplaces} onAddMissingReason={props.onAddMissingReason} onDeleteMissingReason={props.onDeleteMissingReason} logisticsOperations={logisticsOperationsList} onAddLogisticsOperation={props.onAddLogisticsOperation} onDeleteLogisticsOperation={props.onDeleteLogisticsOperation} partRequests={props.partRequests} onApprovePartRequest={onApprovePartRequest} onRejectPartRequest={id => props.onRejectPartRequest(id)} onArchiveTasks={onArchiveTasks} breakSchedules={breakSchedules} onAddBreakSchedule={props.onAddBreakSchedule} onDeleteBreakSchedule={props.onDeleteBreakSchedule} bomItems={bomItems} bomRequests={bomRequests} onAddBOMItem={props.onAddBOMItem} onBatchAddBOMItems={props.onBatchAddBOMItems} onDeleteBOMItem={props.onDeleteBOMItem} onDeleteAllBOMItems={props.onDeleteAllBOMItems} onApproveBOMRequest={onApproveBOMRequest} onRejectBOMRequest={id => props.onRejectBOMRequest(id)} roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={onDeleteRole} onUpdatePermission={onUpdatePermission} installPrompt={installPrompt} onInstallApp={onInstallApp} systemConfig={systemConfig} onUpdateSystemConfig={onUpdateSystemConfig} dbLoadWarning={dbLoadWarning} />}
-          
-          {activeTab === 'bom' && hasPermission('perm_tab_bom') && (
-              <BOMScreen 
-                parts={parts}
-                workplaces={workplaces}
-                bomItems={bomItems}
-                onAddTask={onAddTask}
-                onRequestBOM={props.onRequestBOM}
-                t={t}
-                language={language}
-              />
-          )}
-           {activeTab === 'missing' && hasPermission('perm_tab_missing') && <MissingItemsTab tasks={tasks} onDeleteMissingItem={props.onDeleteMissingItem} hasPermission={hasPermission} />}
-           {activeTab === 'inventory' && hasPermission('perm_tab_inventory') && <InventoryTab currentUser={currentUser} tasks={tasks} onAddTask={onAddTask} onUpdateTask={onUpdateTask} onToggleTask={onToggleTask} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} parts={parts.map(p => p.value)} onRequestPart={props.onRequestPart} />}
-           {activeTab === 'logistics' && hasPermission('perm_tab_logistics_center') && <LogisticsCenterTab tasks={tasks} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} />}
-           {activeTab === 'permissions' && hasPermission('perm_tab_permissions') && <PermissionsTab roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={onDeleteRole} onUpdatePermission={onUpdatePermission} onVerifyAdminPassword={onVerifyAdminPassword} />}
-        </div>
-      </div>
-
-      {/* Audit Start Modal */}
       {auditStartTask && createPortal(
           <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setAuditStartTask(null)}>
               <div className="bg-gray-800 border-2 border-[#926a05] rounded-xl shadow-2xl w-full max-w-md p-6 relative" onClick={e => e.stopPropagation()}>
                   <h3 className="text-xl font-bold text-white mb-6 text-center uppercase tracking-wide">{t('audit_start_title')}</h3>
-                  <p className="text-gray-300 text-center mb-8">
-                      {t('audit_start_desc', { part: (auditStartTask?.partNumber || '') as string })}
-                  </p>
+                  <p className="text-gray-300 text-center mb-8">{t('audit_start_desc', { part: (auditStartTask?.partNumber || '') as string })}</p>
                   <div className="flex gap-3">
                       <button onClick={() => setAuditStartTask(null)} className="flex-1 py-4 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 font-bold transition-colors uppercase text-xs">{t('btn_cancel')}</button>
-                      <button onClick={handleConfirmStartAudit} className="flex-1 py-4 bg-[#926a05] hover:bg-[#a67c06] text-white rounded-lg font-bold transition-colors shadow-lg uppercase text-xs">
-                          {language === 'sk' ? 'Potvrdiť začiatok' : 'Confirm Start'}
-                      </button>
+                      <button onClick={handleConfirmStartAudit} className="flex-1 py-4 bg-[#926a05] hover:bg-[#a67c06] text-white rounded-lg font-bold transition-colors shadow-lg uppercase text-xs">{language === 'sk' ? 'Potvrdiť začiatok' : 'Confirm Start'}</button>
                   </div>
               </div>
           </div>,
           document.body
       )}
 
-      {/* Audit Finish Modal */}
       {auditFinishTask && createPortal(
           <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setAuditFinishTask(null)}>
               <div className="bg-gray-800 border-2 border-[#926a05] rounded-xl shadow-2xl w-full max-w-lg p-6 relative" onClick={e => e.stopPropagation()}>
                   <h3 className="text-xl font-bold text-white mb-6 text-center uppercase tracking-wide">{t('audit_finish_title')}</h3>
-                  
                   <div className="mb-6">
                       <label className="block text-gray-400 text-xs font-bold uppercase mb-2">{t('audit_finish_note')}</label>
-                      <textarea 
-                        value={auditNote}
-                        onChange={(e) => setAuditNote(e.target.value)}
-                        className="w-full bg-gray-700 border border-gray-600 rounded-lg text-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#926a05] h-32"
-                        placeholder="..."
-                        autoFocus
-                      />
+                      <textarea value={auditNote} onChange={(e) => setAuditNote(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg text-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#926a05] h-32" placeholder="..." autoFocus />
                   </div>
-
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                      <button 
-                        onClick={() => handleConfirmFinishAudit('found', auditNote)}
-                        disabled={!auditNote.trim()}
-                        className={`py-4 rounded-lg font-bold transition-all shadow-lg uppercase text-xs flex items-center justify-center gap-2 ${!auditNote.trim() ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-green-600 hover:bg-green-500 text-white'}`}
-                      >
-                          ✅ {t('audit_found_btn')}
-                      </button>
-                      <button 
-                        onClick={() => handleConfirmFinishAudit('missing', auditNote)}
-                        disabled={!auditNote.trim()}
-                        className={`py-4 rounded-lg font-bold transition-all shadow-lg uppercase text-xs flex items-center justify-center gap-2 ${!auditNote.trim() ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-red-600 hover:bg-red-500 text-white'}`}
-                      >
-                          ❌ {t('audit_missing_btn')}
-                      </button>
+                      <button onClick={() => handleConfirmFinishAudit('found', auditNote)} disabled={!auditNote.trim()} className={`py-4 rounded-lg font-bold transition-all shadow-lg uppercase text-xs flex items-center justify-center gap-2 ${!auditNote.trim() ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-green-600 border border-green-500 text-white'}`}>✅ {t('audit_found_btn')}</button>
+                      <button onClick={() => handleConfirmFinishAudit('missing', auditNote)} disabled={!auditNote.trim()} className={`py-4 rounded-lg font-bold transition-all shadow-lg uppercase text-xs flex items-center justify-center gap-2 ${!auditNote.trim() ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-red-600 border border-red-500 text-white'}`}>❌ {t('audit_missing_btn')}</button>
                   </div>
-
                   <button onClick={() => setAuditFinishTask(null)} className="w-full py-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 font-bold transition-colors uppercase text-[10px]">{t('btn_cancel')}</button>
               </div>
           </div>,

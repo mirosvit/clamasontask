@@ -1,6 +1,6 @@
 import React from 'react';
-import { PartRequest, BOMRequest } from '../App';
-import { useLanguage } from './LanguageContext';
+import { PartRequest, BOMRequest } from '../../App';
+import { useLanguage } from '../LanguageContext';
 
 interface PartRequestsSectionProps {
   partRequests: PartRequest[];

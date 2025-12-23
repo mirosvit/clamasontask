@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { DBItem } from '../App';
-import { useLanguage } from './LanguageContext';
+import React, { useState, useMemo, memo } from 'react';
+import { DBItem } from '../../App';
+import { useLanguage } from '../LanguageContext';
 
 interface WorkplaceSectionProps {
   workplaces: DBItem[];
@@ -13,7 +13,7 @@ interface WorkplaceSectionProps {
   onDeleteLogisticsOperation: (id: string) => void;
 }
 
-const WorkplaceSection: React.FC<WorkplaceSectionProps> = ({ 
+const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({ 
   workplaces, logisticsOperations, onAddWorkplace, onBatchAddWorkplaces, onDeleteWorkplace, onDeleteAllWorkplaces, onAddLogisticsOperation, onDeleteLogisticsOperation 
 }) => {
   const { t } = useLanguage();
@@ -24,7 +24,11 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = ({
   const [newLogOp, setNewLogOp] = useState('');
   const [newLogOpTime, setNewLogOpTime] = useState('');
 
-  const filteredWPs = workplaces.filter(w => w.value.toLowerCase().includes(wpSearch.toLowerCase()));
+  const filteredWPs = useMemo(() => {
+      const q = wpSearch.toLowerCase();
+      if (!q) return workplaces;
+      return workplaces.filter(w => w.value.toLowerCase().includes(q));
+  }, [workplaces, wpSearch]);
 
   const cardClass = "bg-gray-800/40 border border-slate-700/50 rounded-2xl p-6 shadow-2xl backdrop-blur-sm";
   const inputClass = "w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono";
@@ -86,6 +90,6 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = ({
       </div>
     </div>
   );
-};
+});
 
 export default WorkplaceSection;

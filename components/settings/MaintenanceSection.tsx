@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { SystemConfig } from '../App';
-import { useLanguage } from './LanguageContext';
+import { SystemConfig } from '../../App';
+import { useLanguage } from '../LanguageContext';
 
 interface MaintenanceSectionProps {
   systemConfig: SystemConfig;

@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo } from 'react';
-import { UserData, DBItem, PartRequest, BreakSchedule, BOMItem, BOMRequest, Role, Permission, SystemConfig } from '../App';
-import { useLanguage } from './LanguageContext';
+import { UserData, DBItem, PartRequest, BreakSchedule, BOMItem, BOMRequest, Role, Permission, SystemConfig } from '../../App';
+import { useLanguage } from '../LanguageContext';
 import PartRequestsSection from './PartRequestsSection';
 import UserSection from './UserSection';
 import PartsSection from './PartsSection';
@@ -72,7 +73,6 @@ const Icons = {
 };
 
 const SettingsTab: React.FC<SettingsTabProps> = (props) => {
-  // Fix: language context needs to be obtained via hook, not props destructuring
   const { hasPermission } = props;
   const { t, language } = useLanguage();
   
@@ -102,7 +102,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-fade-in px-4 md:px-0">
-      {/* ALWAYS VISIBLE PRIORITY SECTION */}
       <PartRequestsSection 
         partRequests={props.partRequests} 
         bomRequests={props.bomRequests}
@@ -112,7 +111,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
         onRejectBOMRequest={props.onRejectBOMRequest}
       />
 
-      {/* TILE NAVIGATOR */}
       <div className={`grid gap-3 mb-8 ${
           navTiles.length <= 4 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-4 lg:grid-cols-7'
       }`}>
@@ -139,7 +137,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
         })}
       </div>
 
-      {/* ACTIVE CONTENT CARD */}
       <div className="animate-fade-in">
         {activeSubTab === 'summary' && (
           <SetupView 

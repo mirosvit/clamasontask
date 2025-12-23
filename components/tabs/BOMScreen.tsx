@@ -1,12 +1,13 @@
+
 import React, { useState, useMemo } from 'react';
-import PartNumberInput from './PartNumberInput';
-import { DBItem, BOMItem, PriorityLevel } from '../App';
+import PartNumberInput from '../PartNumberInput';
+import { DBItem, BOMItem, PriorityLevel } from '../../App';
 
 interface BOMScreenProps {
   parts: DBItem[];
   workplaces: DBItem[];
   bomItems: BOMItem[];
-  onAddTask: (partNumber: string, workplace: string | null, quantity: string | null, quantityUnit: string | null, priority: PriorityLevel, type?: 'production' | 'logistics') => void;
+  onAddTask: (partNumber: string, workplace: string | null, quantity: string | null, quantityUnit: string | null, priority: PriorityLevel, isLogistics?: boolean) => void;
   onRequestBOM: (parent: string) => Promise<boolean>;
   t: (key: any, params?: any) => string;
   language: string;
@@ -75,7 +76,7 @@ const BOMScreen: React.FC<BOMScreenProps> = ({
         alert(t('select_bom_workplace'));
         return;
     }
-    onAddTask(childPart, bomSelectedWorkplace, qty.toString(), 'pcs', 'NORMAL', 'production');
+    onAddTask(childPart, bomSelectedWorkplace, qty.toString(), 'pcs', 'NORMAL', false);
     setClickedBOMTasks(prev => new Set(prev).add(childPart));
   };
 

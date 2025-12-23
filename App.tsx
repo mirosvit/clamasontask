@@ -14,13 +14,11 @@ import {
   orderBy,
   writeBatch,
   getDocs,
-  getDoc,
   where,
   limit,
   setDoc,
   increment 
 } from 'firebase/firestore';
-import { partNumbers as initialParts, workplaces as initialWorkplaces, initialMissingReasons as seedMissingReasons } from './data/mockParts';
 
 export interface UserData {
   id?: string;
@@ -70,11 +68,10 @@ export interface Task {
   blockedBy?: string | null; 
   isManualBlocked?: boolean; 
   inventoryHistory?: InventorySession[];
-  type?: 'production' | 'logistics'; 
+  isLogistics?: boolean; 
   isAuditInProgress?: boolean;
   auditBy?: string | null;
   auditFinalBadge?: string | null;
-  // Audit štruktúrované dáta
   auditedBy?: string | null;
   auditedAt?: number | null;
   auditResult?: 'OK' | 'NOK' | null;
@@ -175,9 +172,6 @@ const App: React.FC = () => {
   const rolesRef = useRef<Role[]>([]);
   const permissionsRef = useRef<Permission[]>([]);
   const currentUserRoleRef = useRef(currentUserRole);
-  
-  // Smart Cache Logic Lock
-  const isRefreshingSmartData = useRef(false);
 
   useEffect(() => { rolesRef.current = roles; }, [roles]);
   useEffect(() => { permissionsRef.current = permissions; }, [permissions]);
@@ -246,6 +240,7 @@ const App: React.FC = () => {
       }
   }, [systemConfig, isAuthenticated, currentUserRole]);
 
+  // Natívne onSnapshot listenery - využívajú IndexedDB perzistenciu z firebase.ts pre okamžitý prístup
   useEffect(() => {
     const q = query(collection(db, 'tasks')); 
     return onSnapshot(q, (snapshot) => {
@@ -293,6 +288,16 @@ const App: React.FC = () => {
   useEffect(() => { return onSnapshot(query(collection(db, 'workplaces'), orderBy('value')), s => setWorkplaces(s.docs.map(d => ({id:d.id, value:d.data().value, standardTime:d.data().standardTime} as DBItem)))); }, []);
   useEffect(() => { return onSnapshot(query(collection(db, 'missing_reasons'), orderBy('value')), s => setMissingReasons(s.docs.map(d => ({id:d.id, value:d.data().value} as DBItem)))); }, []);
   useEffect(() => { return onSnapshot(query(collection(db, 'break_schedules')), s => setBreakSchedules(s.docs.map(d => ({id:d.id, ...d.data()} as BreakSchedule)))); }, []);
+  
+  // Optimalizované listenery pre diely a BOM (bez zbytočného localStorage kešovania)
+  useEffect(() => { 
+      return onSnapshot(query(collection(db, 'parts'), orderBy('value')), s => setParts(s.docs.map(d => ({id:d.id, ...d.data()} as DBItem)))); 
+  }, []);
+  
+  useEffect(() => { 
+      return onSnapshot(query(collection(db, 'bom_items'), orderBy('parentPart')), s => setBomItems(s.docs.map(d => ({id:d.id, ...d.data()} as BOMItem)))); 
+  }, []);
+
   useEffect(() => { 
       return onSnapshot(query(collection(db, 'logistics_operations'), orderBy('value')), async (s) => {
           const ops = s.docs.map(d => ({id:d.id, value:d.data().value, standardTime: d.data().standardTime} as DBItem));
@@ -307,79 +312,15 @@ const App: React.FC = () => {
       }); 
   }, []);
 
-  // OPTIMALIZOVANÁ LOGIKA SMART CACHE
   const incrementDataVersion = async () => {
+      // Táto funkcia je zachovaná pre kompatibilitu, hoci v novom modeli priameho syncu nie je kritická
       const metaRef = doc(db, 'metadata', 'system');
       try { 
-          // Atomický increment priamo vo Firestore
           await setDoc(metaRef, { dataVersion: increment(1) }, { merge: true }); 
       } catch (e) {
           console.error("Failed to increment data version", e);
       }
   };
-
-  const refreshSmartData = async (serverVersion: number) => {
-      // Prevencia paralelných refreshov
-      if (isRefreshingSmartData.current) return;
-      
-      try {
-          isRefreshingSmartData.current = true;
-          const localVersion = parseInt(localStorage.getItem('cached_data_version') || '-1');
-
-          // Ak sa verzie zhodujú, načítame z cache
-          if (serverVersion === localVersion && localVersion !== -1) {
-              const cParts = localStorage.getItem('cached_parts');
-              const cBom = localStorage.getItem('cached_bom');
-              if (cParts && cBom) {
-                  setParts(JSON.parse(cParts));
-                  setBomItems(JSON.parse(cBom));
-                  isRefreshingSmartData.current = false;
-                  return;
-              }
-          }
-
-          // Ak sa verzie nezhodujú alebo cache chýba, urobíme getDocs (1 read na kolekciu)
-          const [pSnap, bSnap] = await Promise.all([
-              getDocs(query(collection(db, 'parts'), orderBy('value'))),
-              getDocs(query(collection(db, 'bom_items'), orderBy('parentPart')))
-          ]);
-
-          const newParts = pSnap.docs.map(d => ({ id: d.id, ...d.data() } as DBItem));
-          const newBOM = bSnap.docs.map(d => ({ id: d.id, ...d.data() } as BOMItem));
-
-          // Update State
-          setParts(newParts);
-          setBomItems(newBOM);
-
-          // Update Cache
-          localStorage.setItem('cached_parts', JSON.stringify(newParts));
-          localStorage.setItem('cached_bom', JSON.stringify(newBOM));
-          localStorage.setItem('cached_data_version', serverVersion.toString());
-
-      } catch (e) {
-          console.error("Smart Data Refresh failed", e);
-      } finally {
-          isRefreshingSmartData.current = false;
-      }
-  };
-
-  useEffect(() => {
-      const metaRef = doc(db, 'metadata', 'system');
-      return onSnapshot(metaRef, (snap) => {
-          if (!snap.exists()) return;
-          
-          const version = snap.data().dataVersion ?? 0;
-          
-          // Ak ide o prvý load, načítame hneď bez jittera
-          if (isFirstLoad.current) {
-              refreshSmartData(version);
-          } else {
-              // Jitter 0-10s na ochranu free tieru pri hromadných zmenách
-              const jitter = Math.floor(Math.random() * 10000); 
-              setTimeout(() => refreshSmartData(version), jitter);
-          }
-      });
-  }, []);
   
   useEffect(() => { const q = query(collection(db, 'part_requests')); return onSnapshot(q, s => setPartRequests(s.docs.map(d => ({id:d.id, ...d.data()} as PartRequest)))); }, []);
   useEffect(() => { const q = query(collection(db, 'bom_requests')); return onSnapshot(q, s => setBomRequests(s.docs.map(d => ({id:d.id, ...d.data()} as BOMRequest)))); }, []);
@@ -434,19 +375,19 @@ const App: React.FC = () => {
   const handleApprovePartRequest = (req: PartRequest) => { handleAddPart(req.partNumber); deleteDoc(doc(db,'part_requests',req.id)); };
   const handleRejectPartRequest = (id: string) => deleteDoc(doc(db,'part_requests',id));
 
-  const handleAddTask = async (pn: string, wp: string | null, qty: string | null, unit: string | null, prio: PriorityLevel, type: 'production' | 'logistics' = 'production') => {
+  const handleAddTask = async (pn: string, wp: string | null, qty: string | null, unit: string | null, prio: PriorityLevel, isLogistics: boolean = false) => {
     const formattedDate = new Date().toLocaleString('sk-SK');
     let fQty = qty || ''; if(unit==='boxes') fQty=`${qty} box`; if(unit==='pallet') fQty=`${qty} pal`;
     let text = `${formattedDate} / ${pn}`; if (wp) text += ` / ${wp}`; if (fQty) text += ` / Počet: ${fQty}`;
     let finalStandardTime = 0;
-    if (type === 'production') {
+    if (!isLogistics) {
         const wpObj = workplaces.find(w => w.value === wp);
         finalStandardTime = wpObj?.standardTime || 0;
         if (unit === 'pallet' && qty) {
             const numericQty = parseFloat(qty.replace(',', '.'));
             if (!isNaN(numericQty) && numericQty > 0) finalStandardTime = Math.round(finalStandardTime * numericQty);
         }
-    } else if (type === 'logistics') {
+    } else {
         const opObj = logisticsOperations.find(op => op.value === wp); 
         finalStandardTime = opObj?.standardTime || 0;
         if (qty) {
@@ -455,7 +396,7 @@ const App: React.FC = () => {
         }
     }
     const isInventoryTask = pn === "Počítanie zásob";
-    await addDoc(collection(db, 'tasks'), { text, partNumber: pn, workplace: wp, quantity: qty, quantityUnit: unit, standardTime: finalStandardTime, isDone:false, priority:prio, createdAt:Date.now(), createdBy:currentUser, type, isInProgress: isInventoryTask, inProgressBy: isInventoryTask ? currentUser : null, startedAt: isInventoryTask ? Date.now() : null });
+    await addDoc(collection(db, 'tasks'), { text, partNumber: pn, workplace: wp, quantity: qty, quantityUnit: unit, standardTime: finalStandardTime, isDone:false, priority:prio, createdAt:Date.now(), createdBy:currentUser, isLogistics, isInProgress: isInventoryTask, inProgressBy: isInventoryTask ? currentUser : null, startedAt: isInventoryTask ? Date.now() : null });
   };
 
   const handleUpdateTask = async (id: string, updates: Partial<Task>) => { await updateDoc(doc(db, 'tasks', id), updates); };
@@ -478,7 +419,6 @@ const App: React.FC = () => {
       if(t) {
           const isMissing = !t.isMissing;
           await updateDoc(doc(db,'tasks',id), { isMissing, missingReportedBy: isMissing?currentUser:null, missingReason: isMissing?(reason||'Iné'):null, isInProgress: false, inProgressBy: null, isBlocked: false, isManualBlocked: false, isAuditInProgress: false, auditBy: null });
-          
           if (isMissing && t.createdBy && t.createdBy !== currentUser) {
               await addDoc(collection(db, 'notifications'), { 
                   partNumber: t.partNumber || 'Unknown', 
@@ -492,7 +432,6 @@ const App: React.FC = () => {
   };
   
   const handleClearNotification = (id: string) => deleteDoc(doc(db, 'notifications', id));
-
   const handleToggleBlock = async (id: string) => {
       const t=tasks.find(x=>x.id===id);
       if(t) {
@@ -502,7 +441,6 @@ const App: React.FC = () => {
           updateDoc(doc(db,'tasks',id), { isBlocked, blockedBy: isBlocked ? currentUser : null, inventoryHistory:hist });
       }
   };
-
   const handleToggleManualBlock = async (id: string) => {
       const t = tasks.find(x => x.id === id);
       if (t) {
@@ -510,59 +448,22 @@ const App: React.FC = () => {
           await updateDoc(doc(db, 'tasks', id), { isManualBlocked: newState, createdAt: !newState ? Date.now() : t.createdAt, isInProgress: false, inProgressBy: null });
       }
   };
-
-  const handleStartAudit = async (id: string) => {
-      await updateDoc(doc(db, 'tasks', id), { isAuditInProgress: true, auditBy: currentUser });
-  };
-
+  const handleStartAudit = async (id: string) => { await updateDoc(doc(db, 'tasks', id), { isAuditInProgress: true, auditBy: currentUser }); };
   const handleFinishAudit = async (id: string, result: 'found' | 'missing', note: string) => {
       const t = tasks.find(x => x.id === id);
       if (!t) return;
-      
       const statusLabel = result === 'found' ? 'OK' : 'CHÝBA';
       const badgeText = `AUDIT ${statusLabel}: ${note} (${currentUser})`;
-      
-      const auditData = {
-          auditedBy: currentUser,
-          auditedAt: Date.now(),
-          auditResult: result === 'found' ? 'OK' : 'NOK',
-          auditNote: note,
-          isAuditInProgress: false,
-          auditBy: null,
-          auditFinalBadge: badgeText
-      };
-
+      const auditData = { auditedBy: currentUser, auditedAt: Date.now(), auditResult: result === 'found' ? 'OK' : 'NOK', auditNote: note, isAuditInProgress: false, auditBy: null, auditFinalBadge: badgeText };
       if (result === 'found') {
-          // Ak sa našiel, zrušíme stav missing a vrátime do zoznamu úloh
-          await updateDoc(doc(db, 'tasks', id), { 
-              ...auditData,
-              isMissing: false, 
-              missingReason: null, 
-              missingReportedBy: null
-          });
+          await updateDoc(doc(db, 'tasks', id), { ...auditData, isMissing: false, missingReason: null, missingReportedBy: null });
       } else {
-          // Ak sa potvrdilo chýbanie, označíme ako hotové (vybavené), ale zostáva isMissing pre zobrazenie v tabuľke chýbajúceho tovaru
-          await updateDoc(doc(db, 'tasks', id), { 
-              ...auditData,
-              isDone: true, 
-              status: 'completed', 
-              completionTime: new Date().toLocaleTimeString('sk-SK'), 
-              completedBy: currentUser, 
-              completedAt: Date.now()
-          });
+          await updateDoc(doc(db, 'tasks', id), { ...auditData, isDone: true, status: 'completed', completionTime: new Date().toLocaleTimeString('sk-SK'), completedBy: currentUser, completedAt: Date.now() });
       }
-
       if (t.createdBy && t.createdBy !== currentUser) {
-          await addDoc(collection(db, 'notifications'), { 
-              partNumber: t.partNumber || 'N/A', 
-              reason: `AUDIT DOKONČENÝ (${statusLabel}): ${note}`, 
-              reportedBy: currentUser, 
-              targetUser: t.createdBy, 
-              timestamp: Date.now() 
-          });
+          await addDoc(collection(db, 'notifications'), { partNumber: t.partNumber || 'N/A', reason: `AUDIT DOKONČENÝ (${statusLabel}): ${note}`, reportedBy: currentUser, targetUser: t.createdBy, timestamp: Date.now() });
       }
   };
-
   const handleArchiveTasks = async () => {
       const q = query(collection(db,'tasks'), where('isDone','==',true), limit(1000));
       const s = await getDocs(q);
@@ -583,9 +484,10 @@ const App: React.FC = () => {
       ) : (
         <PartSearchScreen 
           currentUser={currentUser} currentUserRole={currentUserRole} onLogout={handleLogout}
-          tasks={tasks} onAddTask={handleAddTask} onToggleTask={handleToggleTask} onEditTask={handleEditTask} onDeleteTask={handleDeleteTask}
+          tasks={tasks} onAddTask={handleAddTask} onToggleTask={handleToggleTask} onEditTask={handleEditTask} onMarkAsIncorrect={handleMarkAsIncorrect} onAddNote={handleAddNote} onReleaseTask={handleReleaseTask}
+          onDeleteTask={handleDeleteTask}
           onUpdateTask={handleUpdateTask}
-          onToggleMissing={handleToggleMissing} onSetInProgress={handleSetInProgress} onToggleBlock={handleToggleBlock} onToggleManualBlock={handleToggleManualBlock} onMarkAsIncorrect={handleMarkAsIncorrect} onAddNote={handleAddNote} onReleaseTask={handleReleaseTask}
+          onToggleMissing={handleToggleMissing} onSetInProgress={handleSetInProgress} onToggleBlock={handleToggleBlock} onToggleManualBlock={handleToggleManualBlock}
           onStartAudit={handleStartAudit} onFinishAudit={handleFinishAudit}
           users={users} onAddUser={handleAddUser} onUpdatePassword={handleUpdatePassword} onUpdateUserRole={handleUpdateUserRole} onDeleteUser={handleDeleteUser}
           parts={parts} workplaces={workplaces} missingReasons={missingReasons} logisticsOperations={logisticsOperations}

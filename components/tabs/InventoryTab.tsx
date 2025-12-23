@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useLanguage } from './LanguageContext';
-import PartNumberInput from './PartNumberInput';
-import { Task, PriorityLevel } from '../App';
+import { useLanguage } from '../LanguageContext';
+import PartNumberInput from '../PartNumberInput';
+import { Task, PriorityLevel } from '../../App';
 
 interface ScannedItem {
     id: string;
@@ -18,7 +18,7 @@ interface ScannedItem {
 interface InventoryTabProps {
     currentUser: string;
     tasks: Task[];
-    onAddTask: (pn: string, wp: string | null, qty: string | null, unit: string | null, prio: PriorityLevel, type?: 'production' | 'logistics') => void;
+    onAddTask: (pn: string, wp: string | null, qty: string | null, unit: string | null, prio: PriorityLevel, isLogistics?: boolean) => void;
     onUpdateTask: (id: string, updates: Partial<Task>) => void;
     onToggleTask: (id: string) => void;
     onDeleteTask: (id: string) => void;
@@ -96,7 +96,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
     }, [scannedItems]);
 
     const handleStartInventory = () => {
-        onAddTask("Počítanie zásob", "Inventúra", "0", "pallet", "NORMAL", "logistics");
+        onAddTask("Počítanie zásob", "Inventúra", "0", "pallet", "NORMAL", true);
     };
 
     const handleAddItem = () => {

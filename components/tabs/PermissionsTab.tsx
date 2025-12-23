@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Role, Permission } from '../App'; 
-import { useLanguage } from './LanguageContext';
+import { Role, Permission } from '../../App'; 
+import { useLanguage } from '../LanguageContext';
 
 interface PermissionsTabProps {
     roles: Role[];
@@ -21,7 +22,6 @@ const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, permissions, onA
     const { t } = useLanguage();
     const [newRoleName, setNewRoleName] = useState('');
     
-    // Modal State
     const [deleteModalRole, setDeleteModalRole] = useState<Role | null>(null);
     const [passwordInput, setPasswordInput] = useState('');
     const [error, setError] = useState('');
@@ -57,7 +57,6 @@ const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, permissions, onA
         return permissions?.some(p => p.roleId === roleId && p.permissionName === permName) || false;
     };
     
-    // Sort roles: System roles first, then custom roles alphabetically
     const sortedRoles = [...roles].sort((a, b) => {
         if (a.isSystem && !b.isSystem) return -1;
         if (!a.isSystem && b.isSystem) return 1;
@@ -152,7 +151,6 @@ const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, permissions, onA
                  </form>
              </div>
 
-             {/* Delete Confirmation Modal */}
              {deleteModalRole && createPortal(
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in" onClick={handleCloseModal}>
                     <div className="bg-gray-800 border-2 border-red-600 rounded-xl shadow-2xl w-full max-w-md p-6 relative" onClick={e => e.stopPropagation()}>

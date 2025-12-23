@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Task, PriorityLevel, DBItem } from '../App';
-import { useLanguage } from './LanguageContext';
+import { Task, PriorityLevel, DBItem } from '../../App';
+import { useLanguage } from '../LanguageContext';
 
 interface TaskListProps {
   currentUser: 'ADMIN' | 'USER' | 'LEADER';
@@ -191,6 +191,7 @@ const TaskList: React.FC<TaskListProps> = (props) => {
                 const isUrgent = task.priority === 'URGENT' && !task.isDone;
                 const isSystemInventoryTask = task.partNumber === "Počítanie zásob";
                 const isNoteLockedByAudit = !!(task.auditFinalBadge && !props.hasPermission('perm_btn_audit'));
+                const isLogisticsTask = task.isLogistics;
                 
                 if (isSystemInventoryTask && !props.hasPermission('perm_tab_inventory')) {
                     return null;
@@ -210,7 +211,7 @@ const TaskList: React.FC<TaskListProps> = (props) => {
                     else if (isSystemInventoryTask) { bgClass = "bg-[#4169E1]/20"; borderClass = "border-l-4 border-[#4169E1]"; }
                     else if (task.isInProgress) { bgClass = "bg-[#FFD700]/20"; borderClass = "border-l-4 border-[#FFD700]"; }
                     else if (task.isMissing) { bgClass = "bg-red-900/20"; borderClass = "border-l-4 border-red-500"; }
-                    else if (task.type === 'logistics') { bgClass = "bg-sky-900/10"; borderClass = "border-l-4 border-sky-500"; }
+                    else if (isLogisticsTask) { bgClass = "bg-sky-900/10"; borderClass = "border-l-4 border-sky-500"; }
                     else {
                         switch (task.priority) {
                             case 'URGENT': bgClass = "bg-[#FF8C00]/20"; borderClass = "border-l-4 border-[#FF8C00]"; break;
@@ -236,6 +237,14 @@ const TaskList: React.FC<TaskListProps> = (props) => {
 
                         <div className="flex-grow p-4 flex flex-col gap-1 min-w-0 relative">
                             <div className="relative z-10">
+                                {isLogisticsTask && !task.isDone && (
+                                    <div className="mb-1">
+                                        <span className="bg-sky-600 text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-sky-500 shadow-[0_0_10px_rgba(14,165,233,0.4)] inline-block">
+                                            🚛 {t('status_logistics')}
+                                        </span>
+                                    </div>
+                                )}
+
                                 {isSystemInventoryTask && !task.isDone && (
                                     <div className="mb-1">
                                         <span className="bg-[#4169E1] text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded animate-pulse border border-[#3151b1] shadow-[0_0_10px_rgba(65,105,225,0.4)] inline-block">

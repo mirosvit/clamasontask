@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { DBItem, BreakSchedule } from '../App';
-import { useLanguage } from './LanguageContext';
+import { DBItem, BreakSchedule } from '../../App';
+import { useLanguage } from '../LanguageContext';
 
 interface SystemSectionProps {
   missingReasons: DBItem[];

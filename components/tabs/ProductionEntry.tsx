@@ -1,6 +1,7 @@
-import React from 'react';
-import PartNumberInput from './PartNumberInput';
-import { DBItem, PriorityLevel } from '../App';
+
+import React, { useMemo } from 'react';
+import PartNumberInput from '../PartNumberInput';
+import { DBItem, PriorityLevel } from '../../App';
 
 interface ProductionEntryProps {
   mode: 'production' | 'logistics';
@@ -43,6 +44,8 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
 }) => {
   const inputBaseClass = "w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 placeholder:font-mono focus:outline-none focus:ring-2 transition-all font-mono uppercase text-lg";
 
+  const partNumbers = useMemo(() => parts.map(p => p.value), [parts]);
+
   return (
     <div className="h-full flex flex-col items-center animate-fade-in pb-20">
       <div className="w-full max-w-2xl">
@@ -75,7 +78,7 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
                 <div>
                   <label className="block text-gray-300 text-sm font-bold mb-2 uppercase tracking-wide">{t('part_number')}</label>
                   <PartNumberInput 
-                    parts={parts.map(p => p.value)} 
+                    parts={partNumbers} 
                     onPartSelect={(p) => setSelectedPart(p ? (parts.find(i => i.value === p) || null) : null)} 
                     placeholder={t('part_placeholder')} 
                     value={selectedPart ? selectedPart.value : ''} 

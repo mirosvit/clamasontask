@@ -1,6 +1,6 @@
 import React from 'react';
-import { UserData, DBItem, BreakSchedule, BOMItem, SystemConfig } from '../App';
-import { useLanguage } from './LanguageContext';
+import { UserData, DBItem, BreakSchedule, BOMItem, SystemConfig } from '../../App';
+import { useLanguage } from '../LanguageContext';
 
 interface SetupViewProps {
   users: UserData[];

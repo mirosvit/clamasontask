@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { BOMItem } from '../App';
-import { useLanguage } from './LanguageContext';
+import React, { useState, useMemo, memo } from 'react';
+import { BOMItem } from '../../App';
+import { useLanguage } from '../LanguageContext';
 
 interface BOMSectionProps {
   bomItems: BOMItem[];
@@ -10,7 +10,8 @@ interface BOMSectionProps {
   onDeleteAllBOMItems: () => void;
 }
 
-const BOMSection: React.FC<BOMSectionProps> = ({ bomItems, onAddBOMItem, onBatchAddBOMItems, onDeleteBOMItem, onDeleteAllBOMItems }) => {
+// Fix: Completed the component by adding the return statement and export default to resolve type errors and missing export
+const BOMSection: React.FC<BOMSectionProps> = memo(({ bomItems, onAddBOMItem, onBatchAddBOMItems, onDeleteBOMItem, onDeleteAllBOMItems }) => {
   const { t } = useLanguage();
   const [bomParent, setBomParent] = useState('');
   const [bomChild, setBomChild] = useState('');
@@ -18,7 +19,14 @@ const BOMSection: React.FC<BOMSectionProps> = ({ bomItems, onAddBOMItem, onBatch
   const [bomBulk, setBomBulk] = useState('');
   const [bomSearchQuery, setBomSearchQuery] = useState('');
 
-  const filteredBOMs = bomItems.filter(item => item.parentPart.toLowerCase().includes(bomSearchQuery.toLowerCase()) || item.childPart.toLowerCase().includes(bomSearchQuery.toLowerCase()));
+  const filteredBOMs = useMemo(() => {
+      const q = bomSearchQuery.toLowerCase();
+      if (!q) return bomItems;
+      return bomItems.filter(item => 
+          item.parentPart.toLowerCase().includes(q) || 
+          item.childPart.toLowerCase().includes(q)
+      );
+  }, [bomItems, bomSearchQuery]);
 
   const cardClass = "bg-gray-800/40 border border-slate-700/50 rounded-2xl p-6 shadow-2xl backdrop-blur-sm";
   const inputClass = "w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono";
@@ -72,6 +80,6 @@ const BOMSection: React.FC<BOMSectionProps> = ({ bomItems, onAddBOMItem, onBatch
       </div>
     </div>
   );
-};
+});
 
 export default BOMSection;

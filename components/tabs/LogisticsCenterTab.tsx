@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { Task } from '../App';
-import { useLanguage } from './LanguageContext';
+import { Task } from '../../App';
+import { useLanguage } from '../LanguageContext';
 
 declare var XLSX: any;
 
@@ -42,7 +42,7 @@ const LogisticsCenterTab: React.FC<LogisticsCenterTabProps> = ({ tasks, onDelete
     
     // Filtrovanie iba LOGISTICKÝCH úloh
     const logisticsTasks = useMemo(() => {
-        return tasks.filter(task => task.type === 'logistics').sort((a, b) => {
+        return tasks.filter(task => task.isLogistics).sort((a, b) => {
             const timeA = a.createdAt || 0;
             const timeB = b.createdAt || 0;
             return timeB - timeA; 
