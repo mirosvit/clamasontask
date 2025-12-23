@@ -8,6 +8,7 @@ interface UserSectionProps {
   roles: Role[];
   onAddUser: (user: UserData) => void;
   onUpdatePassword: (username: string, newPass: string) => void;
+  onUpdateNickname: (username: string, newNick: string) => void;
   onDeleteUser: (username: string) => void;
 }
 
@@ -16,12 +17,13 @@ const Icons = {
   Trash: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
 };
 
-const UserSection: React.FC<UserSectionProps> = memo(({ users, roles, onAddUser, onUpdatePassword, onDeleteUser }) => {
+const UserSection: React.FC<UserSectionProps> = memo(({ users, roles, onAddUser, onUpdatePassword, onUpdateNickname, onDeleteUser }) => {
   const { t } = useLanguage();
   const [newUser, setNewUser] = useState('');
   const [newPass, setNewPass] = useState('');
   const [newRole, setNewRole] = useState<'USER' | 'ADMIN' | 'LEADER'>('USER');
   const [passwordInputs, setPasswordInputs] = useState<Record<string, string>>({});
+  const [nicknameInputs, setNicknameInputs] = useState<Record<string, string>>({});
 
   const cardClass = "bg-gray-800/40 border border-slate-700/50 rounded-2xl p-6 shadow-2xl backdrop-blur-sm";
   const inputClass = "w-full h-12 bg-slate-800/80 border border-slate-700 rounded-xl px-4 text-white text-base focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono placeholder-gray-500 uppercase";
@@ -38,21 +40,33 @@ const UserSection: React.FC<UserSectionProps> = memo(({ users, roles, onAddUser,
           {users.map(u => (
             <div key={u.id || u.username} className="bg-slate-950/30 p-5 rounded-2xl border border-white/5 flex flex-col md:flex-row justify-between items-center gap-6 group">
               <div className="flex items-center gap-6 min-w-[220px]">
-                <div className="w-12 h-12 rounded-full bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400 font-black text-xl">{u.username.charAt(0).toUpperCase()}</div>
+                <div className="w-12 h-12 rounded-full bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400 font-black text-xl">{(u.nickname || u.username).charAt(0).toUpperCase()}</div>
                 <div>
-                  <p className="font-black text-white text-base">{u.username}</p>
-                  <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{u.role}</p>
+                  <p className="font-black text-white text-base truncate max-w-[120px]">{u.nickname || u.username}</p>
+                  <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{u.username} • {u.role}</p>
                 </div>
               </div>
               <div className="flex flex-1 items-center gap-3 w-full">
-                <input 
-                  type="text" 
-                  placeholder="Nové heslo"
-                  value={passwordInputs[u.username] || ''}
-                  onChange={(e) => setPasswordInputs(p => ({ ...p, [u.username]: e.target.value }))}
-                  className={inputClass}
-                />
-                <button onClick={() => { if(passwordInputs[u.username]) { onUpdatePassword(u.username, passwordInputs[u.username]); setPasswordInputs(p => ({...p, [u.username]: ''})); } }} className="h-12 w-12 flex items-center justify-center bg-slate-800 rounded-xl border border-slate-700 text-teal-400 hover:bg-slate-700 transition-all flex-shrink-0 shadow-lg"><Icons.Save /></button>
+                <div className="grid grid-cols-2 gap-3 flex-grow">
+                    <input 
+                    type="text" 
+                    placeholder="Zmeniť Heslo"
+                    value={passwordInputs[u.username] || ''}
+                    onChange={(e) => setPasswordInputs(p => ({ ...p, [u.username]: e.target.value }))}
+                    className={inputClass}
+                    />
+                    <input 
+                    type="text" 
+                    placeholder="Nickname (Prezývka)"
+                    value={nicknameInputs[u.username] === undefined ? (u.nickname || '') : nicknameInputs[u.username]}
+                    onChange={(e) => setNicknameInputs(p => ({ ...p, [u.username]: e.target.value }))}
+                    className={inputClass}
+                    />
+                </div>
+                <button onClick={() => { 
+                    if(passwordInputs[u.username]) { onUpdatePassword(u.username, passwordInputs[u.username]); setPasswordInputs(p => ({...p, [u.username]: ''})); }
+                    if(nicknameInputs[u.username] !== undefined) { onUpdateNickname(u.username, nicknameInputs[u.username]); }
+                }} className="h-12 w-12 flex items-center justify-center bg-slate-800 rounded-xl border border-slate-700 text-teal-400 hover:bg-slate-700 transition-all flex-shrink-0 shadow-lg"><Icons.Save /></button>
                 {u.username !== 'ADMIN' && <button onClick={() => { if(window.confirm('Vymazať užívateľa?')) onDeleteUser(u.username); }} className="h-12 w-12 flex items-center justify-center text-slate-600 hover:text-red-500 transition-all flex-shrink-0"><Icons.Trash /></button>}
               </div>
             </div>

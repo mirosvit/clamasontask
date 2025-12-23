@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import LoginScreen from './components/LoginScreen';
 import PartSearchScreen from './components/PartSearchScreen';
 import { db } from './firebase';
@@ -17,7 +17,8 @@ import {
   where,
   limit,
   setDoc,
-  increment 
+  increment,
+  getCountFromServer
 } from 'firebase/firestore';
 
 export interface UserData {
@@ -25,6 +26,7 @@ export interface UserData {
   username: string;
   password: string;
   role: 'ADMIN' | 'USER' | 'LEADER';
+  nickname?: string;
 }
 
 export interface DBItem {
@@ -76,6 +78,7 @@ export interface Task {
   auditedAt?: number | null;
   auditResult?: 'OK' | 'NOK' | null;
   auditNote?: string | null;
+  expireAt?: number;
 }
 
 export interface Notification {
@@ -179,9 +182,7 @@ const App: React.FC = () => {
 
   const checkPermissionRef = (permName: string) => {
       const currentRole = currentUserRoleRef.current;
-      if (currentRole === 'ADMIN' && (permName === 'perm_tab_permissions' || permName === 'perm_manage_roles' || permName === 'perm_tab_settings')) {
-          return true;
-      }
+      if (currentRole === 'ADMIN') return true;
       const r = rolesRef.current.find(r => r.name === currentRole);
       if (!r) return false;
       return permissionsRef.current.some(p => p.roleId === r.id && p.permissionName === permName);
@@ -240,12 +241,19 @@ const App: React.FC = () => {
       }
   }, [systemConfig, isAuthenticated, currentUserRole]);
 
-  // Natívne onSnapshot listenery - využívajú IndexedDB perzistenciu z firebase.ts pre okamžitý prístup
   useEffect(() => {
-    const q = query(collection(db, 'tasks')); 
+    if (!isAuthenticated) return;
+
+    const fortyEightHoursAgo = Date.now() - (48 * 60 * 60 * 1000);
+    const q = query(
+        collection(db, 'tasks'), 
+        where('createdAt', '>=', fortyEightHoursAgo),
+        limit(500) // Ochrana proti masívnym načítaniam
+    ); 
+
     return onSnapshot(q, (snapshot) => {
       const newTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
-      setDbLoadWarning(newTasks.length > 500);
+      
       if (!isFirstLoad.current) {
           snapshot.docChanges().forEach((change) => {
               if (change.type === 'added') {
@@ -262,6 +270,7 @@ const App: React.FC = () => {
           });
       }
       isFirstLoad.current = false;
+
       const priorityOrder: Record<string, number> = { 'URGENT': 0, 'NORMAL': 1, 'LOW': 2 };
       const sortedTasks = newTasks.sort((a, b) => {
         if (a.isDone !== b.isDone) return a.isDone ? 1 : -1;
@@ -280,48 +289,36 @@ const App: React.FC = () => {
       });
       setTasks(sortedTasks);
     });
+  }, [isAuthenticated]);
+
+  useEffect(() => { 
+      const unsubUsers = onSnapshot(collection(db, 'users'), s => setUsers(s.docs.map(d => ({id:d.id, ...d.data()} as UserData))));
+      const unsubRoles = onSnapshot(collection(db, 'roles'), s => setRoles(s.docs.map(d => ({id:d.id, ...d.data()} as Role))));
+      const unsubPerms = onSnapshot(collection(db, 'permissions'), s => setPermissions(s.docs.map(d => ({id:d.id, ...d.data()} as Permission))));
+      
+      return () => { unsubUsers(); unsubRoles(); unsubPerms(); };
   }, []);
 
-  useEffect(() => { return onSnapshot(collection(db, 'users'), s => setUsers(s.docs.map(d => ({id:d.id, ...d.data()} as UserData)))); }, []);
-  useEffect(() => { return onSnapshot(collection(db, 'roles'), s => setRoles(s.docs.map(d => ({id:d.id, ...d.data()} as Role)))); }, []);
-  useEffect(() => { return onSnapshot(collection(db, 'permissions'), s => setPermissions(s.docs.map(d => ({id:d.id, ...d.data()} as Permission)))); }, []);
   useEffect(() => { return onSnapshot(query(collection(db, 'workplaces'), orderBy('value')), s => setWorkplaces(s.docs.map(d => ({id:d.id, value:d.data().value, standardTime:d.data().standardTime} as DBItem)))); }, []);
   useEffect(() => { return onSnapshot(query(collection(db, 'missing_reasons'), orderBy('value')), s => setMissingReasons(s.docs.map(d => ({id:d.id, value:d.data().value} as DBItem)))); }, []);
   useEffect(() => { return onSnapshot(query(collection(db, 'break_schedules')), s => setBreakSchedules(s.docs.map(d => ({id:d.id, ...d.data()} as BreakSchedule)))); }, []);
-  
-  // Optimalizované listenery pre diely a BOM (bez zbytočného localStorage kešovania)
-  useEffect(() => { 
-      return onSnapshot(query(collection(db, 'parts'), orderBy('value')), s => setParts(s.docs.map(d => ({id:d.id, ...d.data()} as DBItem)))); 
-  }, []);
-  
-  useEffect(() => { 
-      return onSnapshot(query(collection(db, 'bom_items'), orderBy('parentPart')), s => setBomItems(s.docs.map(d => ({id:d.id, ...d.data()} as BOMItem)))); 
-  }, []);
+  useEffect(() => { return onSnapshot(query(collection(db, 'parts'), orderBy('value')), s => setParts(s.docs.map(d => ({id:d.id, ...d.data()} as DBItem)))); }, []);
+  useEffect(() => { return onSnapshot(query(collection(db, 'bom_items'), orderBy('parentPart')), s => setBomItems(s.docs.map(d => ({id:d.id, ...d.data()} as BOMItem)))); }, []);
 
   useEffect(() => { 
       return onSnapshot(query(collection(db, 'logistics_operations'), orderBy('value')), async (s) => {
-          const ops = s.docs.map(d => ({id:d.id, value:d.data().value, standardTime: d.data().standardTime} as DBItem));
-          if (ops.length === 0 && !s.metadata.fromCache) {
+          if (s.empty && !s.metadata.fromCache) {
                const defaults = ['VYKLÁDKA', 'NAKLÁDKA', 'ZASKLADNENIE', 'INTERNÝ PRESUN'];
                const batch = writeBatch(db);
                defaults.forEach(op => batch.set(doc(collection(db, 'logistics_operations')), { value: op, standardTime: 0 }));
                await batch.commit();
           } else {
+              const ops = s.docs.map(d => ({id:d.id, value:d.data().value, standardTime: d.data().standardTime} as DBItem));
               setLogisticsOperations(ops);
           }
       }); 
   }, []);
 
-  const incrementDataVersion = async () => {
-      // Táto funkcia je zachovaná pre kompatibilitu, hoci v novom modeli priameho syncu nie je kritická
-      const metaRef = doc(db, 'metadata', 'system');
-      try { 
-          await setDoc(metaRef, { dataVersion: increment(1) }, { merge: true }); 
-      } catch (e) {
-          console.error("Failed to increment data version", e);
-      }
-  };
-  
   useEffect(() => { const q = query(collection(db, 'part_requests')); return onSnapshot(q, s => setPartRequests(s.docs.map(d => ({id:d.id, ...d.data()} as PartRequest)))); }, []);
   useEffect(() => { const q = query(collection(db, 'bom_requests')); return onSnapshot(q, s => setBomRequests(s.docs.map(d => ({id:d.id, ...d.data()} as BOMRequest)))); }, []);
   
@@ -343,12 +340,13 @@ const App: React.FC = () => {
   const handleLogin = (u: string, r: any) => { setIsAuthenticated(true); setCurrentUser(u); setCurrentUserRole(r); localStorage.setItem('app_user', u); localStorage.setItem('app_role', r); };
   const handleAddUser = async (u: UserData) => { await addDoc(collection(db, 'users'), u); };
   const handleUpdatePassword = async (u: string, p: string) => { const user = users.find(us => us.username === u); if(user) { await updateDoc(doc(db,'users', user.id!), {password: p}); } };
+  const handleUpdateNickname = async (u: string, n: string) => { const user = users.find(us => us.username === u); if(user) { await updateDoc(doc(db,'users', user.id!), {nickname: n}); } };
   const handleUpdateUserRole = async (u: string, r: any) => { const user = users.find(us => us.username === u); if(user) { await updateDoc(doc(db,'users', user.id!), {role: r}); } };
   const handleDeleteUser = async (u: string) => { const user = users.find(us => us.username === u); if(user) { await deleteDoc(doc(db,'users', user.id!)); } };
-  const handleAddPart = async (v: string, desc?: string) => { await addDoc(collection(db,'parts'), {value:v, description: desc || ''}); await incrementDataVersion(); };
-  const handleBatchAddParts = async (vs: string[]) => { const b=writeBatch(db); vs.forEach(v => { const [val, desc] = v.split(';'); if(val) b.set(doc(collection(db,'parts')), {value:val.trim(), description: desc ? desc.trim() : ''}); }); await b.commit(); await incrementDataVersion(); };
-  const handleDeletePart = async (id: string) => { await deleteDoc(doc(db,'parts',id)); await incrementDataVersion(); };
-  const handleDeleteAllParts = async () => { const s=await getDocs(collection(db,'parts')); const b=writeBatch(db); s.forEach(d=>b.delete(d.ref)); await b.commit(); await incrementDataVersion(); };
+  const handleAddPart = async (v: string, desc?: string) => { await addDoc(collection(db,'parts'), {value:v, description: desc || ''}); };
+  const handleBatchAddParts = async (vs: string[]) => { const b=writeBatch(db); vs.forEach(v => { const [val, desc] = v.split(';'); if(val) b.set(doc(collection(db,'parts')), {value:val.trim(), description: desc ? desc.trim() : ''}); }); await b.commit(); };
+  const handleDeletePart = async (id: string) => { await deleteDoc(doc(db,'parts',id)); };
+  const handleDeleteAllParts = async () => { const s=await getDocs(collection(db,'parts')); const b=writeBatch(db); s.forEach(d=>b.delete(d.ref)); await b.commit(); };
   const handleAddWorkplace = async (v: string, t?: number) => { await addDoc(collection(db,'workplaces'), {value:v, standardTime:t||0}); };
   const handleBatchAddWorkplaces = async (vs: string[]) => { const b=writeBatch(db); vs.forEach(l=>{const [v,t]=l.split(';'); if(v) b.set(doc(collection(db,'workplaces')), {value:v.trim(), standardTime: parseInt(t)||0})}); await b.commit(); };
   const handleDeleteWorkplace = async (id: string) => { await deleteDoc(doc(db,'workplaces',id)); };
@@ -360,10 +358,10 @@ const App: React.FC = () => {
   const handleDeleteMissingItem = (id: string) => deleteDoc(doc(db,'tasks',id));
   const handleAddBreakSchedule = async (s:string, e:string) => { await addDoc(collection(db,'break_schedules'), {start:s, end:e}); };
   const handleDeleteBreakSchedule = async (id: string) => { await deleteDoc(doc(db,'break_schedules',id)); };
-  const handleAddBOMItem = async (p:string, c:string, q:number) => { await addDoc(collection(db,'bom_items'), {parentPart:p, childPart:c, quantity:q}); await incrementDataVersion(); };
-  const handleBatchAddBOMItems = async (vs: string[]) => { const b=writeBatch(db); vs.forEach(l=>{const p=l.split(';'); if(p.length>=3) b.set(doc(collection(db,'bom_items')), {parentPart:p[0].trim(), childPart:p[1].trim(), quantity:parseFloat(p[2].trim().replace(',','.'))})}); await b.commit(); await incrementDataVersion(); };
-  const handleDeleteBOMItem = async (id: string) => { await deleteDoc(doc(db,'bom_items',id)); await incrementDataVersion(); };
-  const handleDeleteAllBOMItems = async () => { const s=await getDocs(collection(db,'bom_items')); const b=writeBatch(db); s.forEach(d=>b.delete(d.ref)); await b.commit(); await incrementDataVersion(); };
+  const handleAddBOMItem = async (p:string, c:string, q:number) => { await addDoc(collection(db,'bom_items'), {parentPart:p, childPart:c, quantity:q}); };
+  const handleBatchAddBOMItems = async (vs: string[]) => { const b=writeBatch(db); vs.forEach(l=>{const p=l.split(';'); if(p.length>=3) b.set(doc(collection(db,'bom_items')), {parentPart:p[0].trim(), childPart:p[1].trim(), quantity:parseFloat(p[2].trim().replace(',','.'))})}); await b.commit(); };
+  const handleDeleteBOMItem = async (id: string) => { await deleteDoc(doc(db,'bom_items',id)); };
+  const handleDeleteAllBOMItems = async () => { const s=await getDocs(collection(db,'bom_items')); const b=writeBatch(db); s.forEach(d=>b.delete(d.ref)); await b.commit(); };
   const handleRequestBOM = async (p: string) => { await addDoc(collection(db,'bom_requests'), {parentPart:p, requestedBy:currentUser, requestedAt:Date.now()}); return true; };
   const handleApproveBOMRequest = (r: BOMRequest) => deleteDoc(doc(db,'bom_requests',r.id));
   const handleRejectBOMRequest = (id: string) => deleteDoc(doc(db,'bom_requests',id));
@@ -375,10 +373,12 @@ const App: React.FC = () => {
   const handleApprovePartRequest = (req: PartRequest) => { handleAddPart(req.partNumber); deleteDoc(doc(db,'part_requests',req.id)); };
   const handleRejectPartRequest = (id: string) => deleteDoc(doc(db,'part_requests',id));
 
-  const handleAddTask = async (pn: string, wp: string | null, qty: string | null, unit: string | null, prio: PriorityLevel, isLogistics: boolean = false) => {
+  const handleAddTask = async (pn: string, wp: string | null, qty: string | null, unit: string | null, prio: PriorityLevel, isLogistics: boolean = false, note?: string) => {
     const formattedDate = new Date().toLocaleString('sk-SK');
     let fQty = qty || ''; if(unit==='boxes') fQty=`${qty} box`; if(unit==='pallet') fQty=`${qty} pal`;
     let text = `${formattedDate} / ${pn}`; if (wp) text += ` / ${wp}`; if (fQty) text += ` / Počet: ${fQty}`;
+    if (note) text += ` / Pozn: ${note}`;
+
     let finalStandardTime = 0;
     if (!isLogistics) {
         const wpObj = workplaces.find(w => w.value === wp);
@@ -396,7 +396,8 @@ const App: React.FC = () => {
         }
     }
     const isInventoryTask = pn === "Počítanie zásob";
-    await addDoc(collection(db, 'tasks'), { text, partNumber: pn, workplace: wp, quantity: qty, quantityUnit: unit, standardTime: finalStandardTime, isDone:false, priority:prio, createdAt:Date.now(), createdBy:currentUser, isLogistics, isInProgress: isInventoryTask, inProgressBy: isInventoryTask ? currentUser : null, startedAt: isInventoryTask ? Date.now() : null });
+    const now = Date.now();
+    await addDoc(collection(db, 'tasks'), { text, partNumber: pn, workplace: wp, quantity: qty, quantityUnit: unit, standardTime: finalStandardTime, isDone:false, priority:prio, createdAt:now, createdBy:currentUser, isLogistics, isInProgress: isInventoryTask, inProgressBy: isInventoryTask ? currentUser : null, startedAt: isInventoryTask ? now : null, note: note || null, expireAt: now + (90 * 24 * 60 * 60 * 1000) });
   };
 
   const handleUpdateTask = async (id: string, updates: Partial<Task>) => { await updateDoc(doc(db, 'tasks', id), updates); };
@@ -454,18 +455,35 @@ const App: React.FC = () => {
       if (!t) return;
       const statusLabel = result === 'found' ? 'OK' : 'CHÝBA';
       const badgeText = `AUDIT ${statusLabel}: ${note} (${currentUser})`;
-      const auditData = { auditedBy: currentUser, auditedAt: Date.now(), auditResult: result === 'found' ? 'OK' : 'NOK', auditNote: note, isAuditInProgress: false, auditBy: null, auditFinalBadge: badgeText };
+      const auditData = { 
+          auditedBy: currentUser, 
+          auditedAt: Date.now(), 
+          auditResult: result === 'found' ? 'OK' : 'NOK', 
+          auditNote: note, 
+          isAuditInProgress: false, 
+          auditBy: null, 
+          auditFinalBadge: badgeText 
+      };
+      
       if (result === 'found') {
-          await updateDoc(doc(db, 'tasks', id), { ...auditData, isMissing: false, missingReason: null, missingReportedBy: null });
+          await updateDoc(doc(db, 'tasks', id), { ...auditData, isMissing: false });
       } else {
-          await updateDoc(doc(db, 'tasks', id), { ...auditData, isDone: true, status: 'completed', completionTime: new Date().toLocaleTimeString('sk-SK'), completedBy: currentUser, completedAt: Date.now() });
+          await updateDoc(doc(db, 'tasks', id), { 
+              ...auditData, 
+              isDone: true, 
+              status: 'completed', 
+              completionTime: new Date().toLocaleTimeString('sk-SK'), 
+              completedBy: currentUser, 
+              completedAt: Date.now() 
+          });
       }
       if (t.createdBy && t.createdBy !== currentUser) {
           await addDoc(collection(db, 'notifications'), { partNumber: t.partNumber || 'N/A', reason: `AUDIT DOKONČENÝ (${statusLabel}): ${note}`, reportedBy: currentUser, targetUser: t.createdBy, timestamp: Date.now() });
       }
   };
+  
   const handleArchiveTasks = async () => {
-      const q = query(collection(db,'tasks'), where('isDone','==',true), limit(1000));
+      const q = query(collection(db,'tasks'), where('isDone','==',true), limit(500));
       const s = await getDocs(q);
       const toArchive = s.docs.filter(d => !d.data().completedAt || d.data().completedAt < (Date.now() - 86400000));
       if(toArchive.length===0) return {success:true, count:0, message:"Žiadne staré úlohy."};
@@ -474,8 +492,37 @@ const App: React.FC = () => {
       await b.commit();
       return {success:true, count:toArchive.length};
   };
-  const fetchArchivedTasks = async () => (await getDocs(collection(db,'archived_tasks'))).docs.map(d=>({id:d.id, ...d.data()} as Task));
+
+  const fetchArchivedTasks = async () => (await getDocs(query(collection(db,'archived_tasks'), limit(500)))).docs.map(d=>({id:d.id, ...d.data()} as Task));
+  
   const handleUpdateSystemConfig = async (newConfig: Partial<SystemConfig>) => { const configRef = doc(db, 'system_data', 'config'); await setDoc(configRef, newConfig, { merge: true }); };
+
+  const handleGetDocCount = useCallback(async () => {
+      const snap = await getCountFromServer(collection(db, 'tasks'));
+      return snap.data().count;
+  }, []);
+
+  const handlePurgeOldTasks = useCallback(async () => {
+      const ninetyDaysAgo = Date.now() - (90 * 24 * 60 * 60 * 1000);
+      const q = query(collection(db, 'tasks'), where('createdAt', '<', ninetyDaysAgo), limit(500));
+      const snap = await getDocs(q);
+      if (snap.empty) return 0;
+      const batch = writeBatch(db);
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      return snap.size;
+  }, []);
+
+  const handleExportTasksJSON = useCallback(async () => {
+      const snap = await getDocs(query(collection(db, 'tasks'), limit(1000)));
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `backup_tasks_${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+  }, []);
 
   return (
     <div className={`min-h-screen bg-gray-900 flex flex-col ${!isAuthenticated ? 'items-center justify-center' : ''}`}>
@@ -489,7 +536,7 @@ const App: React.FC = () => {
           onUpdateTask={handleUpdateTask}
           onToggleMissing={handleToggleMissing} onSetInProgress={handleSetInProgress} onToggleBlock={handleToggleBlock} onToggleManualBlock={handleToggleManualBlock}
           onStartAudit={handleStartAudit} onFinishAudit={handleFinishAudit}
-          users={users} onAddUser={handleAddUser} onUpdatePassword={handleUpdatePassword} onUpdateUserRole={handleUpdateUserRole} onDeleteUser={handleDeleteUser}
+          users={users} onAddUser={handleAddUser} onUpdatePassword={handleUpdatePassword} onUpdateNickname={handleUpdateNickname} onUpdateUserRole={handleUpdateUserRole} onDeleteUser={handleDeleteUser}
           parts={parts} workplaces={workplaces} missingReasons={missingReasons} logisticsOperations={logisticsOperations}
           onAddPart={handleAddPart} onBatchAddParts={handleBatchAddParts} onDeletePart={handleDeletePart} onDeleteAllParts={handleDeleteAllParts}
           onAddWorkplace={handleAddWorkplace} onBatchAddWorkplaces={handleBatchAddWorkplaces} onDeleteWorkplace={handleDeleteWorkplace} onDeleteAllWorkplaces={handleDeleteAllWorkplaces}
@@ -499,6 +546,9 @@ const App: React.FC = () => {
           onArchiveTasks={handleArchiveTasks} 
           onFetchArchivedTasks={fetchArchivedTasks}
           onDeleteMissingItem={handleDeleteMissingItem}
+          onGetDocCount={handleGetDocCount}
+          onPurgeOldTasks={handlePurgeOldTasks}
+          onExportTasksJSON={handleExportTasksJSON}
           breakSchedules={breakSchedules} systemBreaks={systemBreaks} isBreakActive={isBreakActive} onAddBreakSchedule={handleAddBreakSchedule} onDeleteBreakSchedule={handleDeleteBreakSchedule}
           bomItems={bomItems} bomRequests={bomRequests} onAddBOMItem={handleAddBOMItem} onBatchAddBOMItems={handleBatchAddBOMItems} onDeleteBOMItem={handleDeleteBOMItem} onDeleteAllBOMItems={handleDeleteAllBOMItems} onRequestBOM={handleRequestBOM} onApproveBOMRequest={handleApproveBOMRequest} onRejectBOMRequest={handleRejectBOMRequest} roles={roles} permissions={permissions} onAddRole={handleAddRole} onDeleteRole={handleDeleteRole} onUpdatePermission={handleUpdatePermission}
           onVerifyAdminPassword={handleVerifyAdminPassword}

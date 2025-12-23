@@ -9,6 +9,7 @@ interface LogisticsCenterTabProps {
     tasks: Task[];
     onDeleteTask: (id: string) => void;
     hasPermission: (perm: string) => boolean;
+    resolveName: (username?: string | null) => string;
 }
 
 const TrashIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -35,7 +36,7 @@ const ClockIcon: React.FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
-const LogisticsCenterTab: React.FC<LogisticsCenterTabProps> = ({ tasks, onDeleteTask, hasPermission }) => {
+const LogisticsCenterTab: React.FC<LogisticsCenterTabProps> = ({ tasks, onDeleteTask, hasPermission, resolveName }) => {
     const { t, language } = useLanguage();
     const [filterQuery, setFilterQuery] = useState('');
     const [quickFilter, setQuickFilter] = useState<'ALL' | 'INBOUND' | 'OUTBOUND' | 'PENDING'>('ALL');
@@ -88,7 +89,8 @@ const LogisticsCenterTab: React.FC<LogisticsCenterTabProps> = ({ tasks, onDelete
             (task.partNumber && task.partNumber.toLowerCase().includes(q)) || 
             (task.workplace && task.workplace.toLowerCase().includes(q)) || 
             (task.createdBy && task.createdBy.toLowerCase().includes(q)) ||
-            (task.completedBy && task.completedBy.toLowerCase().includes(q))
+            (task.completedBy && task.completedBy.toLowerCase().includes(q)) ||
+            (task.note && task.note.toLowerCase().includes(q))
         );
     }, [logisticsTasks, filterQuery, quickFilter]);
 
@@ -106,6 +108,20 @@ const LogisticsCenterTab: React.FC<LogisticsCenterTabProps> = ({ tasks, onDelete
         return `${task.quantity} ${unitLabel}`;
     };
 
+    const renderFormattedText = (text: string | undefined) => {
+        if (!text) return '-';
+        if (!text.includes(';')) return text;
+        const parts = text.split(';');
+        return parts.map((part, index) => (
+            <React.Fragment key={index}>
+                {part.trim()}
+                {index < parts.length - 1 && (
+                    <span className="mx-1.5 text-teal-500/40 font-light inline-block scale-90">→</span>
+                )}
+            </React.Fragment>
+        ));
+    };
+
     const handleExport = () => {
         if (typeof XLSX === 'undefined') {
             alert('Export library missing.');
@@ -113,13 +129,14 @@ const LogisticsCenterTab: React.FC<LogisticsCenterTabProps> = ({ tasks, onDelete
         }
         const data = filteredItems.map(item => ({
             [t('miss_th_created')]: formatTime(item.createdAt),
-            [t('miss_th_creator')]: item.createdBy || '-',
+            [t('miss_th_creator')]: resolveName(item.createdBy),
             [t('log_th_reference')]: item.partNumber || '-',
+            [language === 'sk' ? 'ŠPZ' : 'PLATE']: item.note || '-',
             [t('log_th_operation')]: item.workplace || '-',
             [t('log_th_quantity')]: getQuantityString(item),
             [t('log_th_priority')]: item.priority || 'NORMAL',
             [t('log_th_status')]: item.isDone ? t('status_completed') : t('status_open'),
-            [t('log_th_completed_by')]: item.completedBy || '-',
+            [t('log_th_completed_by')]: resolveName(item.completedBy),
             [t('miss_th_when')]: formatTime(item.completedAt)
         }));
 
@@ -236,9 +253,16 @@ const LogisticsCenterTab: React.FC<LogisticsCenterTabProps> = ({ tasks, onDelete
                                                 <p className="text-[10px] text-gray-500">{formatTime(item.createdAt).split(',')[0]}</p>
                                             </td>
                                             <td className="py-4 px-6">
-                                                <span className="text-sm font-black font-mono text-white bg-gray-900/50 px-3 py-1.5 rounded-lg border border-gray-700">
-                                                    {item.partNumber}
-                                                </span>
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-sm font-black font-mono text-white bg-gray-900/50 px-3 py-1.5 rounded-lg border border-gray-700 w-fit">
+                                                        {renderFormattedText(item.partNumber)}
+                                                    </span>
+                                                    {item.note && (
+                                                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest pl-1">
+                                                            ŠPZ: <span className="text-sky-500/70">{item.note}</span>
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="py-4 px-6">
                                                 <div className="flex items-center gap-3">
@@ -274,9 +298,9 @@ const LogisticsCenterTab: React.FC<LogisticsCenterTabProps> = ({ tasks, onDelete
                                             <td className="py-4 px-6 whitespace-nowrap">
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-[10px] font-bold text-gray-400">
-                                                        {(item.completedBy || item.createdBy || '?').charAt(0).toUpperCase()}
+                                                        {(resolveName(item.completedBy) || '?').charAt(0).toUpperCase()}
                                                     </div>
-                                                    <span className="text-xs text-gray-300 font-medium">{item.completedBy || '-'}</span>
+                                                    <span className="text-xs text-gray-300 font-medium truncate max-w-[100px]">{resolveName(item.completedBy)}</span>
                                                 </div>
                                             </td>
                                             <td className="py-4 px-6 text-right whitespace-nowrap">

@@ -1,8 +1,11 @@
+
 import React from 'react';
+import { UserData } from '../App';
 
 interface AppHeaderProps {
   currentUser: string;
   currentUserRole: string;
+  users: UserData[];
   onLogout: () => void;
   language: 'sk' | 'en';
   setLanguage: (lang: 'sk' | 'en') => void;
@@ -12,6 +15,7 @@ interface AppHeaderProps {
   installPrompt: any;
   onInstallApp: () => void;
   hasPermission: (perm: string) => boolean;
+  resolveName: (username?: string | null) => string;
 }
 
 const UserIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -40,7 +44,7 @@ const LogoutIcon: React.FC<{ className?: string }> = ({ className }) => (
 
 const AppHeader: React.FC<AppHeaderProps> = ({
   currentUser, currentUserRole, onLogout, language, setLanguage, t,
-  isFullscreen, onToggleFullscreen, installPrompt, onInstallApp, hasPermission
+  isFullscreen, onToggleFullscreen, installPrompt, onInstallApp, hasPermission, resolveName
 }) => {
     const handleLogoutWithCheck = () => {
         const savedScans = localStorage.getItem('inventory_scans');
@@ -72,7 +76,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                     <div className="hidden sm:flex items-center gap-2 bg-gray-800 border border-gray-700 px-3 py-1.5 rounded-full shadow-sm">
                         <UserIcon className="w-4 h-4 text-teal-400" />
                         <div className="flex flex-col">
-                            <span className="text-xs font-black text-white leading-none truncate max-w-[120px]">{currentUser}</span>
+                            <span className="text-xs font-black text-white leading-none truncate max-w-[120px]">{resolveName(currentUser)}</span>
                             <span className={`text-[9px] font-bold uppercase leading-none mt-1 ${currentUserRole === 'ADMIN' ? 'text-red-400' : currentUserRole === 'LEADER' ? 'text-sky-400' : 'text-teal-500 opacity-80'}`}>
                                 {currentUserRole}
                             </span>

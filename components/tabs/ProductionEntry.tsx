@@ -12,6 +12,8 @@ interface ProductionEntryProps {
   setSelectedWorkplace: (val: string | null) => void;
   logisticsRef: string;
   setLogisticsRef: (val: string) => void;
+  logisticsPlate: string;
+  setLogisticsPlate: (val: string) => void;
   logisticsOp: string;
   setLogisticsOp: (val: string) => void;
   quantity: string;
@@ -38,8 +40,8 @@ const PlusIcon: React.FC<{ className?: string }> = ({ className }) => (
 
 const ProductionEntry: React.FC<ProductionEntryProps> = ({
   mode, setMode, selectedPart, setSelectedPart, selectedWorkplace, setSelectedWorkplace,
-  logisticsRef, setLogisticsRef, logisticsOp, setLogisticsOp, quantity, setQuantity,
-  quantityUnit, setQuantityUnit, priority, setPriority, parts, workplaces,
+  logisticsRef, setLogisticsRef, logisticsPlate, setLogisticsPlate, logisticsOp, setLogisticsOp, 
+  quantity, setQuantity, quantityUnit, setQuantityUnit, priority, setPriority, parts, workplaces,
   logisticsOperationsList, t, language, hasPermission, handleAdd, onRequestPart
 }) => {
   const inputBaseClass = "w-full h-12 bg-gray-700 border border-gray-600 rounded-lg px-4 text-white placeholder-gray-400 focus:outline-none focus:ring-2 transition-all font-mono uppercase text-base";
@@ -76,7 +78,9 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
             {mode === 'production' ? (
               <>
                 <div>
-                  <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">{t('part_number')}</label>
+                  <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">
+                    {t('part_number')} <span className="text-teal-500">*</span>
+                  </label>
                   <PartNumberInput 
                     parts={partNumbers} 
                     onPartSelect={(p) => setSelectedPart(p ? (parts.find(i => i.value === p) || null) : null)} 
@@ -86,7 +90,9 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">{t('workplace')}</label>
+                  <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">
+                    {t('workplace')} <span className="text-teal-500">*</span>
+                  </label>
                   <div className="relative">
                     <select 
                       value={selectedWorkplace || ''} 
@@ -105,17 +111,33 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
             ) : (
               <>
                 <div>
-                  <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">{t('log_reference')}</label>
+                  <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">
+                    {t('log_reference')} <span className="text-sky-500">*</span>
+                  </label>
                   <input 
                     type="text" 
                     value={logisticsRef} 
-                    onChange={(e) => setLogisticsRef(e.target.value)} 
+                    onChange={(e) => setLogisticsRef(e.target.value.toUpperCase())} 
                     placeholder={t('log_reference_place')} 
                     className={`${inputBaseClass} focus:ring-sky-500`} 
                   />
                 </div>
                 <div>
-                  <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">{t('log_operation')}</label>
+                  <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">
+                    {t('log_plate')} <span className="text-gray-500 text-[10px] font-normal lowercase tracking-normal ml-2">{t('optional_label')}</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    value={logisticsPlate} 
+                    onChange={(e) => setLogisticsPlate(e.target.value.toUpperCase())} 
+                    placeholder={t('log_plate_placeholder')} 
+                    className={`${inputBaseClass} focus:ring-sky-500`} 
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">
+                    {t('log_operation')} <span className="text-sky-500">*</span>
+                  </label>
                   <div className="relative">
                     <select 
                       value={logisticsOp} 
@@ -133,13 +155,16 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
               </>
             )}
             <div>
-              <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">{t('quantity')}</label>
+              <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">
+                {t('quantity')} <span className={`${mode === 'production' ? 'text-teal-500' : 'text-sky-500'}`}>*</span>
+              </label>
               <div className="flex flex-col sm:flex-row gap-4">
                 <input 
                   type="number" 
                   inputMode="decimal" 
                   value={quantity} 
-                  onChange={(e) => setQuantity(e.target.value)} 
+                  onChange={(e) => setQuantity(e.target.value.slice(0, 7))} 
+                  maxLength={7}
                   className={`${inputBaseClass} sm:w-1/2 ${mode === 'production' ? 'focus:ring-teal-500' : 'focus:ring-sky-500'}`} 
                   placeholder={t('pcs_placeholder')} 
                 />
@@ -147,7 +172,7 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
                   <button 
                     onClick={() => setQuantityUnit('pcs')} 
                     disabled={mode === 'logistics'} 
-                    className={`flex-1 rounded-md text-xs font-black uppercase transition-all ${quantityUnit === 'pcs' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'} ${mode === 'logistics' ? 'opacity-30 cursor-not-allowed' : ''}`}
+                    className={`flex-1 rounded-md text-xs font-black uppercase transition-all ${quantityUnit === 'pcs' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'} ${mode === 'logistics' ? 'opacity-10 cursor-not-allowed grayscale' : ''}`}
                   >
                     {t('unit_pcs_short')}
                   </button>

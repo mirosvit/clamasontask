@@ -46,7 +46,7 @@ const BOMSection: React.FC<BOMSectionProps> = memo(({ bomItems, onAddBOMItem, on
               <div className="space-y-4">
                 <input value={bomParent} onChange={e=>setBomParent(e.target.value.toUpperCase())} placeholder="PARENT" className={inputClass} />
                 <input value={bomChild} onChange={e=>setBomChild(e.target.value.toUpperCase())} placeholder="CHILD" className={inputClass} />
-                <input type="number" step="0.0001" value={bomQty} onChange={e=>setBomQty(e.target.value)} placeholder="QTY" className={inputClass} />
+                <input type="number" step="0.0001" value={bomQty} onChange={e=>setBomQty(e.target.value.slice(0, 7))} maxLength={7} placeholder="QTY" className={inputClass} />
                 <button onClick={() => { if(bomParent && bomChild) { onAddBOMItem(bomParent, bomChild, parseFloat(bomQty)); setBomParent(''); setBomChild(''); setBomQty(''); } }} className="h-12 bg-teal-600 hover:bg-teal-500 text-white font-black px-6 rounded-xl uppercase tracking-widest text-xs transition-all w-full mt-2 border-2 border-teal-500 shadow-lg">ADD</button>
               </div>
             </div>

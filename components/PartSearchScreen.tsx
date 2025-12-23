@@ -22,7 +22,7 @@ interface PartSearchScreenProps {
   currentUserRole: 'ADMIN' | 'USER' | 'LEADER';
   onLogout: () => void;
   tasks: Task[];
-  onAddTask: (partNumber: string, workplace: string | null, quantity: string | null, quantityUnit: string | null, priority: PriorityLevel, isLogistics?: boolean) => void; 
+  onAddTask: (partNumber: string, workplace: string | null, quantity: string | null, quantityUnit: string | null, priority: PriorityLevel, isLogistics?: boolean, note?: string) => void; 
   onUpdateTask: (id: string, updates: Partial<Task>) => void;
   onToggleTask: (id: string) => void;
   onMarkAsIncorrect: (id: string) => void;
@@ -39,9 +39,13 @@ interface PartSearchScreenProps {
   onFetchArchivedTasks: () => Promise<Task[]>;
   onStartAudit: (id: string) => void;
   onFinishAudit: (id: string, result: 'found' | 'missing', note: string) => void;
+  onGetDocCount: () => Promise<number>;
+  onPurgeOldTasks: () => Promise<number>;
+  onExportTasksJSON: () => Promise<void>;
   users: UserData[];
   onAddUser: (user: UserData) => void;
   onUpdatePassword: (username: string, newPass: string) => void;
+  onUpdateNickname: (username: string, newNick: string) => void;
   onUpdateUserRole: (username: string, newRole: any) => void;
   onDeleteUser: (username: string) => void;
   parts: DBItem[];
@@ -112,7 +116,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
     bomItems, bomRequests, onApproveBOMRequest, onRejectBOMRequest,
     onAddRole, onDeleteRole, onUpdatePermission, onVerifyAdminPassword,
     systemConfig, onUpdateSystemConfig,
-    dbLoadWarning
+    dbLoadWarning, onGetDocCount, onPurgeOldTasks, onExportTasksJSON
   } = props;
   
   const { t, language, setLanguage } = useLanguage();
@@ -122,6 +126,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   const [selectedWorkplace, setSelectedWorkplace] = useState<string | null>(null);
   const [logisticsRef, setLogisticsRef] = useState('');
   const [logisticsOp, setLogisticsOp] = useState('');
+  const [logisticsPlate, setLogisticsPlate] = useState('');
   const [quantity, setQuantity] = useState<string>('');
   const [quantityUnit, setQuantityUnit] = useState<'pcs' | 'boxes' | 'pallet'>('pcs');
   const [priority, setPriority] = useState<PriorityLevel>('NORMAL');
@@ -142,6 +147,12 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
       if (!currentRoleId) return false;
       return permissions.some(p => p.roleId === currentRoleId && p.permissionName === permName);
   }, [currentUserRole, currentRoleId, permissions]);
+
+  const resolveName = useCallback((username?: string | null) => {
+      if (!username) return '-';
+      const u = users.find(x => x.username === username);
+      return (u?.nickname || username).toUpperCase();
+  }, [users]);
   
   const unfinishedTasksCount = tasks.filter(t => !t.isDone).length;
   const pendingRequestsCount = props.partRequests.length + props.bomRequests.length;
@@ -182,13 +193,14 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
             alert(t('fill_all_fields'));
             return;
         }
-        onAddTask(logisticsRef, logisticsOp, quantity, quantityUnit, priority, true);
+        onAddTask(logisticsRef, logisticsOp, quantity, quantityUnit, priority, true, logisticsPlate);
     }
 
     setSelectedPart(null);
     setSelectedWorkplace(null);
     setLogisticsRef('');
     setLogisticsOp('');
+    setLogisticsPlate('');
     setQuantity('');
     if (entryMode === 'logistics') { setQuantityUnit('pallet'); } else { setQuantityUnit('pcs'); }
     setPriority('NORMAL'); 
@@ -217,7 +229,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
 
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-white">
-      {/* Notifications ... */}
       {notifications.length > 0 && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
               <div className="bg-gray-800 rounded-2xl max-w-2xl w-full p-8 shadow-2xl border border-gray-700 animate-fade-in">
@@ -239,7 +250,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                                       </div>
                                       <p className="text-lg text-gray-200 font-medium leading-tight mb-2">{notif.reason}</p>
                                       <div className="flex items-center gap-4 text-sm text-gray-500 font-bold uppercase tracking-wide">
-                                          <span className={iconColorClass}>{notif.reportedBy}</span>
+                                          <span className={iconColorClass + " truncate max-w-[120px]"}>{resolveName(notif.reportedBy)}</span>
                                           <span className="opacity-50">•</span>
                                           <span>{new Date(notif.timestamp).toLocaleString('sk-SK', {hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit'})}</span>
                                       </div>
@@ -258,12 +269,11 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
           </div>
       )}
 
-      {/* Break Banner ... */}
       {props.isBreakActive && (
         <div className="w-full px-2 sm:px-4 pt-2 z-50 bg-gray-900">
             <div className="w-full bg-red-600 text-white py-5 rounded-xl shadow-[0_0_20px_rgba(220,38,38,0.6)] flex items-center justify-center gap-4 animate-pulse border-2 border-red-400">
                 <ClockIcon className="w-10 h-10 flex-shrink-0" />
-                <span className="font-black text-2xl sm:text-3xl uppercase tracking-[0.2em] leading-none text-center">PREBIEHA PRESTÁVKA</span>
+                <span className="font-black text-2xl sm:text-3xl uppercase tracking-[0.2em] length-none text-center">PREBIEHA PRESTÁVKA</span>
             </div>
         </div>
       )}
@@ -272,7 +282,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
         <div className="fixed top-24 right-6 bg-green-600 text-white px-6 py-4 rounded-xl shadow-2xl z-50 animate-bounce font-black tracking-widest">✓ {t('sent_msg')}</div>
       )}
 
-      <AppHeader currentUser={currentUser} currentUserRole={currentUserRole} onLogout={onLogout} language={language} setLanguage={setLanguage} t={t} isFullscreen={isFullscreen} onToggleFullscreen={handleToggleFullscreen} installPrompt={installPrompt} onInstallApp={onInstallApp} hasPermission={hasPermission} />
+      <AppHeader currentUser={currentUser} currentUserRole={currentUserRole} users={users} onLogout={onLogout} language={language} setLanguage={setLanguage} t={t} isFullscreen={isFullscreen} onToggleFullscreen={handleToggleFullscreen} installPrompt={installPrompt} onInstallApp={onInstallApp} hasPermission={hasPermission} resolveName={resolveName} />
       
       {isDataLoading && activeTab === 'entry' ? (
           <div className="flex-grow flex items-center justify-center bg-gray-900">
@@ -289,24 +299,23 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
             <div className="flex-grow overflow-y-auto p-3 md:p-8 custom-scrollbar">
                 <div className="max-w-7xl mx-auto w-full h-full">
                 {activeTab === 'entry' && hasPermission('perm_tab_entry') && (
-                    <ProductionEntry mode={entryMode} setMode={setEntryMode} selectedPart={selectedPart} setSelectedPart={setSelectedPart} selectedWorkplace={selectedWorkplace} setSelectedWorkplace={setSelectedWorkplace} logisticsRef={logisticsRef} setLogisticsRef={setLogisticsRef} logisticsOp={logisticsOp} setLogisticsOp={setLogisticsOp} quantity={quantity} setQuantity={setQuantity} quantityUnit={quantityUnit} setQuantityUnit={setQuantityUnit} priority={priority} setPriority={setPriority} parts={parts} workplaces={workplaces} logisticsOperationsList={logisticsOperationsList} t={t} language={language} hasPermission={hasPermission} handleAdd={handleSendToTasks} onRequestPart={props.onRequestPart} />
+                    <ProductionEntry mode={entryMode} setMode={setEntryMode} selectedPart={selectedPart} setSelectedPart={setSelectedPart} selectedWorkplace={selectedWorkplace} setSelectedWorkplace={setSelectedWorkplace} logisticsRef={logisticsRef} setLogisticsRef={setLogisticsRef} logisticsPlate={logisticsPlate} setLogisticsPlate={setLogisticsPlate} logisticsOp={logisticsOp} setLogisticsOp={setLogisticsOp} quantity={quantity} setQuantity={setQuantity} quantityUnit={quantityUnit} setQuantityUnit={setQuantityUnit} priority={priority} setPriority={setPriority} parts={parts} workplaces={workplaces} logisticsOperationsList={logisticsOperationsList} t={t} language={language} hasPermission={hasPermission} handleAdd={handleSendToTasks} onRequestPart={props.onRequestPart} />
                 )}
                 {activeTab === 'tasks' && hasPermission('perm_tab_tasks') && (
                     <div className="animate-fade-in pb-20">
                     <div className="mb-6 flex justify-center">
                         <input type="text" value={taskSearchQuery} onChange={e => setTaskSearchQuery(e.target.value)} className="w-full max-w-lg h-12 px-6 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase text-base" placeholder={t('task_search_placeholder')} />
                     </div>
-                    <TaskList currentUser={currentUserRole} currentUserName={currentUser} tasks={tasks.filter(t => { const q = taskSearchQuery.toLowerCase(); return (t.partNumber && t.partNumber.toLowerCase().includes(q)) || (t.text && t.text.toLowerCase().includes(q)) || (t.workplace && t.workplace.toLowerCase().includes(q)); })} onToggleTask={onToggleTask} onEditTask={onEditTask} onDeleteTask={onDeleteTask} onToggleMissing={onToggleMissing} onSetInProgress={onSetInProgress} onToggleBlock={onToggleBlock} onToggleManualBlock={onToggleManualBlock} onMarkAsIncorrect={onMarkAsIncorrect} onAddNote={onAddNote} onReleaseTask={onReleaseTask} onAuditPart={handleAuditClick} missingReasons={missingReasons} hasPermission={hasPermission} />
+                    <TaskList currentUser={currentUserRole} currentUserName={currentUser} tasks={tasks.filter(t => { const q = taskSearchQuery.toLowerCase(); return (t.partNumber && t.partNumber.toLowerCase().includes(q)) || (t.text && t.text.toLowerCase().includes(q)) || (t.workplace && t.workplace.toLowerCase().includes(q)); })} onToggleTask={onToggleTask} onEditTask={onEditTask} onDeleteTask={onDeleteTask} onToggleMissing={onToggleMissing} onSetInProgress={onSetInProgress} onToggleBlock={onToggleBlock} onToggleManualBlock={onToggleManualBlock} onMarkAsIncorrect={onMarkAsIncorrect} onAddNote={onAddNote} onReleaseTask={onReleaseTask} onAuditPart={handleAuditClick} resolveName={resolveName} missingReasons={missingReasons} hasPermission={hasPermission} />
                     </div>
                 )}
-                {/* Other tabs ... */}
-                {activeTab === 'analytics' && hasPermission('perm_tab_analytics') && <AnalyticsTab tasks={tasks} onFetchArchivedTasks={props.onFetchArchivedTasks} systemBreaks={props.systemBreaks} />}
-                {activeTab === 'settings' && hasPermission('perm_tab_settings') && <SettingsTab hasPermission={hasPermission} currentUserRole={currentUserRole} users={users} onAddUser={props.onAddUser} onUpdatePassword={props.onUpdatePassword} onUpdateUserRole={props.onUpdateUserRole} onDeleteUser={props.onDeleteUser} parts={parts} workplaces={workplaces} missingReasons={missingReasons} onAddPart={props.onAddPart} onBatchAddParts={props.onBatchAddParts} onDeletePart={props.onDeletePart} onDeleteAllParts={props.onDeleteAllParts} onAddWorkplace={props.onAddWorkplace} onBatchAddWorkplaces={props.onBatchAddWorkplaces} onDeleteWorkplace={props.onDeleteWorkplace} onDeleteAllWorkplaces={props.onDeleteAllWorkplaces} onAddMissingReason={props.onAddMissingReason} onDeleteMissingReason={props.onDeleteMissingReason} logisticsOperations={logisticsOperationsList} onAddLogisticsOperation={props.onAddLogisticsOperation} onDeleteLogisticsOperation={props.onDeleteLogisticsOperation} partRequests={props.partRequests} onApprovePartRequest={onApprovePartRequest} onRejectPartRequest={id => props.onRejectPartRequest(id)} onArchiveTasks={onArchiveTasks} breakSchedules={breakSchedules} onAddBreakSchedule={props.onAddBreakSchedule} onDeleteBreakSchedule={props.onDeleteBreakSchedule} bomItems={bomItems} bomRequests={bomRequests} onAddBOMItem={props.onAddBOMItem} onBatchAddBOMItems={props.onBatchAddBOMItems} onDeleteBOMItem={props.onDeleteBOMItem} onDeleteAllBOMItems={props.onDeleteAllBOMItems} onApproveBOMRequest={onApproveBOMRequest} onRejectBOMRequest={id => props.onRejectBOMRequest(id)} roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={onDeleteRole} onUpdatePermission={onUpdatePermission} installPrompt={installPrompt} onInstallApp={onInstallApp} systemConfig={systemConfig} onUpdateSystemConfig={onUpdateSystemConfig} dbLoadWarning={dbLoadWarning} />}
+                {activeTab === 'analytics' && hasPermission('perm_tab_analytics') && <AnalyticsTab tasks={tasks} onFetchArchivedTasks={props.onFetchArchivedTasks} systemBreaks={props.systemBreaks} resolveName={resolveName} />}
+                {activeTab === 'settings' && hasPermission('perm_tab_settings') && <SettingsTab hasPermission={hasPermission} currentUserRole={currentUserRole} users={users} onAddUser={props.onAddUser} onUpdatePassword={props.onUpdatePassword} onUpdateNickname={props.onUpdateNickname} onUpdateUserRole={props.onUpdateUserRole} onDeleteUser={props.onDeleteUser} parts={parts} workplaces={workplaces} missingReasons={missingReasons} onAddPart={props.onAddPart} onBatchAddParts={props.onBatchAddParts} onDeletePart={props.onDeletePart} onDeleteAllParts={props.onDeleteAllParts} onAddWorkplace={props.onAddWorkplace} onBatchAddWorkplaces={props.onBatchAddWorkplaces} onDeleteWorkplace={props.onDeleteWorkplace} onDeleteAllWorkplaces={props.onDeleteAllWorkplaces} onAddMissingReason={props.onAddMissingReason} onDeleteMissingReason={props.onDeleteMissingReason} logisticsOperations={logisticsOperationsList} onAddLogisticsOperation={props.onAddLogisticsOperation} onDeleteLogisticsOperation={props.onDeleteLogisticsOperation} partRequests={props.partRequests} onApprovePartRequest={onApprovePartRequest} onRejectPartRequest={id => props.onRejectPartRequest(id)} onArchiveTasks={onArchiveTasks} breakSchedules={breakSchedules} onAddBreakSchedule={props.onAddBreakSchedule} onDeleteBreakSchedule={props.onDeleteBreakSchedule} bomItems={bomItems} bomRequests={bomRequests} onAddBOMItem={props.onAddBOMItem} onBatchAddBOMItems={props.onBatchAddBOMItems} onDeleteBOMItem={props.onDeleteBOMItem} onDeleteAllBOMItems={props.onDeleteAllBOMItems} onApproveBOMRequest={onApproveBOMRequest} onRejectBOMRequest={id => props.onRejectBOMRequest(id)} roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={onDeleteRole} onUpdatePermission={onUpdatePermission} installPrompt={installPrompt} onInstallApp={onInstallApp} systemConfig={systemConfig} onUpdateSystemConfig={onUpdateSystemConfig} dbLoadWarning={dbLoadWarning} resolveName={resolveName} onGetDocCount={onGetDocCount} onPurgeOldTasks={onPurgeOldTasks} onExportTasksJSON={onExportTasksJSON} />}
                 {activeTab === 'bom' && hasPermission('perm_tab_bom') && <BOMScreen parts={parts} workplaces={workplaces} bomItems={bomItems} onAddTask={onAddTask} onRequestBOM={props.onRequestBOM} t={t} language={language} />}
-                {activeTab === 'missing' && hasPermission('perm_tab_missing') && <MissingItemsTab tasks={tasks} onDeleteMissingItem={props.onDeleteMissingItem} hasPermission={hasPermission} />}
-                {activeTab === 'inventory' && hasPermission('perm_tab_inventory') && <InventoryTab currentUser={currentUser} tasks={tasks} onAddTask={onAddTask} onUpdateTask={onUpdateTask} onToggleTask={onToggleTask} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} parts={partNumbersList} onRequestPart={props.onRequestPart} />}
-                {activeTab === 'logistics' && hasPermission('perm_tab_logistics_center') && <LogisticsCenterTab tasks={tasks} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} />}
-                {activeTab === 'permissions' && hasPermission('perm_tab_permissions') && <PermissionsTab roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={onDeleteRole} onUpdatePermission={onUpdatePermission} onVerifyAdminPassword={onVerifyAdminPassword} />}
+                {activeTab === 'missing' && hasPermission('perm_tab_missing') && <MissingItemsTab tasks={tasks} onDeleteMissingItem={props.onDeleteMissingItem} hasPermission={hasPermission} resolveName={resolveName} />}
+                {activeTab === 'inventory' && hasPermission('perm_tab_inventory') && <InventoryTab currentUser={currentUser} tasks={tasks} onAddTask={onAddTask} onUpdateTask={onUpdateTask} onToggleTask={onToggleTask} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} parts={partNumbersList} onRequestPart={props.onRequestPart} resolveName={resolveName} />}
+                {activeTab === 'logistics' && hasPermission('perm_tab_logistics_center') && <LogisticsCenterTab tasks={tasks} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} resolveName={resolveName} />}
+                {activeTab === 'permissions' && hasPermission('perm_tab_permissions') && <PermissionsTab roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={id => props.onDeleteRole(id)} onUpdatePermission={onUpdatePermission} onVerifyAdminPassword={onVerifyAdminPassword} />}
                 </div>
             </div>
           </>

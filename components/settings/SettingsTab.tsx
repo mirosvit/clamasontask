@@ -17,6 +17,7 @@ interface SettingsTabProps {
   onAddUser: (user: UserData) => void;
   onUpdatePassword: (username: string, newPass: string) => void;
   onUpdateUserRole: (username: string, newRole: 'ADMIN' | 'USER' | 'LEADER') => void;
+  onUpdateNickname: (username: string, newNick: string) => void;
   onDeleteUser: (username: string) => void;
   parts: DBItem[];
   workplaces: DBItem[];
@@ -38,6 +39,9 @@ interface SettingsTabProps {
   onApprovePartRequest: (req: PartRequest) => void;
   onRejectPartRequest: (id: string) => void;
   onArchiveTasks: () => Promise<{ success: boolean; count?: number; error?: string; message?: string }>;
+  onGetDocCount: () => Promise<number>;
+  onPurgeOldTasks: () => Promise<number>;
+  onExportTasksJSON: () => Promise<void>;
   breakSchedules: BreakSchedule[];
   onAddBreakSchedule: (start: string, end: string) => void;
   onDeleteBreakSchedule: (id: string) => void;
@@ -60,6 +64,7 @@ interface SettingsTabProps {
   onUpdateSystemConfig: (config: Partial<SystemConfig>) => void;
   dbLoadWarning?: boolean;
   hasPermission: (perm: string) => boolean;
+  resolveName: (username?: string | null) => string;
 }
 
 const Icons = {
@@ -73,7 +78,7 @@ const Icons = {
 };
 
 const SettingsTab: React.FC<SettingsTabProps> = (props) => {
-  const { hasPermission } = props;
+  const { hasPermission, resolveName } = props;
   const { t, language } = useLanguage();
   
   const navTiles = useMemo(() => {
@@ -109,6 +114,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
         onRejectPartRequest={props.onRejectPartRequest}
         onApproveBOMRequest={props.onApproveBOMRequest}
         onRejectBOMRequest={props.onRejectBOMRequest}
+        resolveName={resolveName}
       />
 
       <div className={`grid gap-3 mb-8 ${
@@ -156,6 +162,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             roles={props.roles} 
             onAddUser={props.onAddUser} 
             onUpdatePassword={props.onUpdatePassword} 
+            onUpdateNickname={props.onUpdateNickname}
             onDeleteUser={props.onDeleteUser} 
           />
         )}
@@ -204,6 +211,9 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             systemConfig={props.systemConfig} 
             onUpdateSystemConfig={props.onUpdateSystemConfig} 
             onArchiveTasks={props.onArchiveTasks} 
+            onGetDocCount={props.onGetDocCount}
+            onPurgeOldTasks={props.onPurgeOldTasks}
+            onExportTasksJSON={props.onExportTasksJSON}
           />
         )}
       </div>

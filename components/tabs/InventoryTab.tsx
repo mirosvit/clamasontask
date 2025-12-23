@@ -25,6 +25,7 @@ interface InventoryTabProps {
     hasPermission: (perm: string) => boolean;
     parts: string[];
     onRequestPart: (part: string) => Promise<boolean>;
+    resolveName: (username?: string | null) => string;
 }
 
 declare var XLSX: any;
@@ -35,7 +36,7 @@ const TrashIcon: React.FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
-const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTask, onUpdateTask, onDeleteTask, parts, onRequestPart }) => {
+const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTask, onUpdateTask, onDeleteTask, parts, onRequestPart, resolveName }) => {
     const { t, language } = useLanguage();
     
     const locationRef = useRef<HTMLInputElement>(null);
@@ -236,7 +237,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
         if (typeof XLSX === 'undefined') { alert("Library Error"); return; }
         const data = scannedItems.map(item => ({
             "Dátum inventúry": new Date(item.timestamp).toLocaleDateString('sk-SK'),
-            "Užívateľ": item.worker,
+            "Užívateľ": resolveName(item.worker),
             "Lokácia": item.location,
             "Číslo dielu": item.partNumber,
             "Batch": item.batch,
@@ -249,6 +250,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
         XLSX.writeFile(wb, `Inventura_${new Date().toISOString().slice(0, 10)}.xlsx`);
     };
 
+    // Corrected the reference to 'newItem' to 'newState' to fix the compilation error
     const toggleBatchMissing = () => {
         const newState = !isBatchMissing;
         setIsBatchMissing(newState);
@@ -358,7 +360,8 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                                     type="text"
                                     inputMode="decimal"
                                     value={quantity}
-                                    onChange={(e) => setQuantity(e.target.value.replace(/[^0-9.,]/g, ''))}
+                                    onChange={(e) => setQuantity(e.target.value.replace(/[^0-9.,]/g, '').slice(0, 7))}
+                                    maxLength={7}
                                     onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
                                     placeholder="0"
                                     className={`${inputBaseClass} font-black text-lg`}
@@ -378,7 +381,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
 
             {activeInventoryTask && (
                 <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700 overflow-hidden">
-                    <div className="p-5 sm:p-8 border-b border-gray-700 bg-gray-900/50 flex flex-col sm:flex-row justify-between items-center gap-8">
+                    <div className="p-5 sm:p-8 border-b border-gray-700 bg-gray-900/50 flex flex-col sm:row justify-between items-center gap-8">
                         <div className="flex items-center gap-6">
                             <h3 className="text-gray-400 font-black uppercase text-base tracking-[0.2em] leading-none">
                                 {language === 'sk' ? 'SÚPIS POLOŽIEK' : 'ITEM INVENTORY'}
@@ -405,7 +408,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                             </button>
                         </div>
                     </div>
-                    {/* ... rest of the table remains same ... */}
+                    
                     <div className="overflow-x-auto custom-scrollbar">
                         <table className="w-full text-left text-base border-collapse">
                             <thead className="bg-gray-900/30 text-gray-500 text-xs font-black uppercase tracking-widest border-b border-gray-700">
@@ -447,7 +450,30 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                     </div>
                 </div>
             )}
-            {/* Modal remains visually similar but uses consistent spacing */}
+            
+            {confirmModal.isOpen && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setConfirmModal(prev => ({...prev, isOpen: false}))}>
+                    <div className="bg-gray-800 border-2 border-slate-700 rounded-2xl shadow-2xl w-full max-w-md p-8 relative" onClick={e => e.stopPropagation()}>
+                        <div className="text-center mb-8">
+                            <h3 className={`text-2xl font-black mb-3 uppercase tracking-tighter ${confirmModal.type === 'danger' ? 'text-red-500' : 'text-amber-500'}`}>
+                                {confirmModal.title}
+                            </h3>
+                            <div className="text-gray-300 text-base leading-relaxed">
+                                {confirmModal.message}
+                            </div>
+                        </div>
+                        <div className="flex gap-4">
+                            <button onClick={() => setConfirmModal(prev => ({...prev, isOpen: false}))} className="flex-1 py-4 bg-gray-700 text-gray-300 rounded-xl hover:bg-gray-600 font-black transition-all uppercase text-xs">
+                                {t('btn_cancel')}
+                            </button>
+                            <button onClick={confirmModal.onConfirm} className={`flex-1 py-4 text-white rounded-xl font-black transition-all shadow-xl uppercase text-xs border-2 ${confirmModal.type === 'danger' ? 'bg-red-600 hover:bg-red-700 border-red-500' : 'bg-amber-600 hover:bg-amber-700 border-amber-500'}`}>
+                                POTVRDIŤ
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
         </div>
     );
 };

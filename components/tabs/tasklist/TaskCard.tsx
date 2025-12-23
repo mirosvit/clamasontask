@@ -19,9 +19,11 @@ interface TaskCardProps {
   handleMissingClick: (task: Task, e: React.MouseEvent) => void;
   handleNoteClick: (task: Task) => void;
   handleDeleteClick: (id: string) => void;
+  handleDeleteNoteClick?: (id: string) => void;
   handleCopyPart: (id: string, text: string) => void;
   openPriorityModal: (task: Task) => void;
   onAuditPart?: (task: Task) => void;
+  resolveName: (username?: string | null) => string;
 }
 
 const SearchIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -30,9 +32,8 @@ const SearchIcon: React.FC<{ className?: string }> = ({ className }) => (
 
 const TaskCard: React.FC<TaskCardProps> = (props) => {
   const { t, language } = useLanguage();
-  const { task } = props;
+  const { task, resolveName } = props;
 
-  // Oprava TS2322: vynútenie boolean typu pomocou !! operátora
   const isSearchingMode = !!task.isBlocked;
   const isManualBlocked = !!task.isManualBlocked;
   const isAuditInProgress = !!task.isAuditInProgress;
@@ -64,7 +65,7 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
     }
   }
 
-  const renderFormattedText = (text: string | undefined) => {
+  const renderFormattedText = (text: string | undefined, isLarge: boolean = true) => {
     if (!text) return null;
     if (!text.includes(';')) return text;
     const parts = text.split(';');
@@ -72,7 +73,7 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
       <React.Fragment key={index}>
         {part.trim()}
         {index < parts.length - 1 && (
-          <span className="mx-2 text-teal-400 font-bold opacity-80 inline-block transform translate-y-[1px]">➤</span>
+          <span className={`mx-2 text-teal-500/40 font-light inline-block transform ${isLarge ? 'scale-110 translate-y-[-1px]' : 'scale-90'}`}>→</span>
         )}
       </React.Fragment>
     ));
@@ -106,6 +107,7 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
             isSearchingMode={isSearchingMode} 
             isManualBlocked={isManualBlocked} 
             isUrgent={isUrgent} 
+            resolveName={resolveName}
           />
 
           {task.auditFinalBadge && (
@@ -117,33 +119,41 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
           )}
 
           <div className="flex justify-between items-start gap-3">
-            <h3 
-              className={`text-2xl sm:text-3xl font-bold truncate leading-tight cursor-copy active:scale-[0.98] transition-transform ${textClass}`}
-              onClick={() => props.handleCopyPart(task.id, task.partNumber || '')}
-              title={language === 'sk' ? "Kliknite pre kopírovanie čísla dielu" : "Click to copy part number"}
-            >
-              {renderFormattedText(task.partNumber || task.text)}
-              {props.copiedId === task.id && (
-                <span className="ml-2 text-xs bg-green-600 text-white px-1.5 py-0.5 rounded-full animate-bounce inline-block font-sans lowercase align-middle">
-                  {t('copied_msg')}
-                </span>
-              )}
-            </h3>
+            <div className="flex flex-col min-w-0">
+                <h3 
+                className={`text-2xl sm:text-3xl font-bold break-words whitespace-normal leading-tight cursor-copy active:scale-[0.98] transition-transform ${textClass}`}
+                onClick={() => props.handleCopyPart(task.id, task.partNumber || '')}
+                title={language === 'sk' ? "Kliknite pre kopírovanie" : "Click to copy"}
+                >
+                {renderFormattedText(task.partNumber || task.text)}
+                {props.copiedId === task.id && (
+                    <span className="ml-2 text-xs bg-green-600 text-white px-1.5 py-0.5 rounded-full animate-bounce inline-block font-sans lowercase align-middle">
+                    {t('copied_msg')}
+                    </span>
+                )}
+                </h3>
+                {task.isLogistics && task.note && (
+                    <div className="mt-1 flex items-center gap-2">
+                        <span className="text-sky-500 font-black text-xs uppercase tracking-widest">ŠPZ/PREPR:</span>
+                        <span className="text-gray-300 font-mono font-bold text-base bg-gray-900/50 px-2 py-0.5 rounded border border-gray-700">{task.note}</span>
+                    </div>
+                )}
+            </div>
             <div className="flex flex-col items-end flex-shrink-0">
               <span className={`bg-black border border-gray-700 shadow-inner px-3 py-1 rounded-full text-xl font-bold ${textClass}`}>{task.quantity || "0"} <span className="ml-1 text-lg font-normal">{unitLabel}</span></span>
-              <div className="text-xs text-gray-400 mt-1 font-mono text-right"><span className="font-bold text-gray-500">{task.createdBy}</span> • {new Date(task.createdAt || 0).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
+              <div className="text-xs text-gray-400 mt-1 font-mono text-right truncate max-w-[150px]"><span className="font-bold text-gray-500">{resolveName(task.createdBy)}</span> • {new Date(task.createdAt || 0).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
             </div>
           </div>
           
-          <div className="flex flex-wrap gap-2 items-center">
+          <div className="flex flex-wrap gap-2 items-center mt-2">
             <span className={`text-lg font-bold uppercase tracking-wider ${task.isDone ? 'text-gray-600' : isManualBlocked ? 'text-gray-600' : props.isSystemInventoryTask ? 'text-[#4169E1]' : isAuditInProgress ? 'text-[#926a05]' : 'text-cyan-400'}`}>{task.workplace || "---"}</span>
-            {task.note && <span className="inline-block px-2 py-0.5 rounded bg-[#fef9c3] text-gray-800 text-xs font-bold shadow-sm border border-yellow-200 leading-tight">{task.note}</span>}
+            {task.note && !task.isLogistics && <span className="inline-block px-2 py-0.5 rounded bg-[#fef9c3] text-gray-800 text-xs font-bold shadow-sm border border-yellow-200 leading-tight">{task.note}</span>}
           </div>
 
           {task.isInProgress && !props.isSystemInventoryTask && (
             <div className="flex mt-1">
-              <span className="text-[#FFD700] text-xs font-bold uppercase tracking-wide border border-[#FFD700]/50 bg-[#FFD700]/10 px-2 py-0.5 rounded animate-pulse">
-                {t('status_resolving')} {task.inProgressBy}
+              <span className="text-[#FFD700] text-xs font-bold uppercase tracking-wide border border-[#FFD700]/50 bg-[#FFD700]/10 px-2 py-0.5 rounded animate-pulse truncate max-w-[200px]">
+                {t('status_resolving')} {resolveName(task.inProgressBy)}
               </span>
             </div>
           )}
@@ -151,8 +161,8 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
           {task.isDone && task.completedBy && (
             <div className="mt-2 flex items-center gap-1.5 border-t border-gray-700/50 pt-1.5 animate-fade-in">
               <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div>
-              <span className="text-[10px] font-bold uppercase text-green-500/80 tracking-wide">
-                {t('task_completed_label')}: <span className="text-green-400">{task.completedBy}</span> {t('at_time')} <span className="font-mono">{new Date(task.completedAt || 0).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+              <span className="text-[10px] font-bold uppercase text-green-500/80 tracking-wide truncate">
+                {t('task_completed_label')}: <span className="text-green-400">{resolveName(task.completedBy)}</span> {t('at_time')} <span className="font-mono">{new Date(task.completedAt || 0).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
               </span>
             </div>
           )}

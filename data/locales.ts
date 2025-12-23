@@ -1,3 +1,4 @@
+
 export const translations = {
   sk: {
     status_blocked: "ZABLOKOVANÉ",
@@ -82,8 +83,10 @@ export const translations = {
     unit_pcs: "Kusy",
     unit_boxes: "Boxy",
     unit_pallet: "Paleta",
-    log_reference: "Referencia / ŠPZ",
-    log_reference_place: "Napr. TT-123-XY, DHL, Príjem...",
+    log_reference: "POPIS ÚLOHY",
+    log_reference_place: "POPIS, ZAKÁZNIK, DODÁVATEĽ atď...",
+    log_plate: "ŠPZ / PREPRAVCA",
+    log_plate_placeholder: "ŠPZ alebo PREPRAVCA",
     log_operation: "Typ Operácie",
     op_unloading: "VYKLÁDKA",
     op_loading: "NAKLÁDKA",
@@ -403,6 +406,7 @@ export const translations = {
     audit_found_btn: "Tovar sa našiel",
     audit_missing_btn: "Potvrdiť chýbajúce",
     audit_badge: "AUDIT",
+    optional_label: "(nepovinné)",
   },
   en: {
     status_blocked: "BLOCKED",
@@ -487,8 +491,10 @@ export const translations = {
     unit_pcs: "Pcs",
     unit_boxes: "Boxes",
     unit_pallet: "Pallet",
-    log_reference: "Reference / Plate No.",
-    log_reference_place: "E.g. TT-123-XY, DHL, Receiving...",
+    log_reference: "TASK DESCRIPTION",
+    log_reference_place: "DESCRIPTION, CUSTOMER, SUPPLIER etc...",
+    log_plate: "PLATE / CARRIER",
+    log_plate_placeholder: "PLATE or CARRIER",
     log_operation: "Operation Type",
     op_unloading: "UNLOADING",
     op_loading: "LOADING",
@@ -807,5 +813,6 @@ export const translations = {
     audit_found_btn: "Item Found",
     audit_missing_btn: "Confirm Missing",
     audit_badge: "AUDIT",
+    optional_label: "(optional)",
   }
 };

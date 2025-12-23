@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { PartRequest, BOMRequest } from '../../App';
 import { useLanguage } from '../LanguageContext';
@@ -9,6 +10,7 @@ interface PartRequestsSectionProps {
   onRejectPartRequest: (id: string) => void;
   onApproveBOMRequest: (req: BOMRequest) => void;
   onRejectBOMRequest: (id: string) => void;
+  resolveName: (username?: string | null) => string;
 }
 
 const Icons = {
@@ -17,7 +19,7 @@ const Icons = {
 };
 
 const PartRequestsSection: React.FC<PartRequestsSectionProps> = ({ 
-  partRequests, bomRequests, onApprovePartRequest, onRejectPartRequest, onApproveBOMRequest, onRejectBOMRequest 
+  partRequests, bomRequests, onApprovePartRequest, onRejectPartRequest, onApproveBOMRequest, onRejectBOMRequest, resolveName
 }) => {
   const { t } = useLanguage();
   const total = partRequests.length + bomRequests.length;
@@ -33,25 +35,25 @@ const PartRequestsSection: React.FC<PartRequestsSectionProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {partRequests.map(req => (
           <div key={req.id} className="bg-slate-950/50 p-4 rounded-2xl border border-red-900/50 flex justify-between items-center group">
-            <div>
-              <p className="font-mono font-bold text-white text-lg">{req.partNumber}</p>
-              <p className="text-[10px] text-slate-500 uppercase font-black">{req.requestedBy}</p>
+            <div className="min-w-0">
+              <p className="font-mono font-bold text-white text-lg truncate">{req.partNumber}</p>
+              <p className="text-[10px] text-slate-500 uppercase font-black truncate">{resolveName(req.requestedBy)}</p>
             </div>
-            <div className="flex gap-2">
-              <button onClick={() => onApprovePartRequest(req)} className="bg-green-600 p-2 rounded-lg text-white hover:bg-green-500 transition-colors"><Icons.Save /></button>
+            <div className="flex gap-2 flex-shrink-0">
+              <button onClick={() => onApprovePartRequest(req)} className="bg-green-600 p-2 rounded-lg text-white hover:bg-green-600 transition-colors"><Icons.Save /></button>
               <button onClick={() => onRejectPartRequest(req.id)} className="bg-red-600/20 text-red-500 p-2 rounded-lg hover:bg-red-600 hover:text-white transition-colors"><Icons.Trash /></button>
             </div>
           </div>
         ))}
         {bomRequests.map(req => (
-          <div key={req.id} className="bg-slate-950/50 p-4 rounded-2xl border border-red-900/50 flex justify-between items-center">
-            <div>
-              <p className="font-mono font-bold text-white text-lg">{req.parentPart} (BOM)</p>
-              <p className="text-[10px] text-slate-500 uppercase font-black">{req.requestedBy}</p>
+          <div key={req.id} className="bg-slate-950/50 p-4 rounded-2xl border border-red-900/50 flex justify-between items-center group">
+            <div className="min-w-0">
+              <p className="font-mono font-bold text-white text-lg truncate">{req.parentPart} (BOM)</p>
+              <p className="text-[10px] text-slate-500 uppercase font-black truncate">{resolveName(req.requestedBy)}</p>
             </div>
-            <div className="flex gap-2">
-              <button onClick={() => onApproveBOMRequest(req)} className="bg-green-600 p-2 rounded-lg text-white"><Icons.Save /></button>
-              <button onClick={() => onRejectBOMRequest(req.id)} className="bg-red-600/20 text-red-500 p-2 rounded-lg"><Icons.Trash /></button>
+            <div className="flex gap-2 flex-shrink-0">
+              <button onClick={() => onApproveBOMRequest(req)} className="bg-green-600 p-2 rounded-lg text-white hover:bg-green-600 transition-colors"><Icons.Save /></button>
+              <button onClick={() => onRejectBOMRequest(req.id)} className="bg-red-600/20 text-red-500 p-2 rounded-lg hover:bg-red-600 hover:text-white transition-colors"><Icons.Trash /></button>
             </div>
           </div>
         ))}

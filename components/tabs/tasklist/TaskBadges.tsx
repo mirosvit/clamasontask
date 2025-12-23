@@ -10,6 +10,7 @@ interface TaskBadgesProps {
   isSearchingMode: boolean;
   isManualBlocked: boolean;
   isUrgent: boolean;
+  resolveName: (username?: string | null) => string;
 }
 
 const TruckIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -19,7 +20,7 @@ const TruckIcon: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 const TaskBadges: React.FC<TaskBadgesProps> = ({ 
-  task, isSystemInventoryTask, isAuditInProgress, isSearchingMode, isManualBlocked, isUrgent 
+  task, isSystemInventoryTask, isAuditInProgress, isSearchingMode, isManualBlocked, isUrgent, resolveName
 }) => {
   const { t } = useLanguage();
 
@@ -35,13 +36,13 @@ const TaskBadges: React.FC<TaskBadgesProps> = ({
 
       {isSystemInventoryTask && (
         <span className="bg-[#4169E1] text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded animate-pulse border border-[#3151b1] shadow-[0_0_10px_rgba(65,105,225,0.4)]">
-          📋 {t('tab_inventory')} {task.inProgressBy ? `• ${task.inProgressBy}` : ''}
+          📋 {t('tab_inventory')} {task.inProgressBy ? `• ${resolveName(task.inProgressBy)}` : ''}
         </span>
       )}
 
       {isAuditInProgress && (
         <span className="bg-[#926a05] text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded animate-pulse border border-[#7a5804] shadow-[0_0_10px_rgba(146,106,5,0.4)]">
-          ⚙️ {t('audit_badge')} • {task.auditBy}
+          ⚙️ {t('audit_badge')} • {resolveName(task.auditBy)}
         </span>
       )}
 
@@ -53,7 +54,7 @@ const TaskBadges: React.FC<TaskBadgesProps> = ({
 
       {isSearchingMode && (
         <span className="bg-gray-500 text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded animate-pulse border border-gray-400 shadow-sm">
-          🔍 {t('status_inventory')} {task.blockedBy ? `• ${task.blockedBy}` : ''}
+          🔍 {t('status_inventory')} {task.blockedBy ? `• ${resolveName(task.blockedBy)}` : ''}
         </span>
       )}
 

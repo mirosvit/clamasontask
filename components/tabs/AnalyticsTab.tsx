@@ -9,6 +9,7 @@ interface AnalyticsTabProps {
   tasks: Task[];
   onFetchArchivedTasks: () => Promise<Task[]>;
   systemBreaks: SystemBreak[];
+  resolveName: (username?: string | null) => string;
 }
 
 type FilterMode = 'ALL' | 'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH' | 'CUSTOM';
@@ -19,7 +20,7 @@ const DownloadIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
-const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchArchivedTasks, systemBreaks }) => {
+const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchArchivedTasks, systemBreaks, resolveName }) => {
   const [filterMode, setFilterMode] = useState<FilterMode>('ALL');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
@@ -180,7 +181,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
             const worker = task.completedBy;
             if (!workerStatsMap[worker]) {
                 workerStatsMap[worker] = { 
-                    name: worker, 
+                    name: resolveName(worker), 
                     count: 0, 
                     totalVolume: 0,
                     totalLeadMs: 0, 
@@ -230,7 +231,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
         logisticsOpCounts,
         workerStats: Object.values(workerStatsMap).sort((a, b) => b.count - a.count)
     };
-  }, [filteredTasks, systemBreaks]);
+  }, [filteredTasks, systemBreaks, resolveName]);
 
   const handleExportReport = () => {
     if (typeof XLSX === 'undefined') return;
@@ -253,14 +254,14 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
     // Hárok 2: Zdrojové Dáta (Raw Data)
     const rawData = filteredTasks.map(task => ({
         [t('miss_th_created')]: task.createdAt ? new Date(task.createdAt).toLocaleString('sk-SK') : '-',
-        [t('task_created')]: task.createdBy || '-',
+        [t('task_created')]: resolveName(task.createdBy) || '-',
         [t('miss_th_part')]: task.partNumber || '-',
         [t('miss_th_wp')]: task.workplace || '-',
         [t('quantity')]: task.quantity || '0',
         [language === 'sk' ? 'Jednotka' : 'Unit']: task.quantityUnit || '-',
         [t('priority_label')]: task.priority || 'NORMAL',
         [t('status_label')]: task.isDone ? t('status_completed') : t('status_open'),
-        [t('task_completed_by')]: task.completedBy || '-',
+        [t('task_completed_by')]: resolveName(task.completedBy) || '-',
         [language === 'sk' ? 'Dokončené o' : 'Completed at']: task.completedAt ? new Date(task.completedAt).toLocaleString('sk-SK') : '-',
         [language === 'sk' ? 'Norma (min)' : 'Std Time (min)']: task.standardTime || 0,
         [language === 'sk' ? 'Typ' : 'Type']: task.isLogistics ? 'logistics' : 'production',
@@ -295,7 +296,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
                 <div className="flex items-center gap-2 bg-gray-900 p-2 rounded-lg border border-gray-600">
                     <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="bg-gray-800 text-white text-sm rounded px-2 py-1 border border-gray-600 focus:border-teal-500 outline-none"/>
                     <span className="text-gray-400">-</span>
-                    <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="bg-gray-800 text-white text-sm rounded px-2 py-1 border border-gray-600 focus:border-teal-500 outline-none"/>
+                    <input type="date" value={customEnd} onChange={(e) => setFilterMode('CUSTOM' as any)} className="bg-gray-800 text-white text-sm rounded px-2 py-1 border border-gray-600 focus:border-teal-500 outline-none"/>
                 </div>
             )}
         </div>

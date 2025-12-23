@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { UserData, DBItem, BreakSchedule, BOMItem, SystemConfig } from '../../App';
 import { useLanguage } from '../LanguageContext';
@@ -67,8 +68,8 @@ const SetupView: React.FC<SetupViewProps> = (props) => {
         <div className="max-h-40 overflow-y-auto custom-scrollbar space-y-2 pr-2">
           {props.users.map(u => (
             <div key={u.username} className="flex justify-between items-center bg-slate-950/30 px-3 py-2 rounded-lg border border-white/5">
-              <span className="text-xs font-bold text-slate-300 font-mono">{u.username}</span>
-              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${u.role === 'ADMIN' ? 'text-red-400' : u.role === 'LEADER' ? 'text-sky-400' : 'text-teal-500'}`}>
+              <span className="text-xs font-bold text-slate-300 font-mono truncate max-w-[120px]">{u.nickname || u.username}</span>
+              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded flex-shrink-0 ${u.role === 'ADMIN' ? 'text-red-400' : u.role === 'LEADER' ? 'text-sky-400' : 'text-teal-500'}`}>
                 {u.role}
               </span>
             </div>

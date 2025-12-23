@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SystemConfig } from '../../App';
 import { useLanguage } from '../LanguageContext';
 
@@ -7,18 +7,40 @@ interface MaintenanceSectionProps {
   systemConfig: SystemConfig;
   onUpdateSystemConfig: (config: Partial<SystemConfig>) => void;
   onArchiveTasks: () => Promise<{ success: boolean; count?: number; error?: string; message?: string }>;
+  onGetDocCount: () => Promise<number>;
+  onPurgeOldTasks: () => Promise<number>;
+  onExportTasksJSON: () => Promise<void>;
 }
 
 const Icons = {
-  Archive: () => <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+  Archive: () => <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>,
+  Database: () => <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 1.105 3.582 2 8 2s8-.895 8-2V7M4 7c0 1.105 3.582 2 8 2s8-.895 8-2M4 7c0-1.105 3.582-2 8-2s8 .895 8 2m-8 4v10" /></svg>,
+  Export: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>,
+  Trash: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
+  External: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
 };
 
-const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, onUpdateSystemConfig, onArchiveTasks }) => {
+const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, onUpdateSystemConfig, onArchiveTasks, onGetDocCount, onPurgeOldTasks, onExportTasksJSON }) => {
   const { t } = useLanguage();
   const [isArchiving, setIsArchiving] = useState(false);
+  const [isPurging, setIsPurging] = useState(false);
+  const [docCount, setDocCount] = useState<number | null>(null);
   const [scheduleStart, setScheduleStart] = useState(systemConfig.maintenanceStart || '');
   const [scheduleEnd, setScheduleEnd] = useState(systemConfig.maintenanceEnd || '');
   const [newIp, setNewIp] = useState('');
+
+  useEffect(() => {
+      onGetDocCount().then(setDocCount);
+  }, []);
+
+  const handlePurge = async () => {
+      if (!window.confirm('Naozaj chcete natrvalo vymazať úlohy staršie ako 90 dní? Odporúčame najskôr vykonať JSON export.')) return;
+      setIsPurging(true);
+      const purged = await onPurgeOldTasks();
+      alert(`Vymazaných ${purged} starých dokumentov.`);
+      onGetDocCount().then(setDocCount);
+      setIsPurging(false);
+  };
 
   const cardClass = "bg-gray-800/40 border border-slate-700/50 rounded-2xl p-6 shadow-2xl backdrop-blur-sm";
   const inputClass = "w-full h-12 bg-slate-800/80 border border-slate-700 rounded-xl px-4 text-white text-base focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono placeholder-gray-500 uppercase";
@@ -78,16 +100,50 @@ const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, o
         </div>
       </div>
 
-      <div className={cardClass}>
-        <div className="h-full flex flex-col justify-center items-center py-16 space-y-10 text-center">
-          <div className="p-8 bg-purple-500/10 rounded-full border-2 border-purple-500/20 text-purple-400 mb-6 animate-pulse shadow-[0_0_30px_rgba(168,85,247,0.2)]"><Icons.Archive /></div>
-          <div className="space-y-4">
-            <h3 className="text-3xl font-black text-white uppercase tracking-tighter">ÚDRŽBA DÁT</h3>
-            <p className="text-slate-400 max-w-lg mx-auto text-base leading-relaxed font-medium">{t('maint_desc')}</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className={cardClass}>
+          <div className="h-full flex flex-col justify-center items-center py-10 space-y-6 text-center">
+            <div className="p-6 bg-purple-500/10 rounded-full border-2 border-purple-500/20 text-purple-400 mb-2 animate-pulse shadow-[0_0_30px_rgba(168,85,247,0.2)]"><Icons.Archive /></div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-black text-white uppercase tracking-tighter">ARCHIVÁCIA</h3>
+              <p className="text-slate-400 text-xs leading-relaxed font-medium px-4">{t('maint_desc')}</p>
+            </div>
+            <button onClick={() => { setIsArchiving(true); onArchiveTasks().then(() => setIsArchiving(false)); }} disabled={isArchiving} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-black py-4 rounded-xl uppercase tracking-widest text-sm shadow-xl transition-all active:scale-95 border-2 border-purple-400">
+              {isArchiving ? t('archiving') : t('archive_btn')}
+            </button>
           </div>
-          <button onClick={() => { setIsArchiving(true); onArchiveTasks().then(() => setIsArchiving(false)); }} disabled={isArchiving} className="bg-purple-600 hover:bg-purple-500 text-white font-black py-8 px-16 rounded-2xl uppercase tracking-[0.2em] text-xl shadow-2xl shadow-purple-900/40 transition-all active:scale-95 border-2 border-purple-400">
-            {isArchiving ? t('archiving') : t('archive_btn')}
-          </button>
+        </div>
+
+        <div className={cardClass}>
+          <div className="h-full flex flex-col justify-center items-center py-10 space-y-6 text-center">
+            <div className="p-6 bg-rose-500/10 rounded-full border-2 border-rose-500/20 text-rose-400 mb-2 shadow-[0_0_30px_rgba(244,63,94,0.2)]"><Icons.Database /></div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-black text-white uppercase tracking-tighter">KAPACITA DB</h3>
+              <div className="bg-slate-900 border border-slate-700 px-4 py-2 rounded-lg inline-block">
+                <span className="text-rose-400 font-black text-2xl font-mono">{docCount ?? '...'}</span>
+                <span className="text-slate-500 text-[10px] ml-2 uppercase font-black">Dokumentov</span>
+              </div>
+              <p className="text-slate-500 text-[10px] uppercase font-bold mt-2">TTL: 90 dní automaticky</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4 w-full px-4 mb-4">
+                <button onClick={onExportTasksJSON} className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-black py-3 rounded-xl uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 border border-slate-600 transition-all active:scale-95">
+                    <Icons.Export /> BACKUP
+                </button>
+                <button onClick={handlePurge} disabled={isPurging} className="bg-rose-900/20 hover:bg-rose-600 text-rose-500 hover:text-white font-black py-3 rounded-xl uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 border border-rose-900/50 transition-all active:scale-95">
+                    <Icons.Trash /> {isPurging ? '...' : 'PURGE'}
+                </button>
+            </div>
+            <div className="w-full px-4">
+                <a 
+                  href="https://console.firebase.google.com/u/0/project/sklad-ulohy/firestore/databases/-default-/data" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="w-full h-10 bg-slate-800/50 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-400 hover:text-white transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em]"
+                >
+                    {t('sect_maint_db_link')} <Icons.External />
+                </a>
+            </div>
+          </div>
         </div>
       </div>
     </div>

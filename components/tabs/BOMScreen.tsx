@@ -144,7 +144,8 @@ const BOMScreen: React.FC<BOMScreenProps> = ({
                                     type="number" 
                                     inputMode="numeric"
                                     value={bomQuantity} 
-                                    onChange={(e) => setBomQuantity(e.target.value)} 
+                                    onChange={(e) => setBomQuantity(e.target.value.slice(0, 7))} 
+                                    maxLength={7}
                                     className="w-full h-12 px-4 bg-gray-700 border border-gray-600 rounded-lg text-white font-mono placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all text-base uppercase" 
                                     placeholder="500" 
                                 />

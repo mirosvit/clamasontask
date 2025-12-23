@@ -22,6 +22,7 @@ interface TaskListProps {
   onReleaseTask: (id: string) => void;
   onAuditPart?: (task: Task) => void;
   hasPermission: (perm: string) => boolean;
+  resolveName: (username?: string | null) => string;
 }
 
 const TaskList: React.FC<TaskListProps> = (props) => {
@@ -122,6 +123,7 @@ const TaskList: React.FC<TaskListProps> = (props) => {
             handleCopyPart={handleCopyPart}
             openPriorityModal={openPriorityModal}
             onAuditPart={props.onAuditPart}
+            resolveName={props.resolveName}
           />
         );
       })}
