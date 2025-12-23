@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { SystemConfig } from '../../App';
 import { useLanguage } from '../LanguageContext';
@@ -20,7 +21,7 @@ const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, o
   const [newIp, setNewIp] = useState('');
 
   const cardClass = "bg-gray-800/40 border border-slate-700/50 rounded-2xl p-6 shadow-2xl backdrop-blur-sm";
-  const inputClass = "w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono";
+  const inputClass = "w-full h-10 bg-slate-800/80 border border-slate-700 rounded-xl px-4 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono placeholder-gray-500 uppercase";
   const labelClass = "block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2";
 
   return (
@@ -47,21 +48,21 @@ const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, o
                   <input type="datetime-local" value={scheduleEnd} onChange={e=>setScheduleEnd(e.target.value)} className={inputClass} />
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => onUpdateSystemConfig({maintenanceStart:scheduleStart, maintenanceEnd:scheduleEnd})} className="flex-1 bg-teal-600 text-white font-black py-2 rounded-lg text-[9px] uppercase tracking-widest">ULOŽIŤ PLÁN</button>
-                  <button onClick={() => { setScheduleStart(''); setScheduleEnd(''); onUpdateSystemConfig({maintenanceStart:'', maintenanceEnd:''}); }} className="bg-slate-800 text-slate-400 font-black py-2 px-4 rounded-lg text-[9px] uppercase tracking-widest">ZRUŠIŤ</button>
+                  <button onClick={() => onUpdateSystemConfig({maintenanceStart:scheduleStart, maintenanceEnd:scheduleEnd})} className="flex-1 h-10 bg-teal-600 text-white font-black rounded-lg text-[9px] uppercase tracking-widest">ULOŽIŤ PLÁN</button>
+                  <button onClick={() => { setScheduleStart(''); setScheduleEnd(''); onUpdateSystemConfig({maintenanceStart:'', maintenanceEnd:''}); }} className="h-10 bg-slate-800 text-slate-400 font-black px-4 rounded-lg text-[9px] uppercase tracking-widest">ZRUŠIŤ</button>
                 </div>
               </div>
             </div>
             <div className="bg-slate-950/40 p-6 rounded-3xl border border-white/5 space-y-6">
               <div className="flex justify-between items-center">
                 <h4 className="text-sm font-black text-white uppercase tracking-widest">IP WHITELIST</h4>
-                <button onClick={() => onUpdateSystemConfig({ipCheckEnabled: !systemConfig.ipCheckEnabled})} className={`text-[9px] font-black px-3 py-1.5 rounded-full border transition-all ${systemConfig.ipCheckEnabled ? 'bg-green-500 text-white border-green-400 shadow-[0_0_10px_rgba(34,197,94,0.4)]' : 'bg-slate-800 text-slate-500 border-slate-700'}`}>{systemConfig.ipCheckEnabled ? 'ENABLED' : 'DISABLED'}</button>
+                <button onClick={() => onUpdateSystemConfig({ipCheckEnabled: !systemConfig.ipCheckEnabled})} className={`text-[9px] font-black px-3 h-8 flex items-center rounded-full border transition-all ${systemConfig.ipCheckEnabled ? 'bg-green-500 text-white border-green-400 shadow-[0_0_10px_rgba(34,197,94,0.4)]' : 'bg-slate-800 text-slate-500 border-slate-700'}`}>{systemConfig.ipCheckEnabled ? 'ENABLED' : 'DISABLED'}</button>
               </div>
               <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar pr-2">
                 {(systemConfig.allowedIPs || []).map(ip => (
-                  <div key={ip} className="bg-slate-900 px-4 py-2 rounded-xl border border-white/5 flex justify-between items-center text-[10px] font-mono group">
+                  <div key={ip} className="bg-slate-900 px-4 h-10 rounded-xl border border-white/5 flex justify-between items-center text-[10px] font-mono group">
                     <span className="text-slate-300">{ip}</span>
-                    <button onClick={() => onUpdateSystemConfig({allowedIPs: (systemConfig.allowedIPs||[]).filter(i=>i!==ip)})} className="text-red-500 opacity-0 group-hover:opacity-100">×</button>
+                    <button onClick={() => onUpdateSystemConfig({allowedIPs: (systemConfig.allowedIPs||[]).filter(i=>i!==ip)})} className="text-red-500 opacity-0 group-hover:opacity-100 font-black px-1">×</button>
                   </div>
                 ))}
               </div>
@@ -69,7 +70,7 @@ const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, o
                 <h5 className={labelClass}>ADD IP / WILDCARD</h5>
                 <div className="flex gap-2">
                   <input value={newIp} onChange={e=>setNewIp(e.target.value)} placeholder="0.0.0.0" className={inputClass} />
-                  <button onClick={() => { if(newIp) { onUpdateSystemConfig({allowedIPs: [...(systemConfig.allowedIPs||[]), newIp.trim()]}); setNewIp(''); } }} className="bg-blue-600 text-white px-4 rounded-xl font-black">+</button>
+                  <button onClick={() => { if(newIp) { onUpdateSystemConfig({allowedIPs: [...(systemConfig.allowedIPs||[]), newIp.trim()]}); setNewIp(''); } }} className="h-10 bg-blue-600 text-white px-4 rounded-xl font-black">+</button>
                 </div>
               </div>
             </div>

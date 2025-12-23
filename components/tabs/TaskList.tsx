@@ -18,6 +18,7 @@ interface TaskListProps {
   onToggleBlock: (id: string) => void;
   onToggleManualBlock: (id: string) => void;
   onMarkAsIncorrect: (id: string) => void;
+  // Removed duplicate identifier 'onAddNote' that was present twice here.
   onAddNote: (id: string, note: string) => void;
   onReleaseTask: (id: string) => void;
   onAuditPart?: (task: Task) => void;
@@ -81,6 +82,12 @@ const ClipboardCheckIcon: React.FC<{ className?: string }> = ({ className }) => 
     <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor">
         <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
         <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm9.707 5.707a1 1 0 00-1.414-1.414L9 12.586l-1.293-1.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+    </svg>
+);
+
+const TruckIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
     </svg>
 );
 
@@ -238,10 +245,8 @@ const TaskList: React.FC<TaskListProps> = (props) => {
                         <div className="flex-grow p-4 flex flex-col gap-1 min-w-0 relative">
                             <div className="relative z-10">
                                 {isLogisticsTask && !task.isDone && (
-                                    <div className="mb-1">
-                                        <span className="bg-sky-600 text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-sky-500 shadow-[0_0_10px_rgba(14,165,233,0.4)] inline-block">
-                                            🚛 {t('status_logistics')}
-                                        </span>
+                                    <div className="w-fit bg-indigo-600 text-white text-[10px] font-bold uppercase px-2 py-0.5 rounded-md mb-2 tracking-widest flex items-center gap-1 shadow-sm">
+                                        <TruckIcon className="w-3 h-3" /> {t('status_logistics')}
                                     </div>
                                 )}
 
@@ -426,7 +431,7 @@ const TaskList: React.FC<TaskListProps> = (props) => {
 
             {priorityEditId && createPortal(<div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setPriorityEditId(null)}><div className="bg-gray-800 border-2 border-blue-500 rounded-xl shadow-2xl w-full max-w-md p-6 relative" onClick={e => e.stopPropagation()}><h3 className="text-xl font-bold text-blue-400 mb-6 text-center uppercase tracking-wide">{t('priority_label')}</h3><div className="grid grid-cols-1 gap-3"><button onClick={() => confirmPriority(priorityEditId, 'LOW')} className="p-4 bg-slate-700 hover:bg-slate-600 border border-slate-500 text-white rounded-lg font-bold transition-all duration-200 text-lg shadow-md hover:translate-x-1 uppercase">{t('prio_low')}</button><button onClick={() => confirmPriority(priorityEditId, 'NORMAL')} className="p-4 bg-green-700 hover:bg-green-600 border border-green-500 text-white rounded-lg font-bold transition-all duration-200 text-lg shadow-md hover:translate-x-1 uppercase">{t('prio_normal')}</button><button onClick={() => confirmPriority(priorityEditId, 'URGENT')} className="p-4 bg-red-700 hover:bg-red-600 border border-red-500 text-white rounded-lg font-bold transition-all duration-200 text-lg shadow-md hover:translate-x-1 uppercase">{t('prio_urgent')}</button></div><button onClick={() => setPriorityEditId(null)} className="w-full mt-6 py-4 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 font-bold transition-colors">{t('btn_cancel')}</button></div></div>, document.body)}
             {missingId && createPortal(<div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setMissingId(null)}><div className="bg-gray-800 border-2 border-red-600 rounded-xl shadow-2xl w-full max-w-md p-6 relative" onClick={e => e.stopPropagation()}><h3 className="text-xl font-bold text-red-400 mb-6 text-center uppercase tracking-wide">{t('modal_missing_title')}</h3><div className="grid grid-cols-1 gap-3">{props.missingReasons.map(r => (<button key={r.id} onClick={() => confirmMissing(missingId, r.value)} className="p-4 bg-gray-700 hover:bg-red-900/30 border border-gray-600 hover:border-red-500 text-white rounded-lg font-bold transition-all duration-200 text-lg shadow-md hover:translate-x-1">{r.value}</button>))}</div><button onClick={() => setMissingId(null)} className="w-full mt-6 py-4 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 font-bold transition-colors">{t('btn_cancel')}</button></div></div>, document.body)}
-            {noteId && createPortal(<div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setNoteId(null)}><div className="bg-gray-800 border-2 border-yellow-500 rounded-xl shadow-2xl w-full max-w-md p-6 relative" onClick={e => e.stopPropagation()}><h3 className="text-xl font-bold text-yellow-400 mb-4 text-center uppercase tracking-wide">{t('btn_note')}</h3><textarea value={noteVal} onChange={(e) => setNoteVal(e.target.value)} className="w-full bg-gray-700 text-white p-3 rounded-lg border border-gray-600 focus:border-yellow-500 outline-none mb-4" rows={4} autoFocus placeholder={t('btn_note') + "..."} /><div className="flex gap-3"><button onClick={() => saveNote(noteId)} className="flex-1 py-3 bg-yellow-600 hover:bg-yellow-500 text-white rounded-lg font-bold transition-colors">{t('btn_save')}</button><button onClick={() => setNoteId(null)} className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg font-bold transition-colors">{t('btn_cancel')}</button></div></div></div>, document.body)}
+            {noteId && createPortal(<div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setNoteId(null)}><div className="bg-gray-800 border-2 border-yellow-500 rounded-xl shadow-2xl w-full max-w-md p-6 relative" onClick={e => e.stopPropagation()}><h3 className="text-xl font-bold text-yellow-400 mb-4 text-center uppercase tracking-wide">{t('btn_note')}</h3><textarea value={noteVal} onChange={(e) => setNoteVal(e.target.value)} className="w-full bg-gray-700 text-white p-3 rounded-lg border border-gray-600 focus:border-yellow-500 outline-none mb-4 text-sm py-2.5" rows={4} autoFocus placeholder={t('btn_note') + "..."} /><div className="flex gap-3"><button onClick={() => saveNote(noteId)} className="flex-1 py-3 bg-yellow-600 hover:bg-yellow-500 text-white rounded-lg font-bold transition-colors">{t('btn_save')}</button><button onClick={() => setNoteId(null)} className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg font-bold transition-colors">{t('btn_cancel')}</button></div></div></div>, document.body)}
             {deleteId && createPortal(<div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setDeleteId(null)}><div className="bg-gray-800 border-2 border-red-600 rounded-xl shadow-2xl w-full max-w-md p-6 relative" onClick={e => e.stopPropagation()}><div className="text-center mb-6"><div className="w-16 h-16 bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/50"><TrashIcon className="w-8 h-8 text-red-500" /></div><h3 className="text-xl font-bold text-white mb-2">{t('miss_delete_confirm')}</h3></div><div className="flex gap-3"><button onClick={() => setDeleteId(null)} className="flex-1 py-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 font-bold transition-colors">{t('btn_cancel')}</button><button onClick={confirmDelete} className="flex-1 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold transition-colors shadow-lg flex items-center justify-center gap-2"><TrashIcon className="w-5 h-5" />Vymazať</button></div></div></div>, document.body)}
         </div>
     );

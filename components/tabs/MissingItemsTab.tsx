@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Task } from '../../App';
 import { useLanguage } from '../LanguageContext';
@@ -36,7 +37,7 @@ const MissingItemsTab: React.FC<MissingItemsTabProps> = ({ tasks, onDeleteMissin
 
     const stats = useMemo(() => {
         const now = Date.now();
-        const criticalLimit = 120 * 60 * 1000; // 2 hodiny
+        const criticalLimit = 120 * 60 * 1000; 
         const criticalCount = missingTasks.filter(t => (now - (t.completedAt || t.createdAt || 0)) > criticalLimit).length;
         
         const reasons: Record<string, number> = {};
@@ -130,7 +131,6 @@ const MissingItemsTab: React.FC<MissingItemsTabProps> = ({ tasks, onDeleteMissin
     return (
         <div className="max-w-7xl mx-auto space-y-6 pb-20 animate-fade-in px-2 md:px-0 text-slate-200">
             
-            {/* KPI DASHBOARD */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className={industrialCardBase}>
                     <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">{t('miss_kpi_total')}</p>
@@ -164,7 +164,6 @@ const MissingItemsTab: React.FC<MissingItemsTabProps> = ({ tasks, onDeleteMissin
                 </div>
             </div>
 
-            {/* TABLE CONTAINER */}
             <div className="bg-[#1a1f2e] rounded-2xl shadow-2xl border border-slate-800 overflow-hidden ring-1 ring-white/5">
                 <div className="p-4 sm:p-6 bg-slate-900/40 border-b border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
                     <div className="relative w-full md:w-96">
@@ -173,9 +172,9 @@ const MissingItemsTab: React.FC<MissingItemsTabProps> = ({ tasks, onDeleteMissin
                             value={filterQuery}
                             onChange={(e) => setFilterQuery(e.target.value)}
                             placeholder={t('task_search_placeholder')}
-                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500/40 transition-all pl-11 font-medium"
+                            className="w-full h-10 bg-slate-800 border border-slate-700 rounded-xl px-4 pl-11 text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500/40 transition-all font-medium uppercase placeholder-gray-500"
                         />
-                        <svg xmlns="http://www.w3.org/2000/svg" className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="absolute left-3.5 top-3 h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                     </div>
                     
                     <button onClick={handleExport} className="w-full md:w-auto bg-slate-800 hover:bg-slate-700 text-teal-400 border border-slate-700 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2">
@@ -209,7 +208,6 @@ const MissingItemsTab: React.FC<MissingItemsTabProps> = ({ tasks, onDeleteMissin
                                                 onClick={() => toggleExpand(item.id)}
                                                 className={`transition-all cursor-pointer border-l-4 ${getRowPriorityClass(reportTime)} ${isNok ? 'bg-red-500/5' : 'hover:bg-teal-500/[0.02]'}`}
                                             >
-                                                {/* DIEL & PRACOVISKO */}
                                                 <td className="py-5 px-6">
                                                     <div className="flex flex-col gap-1.5">
                                                         <span className="text-[12px] font-black font-mono text-white bg-slate-800 px-3 py-1 rounded-md border border-slate-700 w-fit shadow-sm uppercase tracking-wide">
@@ -221,14 +219,12 @@ const MissingItemsTab: React.FC<MissingItemsTabProps> = ({ tasks, onDeleteMissin
                                                     </div>
                                                 </td>
 
-                                                {/* DÔVOD */}
                                                 <td className="py-5 px-6">
                                                     <span className="text-sm font-black text-amber-500 tracking-tight leading-tight block">
                                                         {item.missingReason}
                                                     </span>
                                                 </td>
 
-                                                {/* STARNUTIE */}
                                                 <td className="py-5 px-6">
                                                     <div className="flex items-center gap-2.5">
                                                         <div className={`w-2 h-2 rounded-full ${getAgeingColor(reportTime).includes('red') ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse' : 'bg-teal-500'}`}></div>
@@ -238,7 +234,6 @@ const MissingItemsTab: React.FC<MissingItemsTabProps> = ({ tasks, onDeleteMissin
                                                     </div>
                                                 </td>
 
-                                                {/* AUDIT VÝSLEDOK */}
                                                 <td className="py-5 px-6">
                                                     {item.auditResult ? (
                                                         <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest w-fit border ${item.auditResult === 'OK' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-600/10 text-red-500 border-red-600/20'}`}>
@@ -249,12 +244,10 @@ const MissingItemsTab: React.FC<MissingItemsTabProps> = ({ tasks, onDeleteMissin
                                                     )}
                                                 </td>
 
-                                                {/* CHEVRON */}
                                                 <td className="py-5 px-6 text-center">
                                                     <ChevronDownIcon className={`w-5 h-5 text-slate-600 transition-transform duration-300 ${isExpanded ? 'rotate-180 text-teal-500' : ''}`} />
                                                 </td>
 
-                                                {/* DELETE */}
                                                 {hasPermission('perm_btn_delete') && (
                                                     <td className="py-5 px-6 text-center" onClick={(e) => e.stopPropagation()}>
                                                         <button onClick={() => handleDelete(item.id)} className="text-slate-700 hover:text-red-500 p-2 transition-all opacity-0 group-hover:opacity-100 hover:scale-110 active:scale-90">
@@ -264,13 +257,11 @@ const MissingItemsTab: React.FC<MissingItemsTabProps> = ({ tasks, onDeleteMissin
                                                 )}
                                             </tr>
 
-                                            {/* EXPANDED DETAIL */}
                                             {isExpanded && (
                                                 <tr className="bg-slate-950/40 border-l-4 border-slate-800 animate-fade-in">
                                                     <td colSpan={hasPermission('perm_btn_delete') ? 6 : 5} className="p-8">
                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                                                             
-                                                            {/* BLOK HISTÓRIA */}
                                                             <div className="space-y-4">
                                                                 <h4 className="text-[10px] font-black text-teal-500 uppercase tracking-[0.2em] border-b border-teal-900/50 pb-2">História záznamu</h4>
                                                                 <div className="grid grid-cols-2 gap-6">
@@ -287,7 +278,6 @@ const MissingItemsTab: React.FC<MissingItemsTabProps> = ({ tasks, onDeleteMissin
                                                                 </div>
                                                             </div>
 
-                                                            {/* BLOK AUDIT */}
                                                             <div className="space-y-4">
                                                                 <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em] border-b border-amber-900/50 pb-2">Detail auditu</h4>
                                                                 {item.auditedBy ? (

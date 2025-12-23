@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, memo } from 'react';
 import { BOMItem } from '../../App';
 import { useLanguage } from '../LanguageContext';
@@ -10,7 +11,6 @@ interface BOMSectionProps {
   onDeleteAllBOMItems: () => void;
 }
 
-// Fix: Completed the component by adding the return statement and export default to resolve type errors and missing export
 const BOMSection: React.FC<BOMSectionProps> = memo(({ bomItems, onAddBOMItem, onBatchAddBOMItems, onDeleteBOMItem, onDeleteAllBOMItems }) => {
   const { t } = useLanguage();
   const [bomParent, setBomParent] = useState('');
@@ -29,7 +29,7 @@ const BOMSection: React.FC<BOMSectionProps> = memo(({ bomItems, onAddBOMItem, on
   }, [bomItems, bomSearchQuery]);
 
   const cardClass = "bg-gray-800/40 border border-slate-700/50 rounded-2xl p-6 shadow-2xl backdrop-blur-sm";
-  const inputClass = "w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono";
+  const inputClass = "w-full h-10 bg-slate-800/80 border border-slate-700 rounded-xl px-4 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono placeholder-gray-500 uppercase";
   const labelClass = "block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2";
 
   return (
@@ -47,13 +47,13 @@ const BOMSection: React.FC<BOMSectionProps> = memo(({ bomItems, onAddBOMItem, on
                 <input value={bomParent} onChange={e=>setBomParent(e.target.value.toUpperCase())} placeholder="PARENT" className={inputClass} />
                 <input value={bomChild} onChange={e=>setBomChild(e.target.value.toUpperCase())} placeholder="CHILD" className={inputClass} />
                 <input type="number" step="0.0001" value={bomQty} onChange={e=>setBomQty(e.target.value)} placeholder="QTY" className={inputClass} />
-                <button onClick={() => { if(bomParent && bomChild) { onAddBOMItem(bomParent, bomChild, parseFloat(bomQty)); setBomParent(''); setBomChild(''); setBomQty(''); } }} className="bg-teal-600 hover:bg-teal-500 text-white font-black py-3 px-6 rounded-xl uppercase tracking-widest text-xs transition-all w-full">ADD</button>
+                <button onClick={() => { if(bomParent && bomChild) { onAddBOMItem(bomParent, bomChild, parseFloat(bomQty)); setBomParent(''); setBomChild(''); setBomQty(''); } }} className="h-10 bg-teal-600 hover:bg-teal-500 text-white font-black px-6 rounded-xl uppercase tracking-widest text-[10px] transition-all w-full mt-2">ADD</button>
               </div>
             </div>
             <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5">
               <h4 className={labelClass}>BULK IMPORT (CSV)</h4>
-              <textarea value={bomBulk} onChange={e=>setBomBulk(e.target.value)} placeholder="Parent;Child;Qty" className={inputClass + " h-32 resize-none"} />
-              <button onClick={() => { if(bomBulk) { onBatchAddBOMItems(bomBulk.split('\n')); setBomBulk(''); } }} className="bg-blue-600 hover:bg-blue-500 text-white font-black py-3 px-6 rounded-xl uppercase tracking-widest text-xs transition-all w-full mt-2">IMPORT BATCH</button>
+              <textarea value={bomBulk} onChange={e=>setBomBulk(e.target.value)} placeholder="Parent;Child;Qty" className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono placeholder-gray-500 h-32 resize-none" />
+              <button onClick={() => { if(bomBulk) { onBatchAddBOMItems(bomBulk.split('\n')); setBomBulk(''); } }} className="h-10 bg-blue-600 hover:bg-blue-500 text-white font-black px-6 rounded-xl uppercase tracking-widest text-[10px] transition-all w-full mt-2">IMPORT BATCH</button>
             </div>
           </div>
           <div className="lg:col-span-2 space-y-2 flex flex-col">
@@ -69,7 +69,7 @@ const BOMSection: React.FC<BOMSectionProps> = memo(({ bomItems, onAddBOMItem, on
                       <td className="p-3 text-white font-bold">{item.parentPart}</td>
                       <td className="p-3 text-slate-400">{item.childPart}</td>
                       <td className="p-3 text-right text-teal-400">{item.quantity}</td>
-                      <td className="p-3 text-right"><button onClick={() => onDeleteBOMItem(item.id)} className="text-slate-600 hover:text-red-500 px-1">×</button></td>
+                      <td className="p-3 text-right"><button onClick={() => onDeleteBOMItem(item.id)} className="text-slate-600 hover:text-red-500 px-1 font-black">×</button></td>
                     </tr>
                   ))}
                 </tbody>

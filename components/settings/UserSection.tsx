@@ -1,3 +1,4 @@
+
 import React, { useState, memo } from 'react';
 import { UserData, Role } from '../../App';
 import { useLanguage } from '../LanguageContext';
@@ -23,7 +24,7 @@ const UserSection: React.FC<UserSectionProps> = memo(({ users, roles, onAddUser,
   const [passwordInputs, setPasswordInputs] = useState<Record<string, string>>({});
 
   const cardClass = "bg-gray-800/40 border border-slate-700/50 rounded-2xl p-6 shadow-2xl backdrop-blur-sm";
-  const inputClass = "w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono";
+  const inputClass = "w-full h-10 bg-slate-800/80 border border-slate-700 rounded-xl px-4 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono placeholder-gray-500 uppercase";
   const labelClass = "block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2";
 
   return (
@@ -49,10 +50,10 @@ const UserSection: React.FC<UserSectionProps> = memo(({ users, roles, onAddUser,
                   placeholder="Nové heslo"
                   value={passwordInputs[u.username] || ''}
                   onChange={(e) => setPasswordInputs(p => ({ ...p, [u.username]: e.target.value }))}
-                  className={inputClass.replace('py-3', 'py-2')}
+                  className={inputClass}
                 />
-                <button onClick={() => { if(passwordInputs[u.username]) { onUpdatePassword(u.username, passwordInputs[u.username]); setPasswordInputs(p => ({...p, [u.username]: ''})); } }} className="bg-slate-800 p-2.5 rounded-xl border border-slate-700 text-teal-400 hover:bg-slate-700 transition-all"><Icons.Save /></button>
-                {u.username !== 'ADMIN' && <button onClick={() => { if(window.confirm('Vymazať užívateľa?')) onDeleteUser(u.username); }} className="p-2.5 text-slate-600 hover:text-red-500 transition-all"><Icons.Trash /></button>}
+                <button onClick={() => { if(passwordInputs[u.username]) { onUpdatePassword(u.username, passwordInputs[u.username]); setPasswordInputs(p => ({...p, [u.username]: ''})); } }} className="h-10 w-10 flex items-center justify-center bg-slate-800 rounded-xl border border-slate-700 text-teal-400 hover:bg-slate-700 transition-all flex-shrink-0"><Icons.Save /></button>
+                {u.username !== 'ADMIN' && <button onClick={() => { if(window.confirm('Vymazať užívateľa?')) onDeleteUser(u.username); }} className="h-10 w-10 flex items-center justify-center text-slate-600 hover:text-red-500 transition-all flex-shrink-0"><Icons.Trash /></button>}
               </div>
             </div>
           ))}
@@ -65,7 +66,7 @@ const UserSection: React.FC<UserSectionProps> = memo(({ users, roles, onAddUser,
             <select value={newRole} onChange={e=>setNewRole(e.target.value as any)} className={inputClass}>
               {roles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
             </select>
-            <button onClick={() => { if(newUser && newPass) { onAddUser({username:newUser, password:newPass, role:newRole}); setNewUser(''); setNewPass(''); } }} className="bg-teal-600 hover:bg-teal-500 text-white font-black py-3 px-6 rounded-xl uppercase tracking-widest text-xs transition-all active:scale-95 shadow-lg">PRIDAŤ</button>
+            <button onClick={() => { if(newUser && newPass) { onAddUser({username:newUser, password:newPass, role:newRole}); setNewUser(''); setNewPass(''); } }} className="h-10 bg-teal-600 hover:bg-teal-500 text-white font-black px-6 rounded-xl uppercase tracking-widest text-[10px] transition-all active:scale-95 shadow-lg">PRIDAŤ</button>
           </div>
         </div>
       </div>

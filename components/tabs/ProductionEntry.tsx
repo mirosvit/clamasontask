@@ -42,7 +42,7 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
   quantityUnit, setQuantityUnit, priority, setPriority, parts, workplaces,
   logisticsOperationsList, t, language, hasPermission, handleAdd, onRequestPart
 }) => {
-  const inputBaseClass = "w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 placeholder:font-mono focus:outline-none focus:ring-2 transition-all font-mono uppercase text-lg";
+  const inputBaseClass = "w-full h-10 bg-gray-700 border border-gray-600 rounded-lg px-4 text-white placeholder-gray-400 focus:outline-none focus:ring-2 transition-all font-mono uppercase text-sm";
 
   const partNumbers = useMemo(() => parts.map(p => p.value), [parts]);
 
@@ -52,16 +52,16 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
         <div className="bg-gray-800 p-4 sm:p-6 rounded-xl shadow-lg border border-gray-700 relative overflow-hidden">
           {hasPermission('perm_logistics_mode') && (
             <div className="flex justify-center mb-6 z-10 relative">
-              <div className="bg-gray-900 p-1 rounded-lg flex border border-gray-600 shadow-inner">
+              <div className="bg-gray-900 p-1 rounded-lg flex border border-gray-600 shadow-inner h-12">
                 <button 
                   onClick={() => setMode('production')} 
-                  className={`px-4 sm:px-6 py-2 rounded-md font-bold text-sm sm:text-base transition-all duration-200 flex items-center gap-2 ${mode === 'production' ? 'bg-teal-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                  className={`px-4 sm:px-6 rounded-md font-bold text-sm transition-all duration-200 flex items-center gap-2 ${mode === 'production' ? 'bg-teal-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
                 >
                   🏭 {t('mode_production')}
                 </button>
                 <button 
                   onClick={() => setMode('logistics')} 
-                  className={`px-4 sm:px-6 py-2 rounded-md font-bold text-sm sm:text-base transition-all duration-200 flex items-center gap-2 ${mode === 'logistics' ? 'bg-sky-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                  className={`px-4 sm:px-6 rounded-md font-bold text-sm transition-all duration-200 flex items-center gap-2 ${mode === 'logistics' ? 'bg-sky-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
                 >
                   🚛 {t('mode_logistics')}
                 </button>
@@ -91,7 +91,7 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
                     <select 
                       value={selectedWorkplace || ''} 
                       onChange={(e) => setSelectedWorkplace(e.target.value)} 
-                      className="block appearance-none w-full bg-gray-700 border border-gray-600 text-white py-3 px-4 pr-8 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors font-mono uppercase text-lg"
+                      className="block appearance-none w-full h-10 bg-gray-700 border border-gray-600 text-white px-4 pr-8 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors font-mono uppercase text-sm"
                     >
                       <option value="" className="font-sans normal-case">{t('workplace_placeholder')}</option>
                       {workplaces.map((wp) => (<option key={wp.id} value={wp.value}>{wp.value}</option>))}
@@ -111,7 +111,7 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
                     value={logisticsRef} 
                     onChange={(e) => setLogisticsRef(e.target.value)} 
                     placeholder={t('log_reference_place')} 
-                    className={`${inputBaseClass} focus:ring-sky-500 focus:border-sky-500`} 
+                    className={`${inputBaseClass} focus:ring-sky-500`} 
                   />
                 </div>
                 <div>
@@ -120,7 +120,7 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
                     <select 
                       value={logisticsOp} 
                       onChange={(e) => setLogisticsOp(e.target.value)} 
-                      className="block appearance-none w-full bg-gray-700 border border-gray-600 text-white py-3 px-4 pr-8 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-colors font-mono uppercase text-lg"
+                      className="block appearance-none w-full h-10 bg-gray-700 border border-gray-600 text-white px-4 pr-8 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors font-mono uppercase text-sm"
                     >
                       <option value="" className="font-sans normal-case">{t('workplace_placeholder')}</option>
                       {logisticsOperationsList.map((op) => (<option key={op.id} value={op.value}>{op.value}</option>))}
@@ -143,23 +143,23 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
                   className={`${inputBaseClass} sm:w-1/2 ${mode === 'production' ? 'focus:ring-teal-500' : 'focus:ring-sky-500'}`} 
                   placeholder={t('pcs_placeholder')} 
                 />
-                <div className="flex w-full sm:w-1/2 bg-gray-700 rounded-lg p-1 border border-gray-600">
+                <div className="flex w-full sm:w-1/2 h-10 bg-gray-700 rounded-lg p-1 border border-gray-600">
                   <button 
                     onClick={() => setQuantityUnit('pcs')} 
                     disabled={mode === 'logistics'} 
-                    className={`flex-1 py-2 rounded text-sm font-bold transition-all ${quantityUnit === 'pcs' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'} ${mode === 'logistics' ? 'opacity-30 cursor-not-allowed' : ''}`}
+                    className={`flex-1 rounded text-[10px] font-black uppercase transition-all ${quantityUnit === 'pcs' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'} ${mode === 'logistics' ? 'opacity-30 cursor-not-allowed' : ''}`}
                   >
                     {t('unit_pcs_short')}
                   </button>
                   <button 
                     onClick={() => setQuantityUnit('boxes')} 
-                    className={`flex-1 py-2 rounded text-sm font-bold transition-all ${quantityUnit === 'boxes' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}
+                    className={`flex-1 rounded text-[10px] font-black uppercase transition-all ${quantityUnit === 'boxes' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}
                   >
                     {t('unit_boxes_short')}
                   </button>
                   <button 
                     onClick={() => setQuantityUnit('pallet')} 
-                    className={`flex-1 py-2 rounded text-sm font-bold transition-all ${quantityUnit === 'pallet' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}
+                    className={`flex-1 rounded text-[10px] font-black uppercase transition-all ${quantityUnit === 'pallet' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}
                   >
                     {t('unit_pallet_short')}
                   </button>
@@ -168,10 +168,10 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
             </div>
             <div>
               <label className="block text-gray-300 text-sm font-bold mb-2 uppercase tracking-wide">{t('priority_label')}</label>
-              <div className="flex bg-gray-700 rounded-lg p-1 border border-gray-600">
-                <button onClick={() => setPriority('LOW')} className={`flex-1 py-2 rounded text-sm font-bold transition-all ${priority === 'LOW' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}>{t('prio_low')}</button>
-                <button onClick={() => setPriority('NORMAL')} className={`flex-1 py-2 rounded text-sm font-bold transition-all ${priority === 'NORMAL' ? 'bg-green-600 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}>{t('prio_normal')}</button>
-                <button onClick={() => setPriority('URGENT')} className={`flex-1 py-2 rounded text-sm font-bold transition-all ${priority === 'URGENT' ? 'bg-red-600 text-white shadow-md animate-pulse' : 'text-gray-400 hover:text-white'}`}>{t('prio_urgent')}</button>
+              <div className="flex h-10 bg-gray-700 rounded-lg p-1 border border-gray-600">
+                <button onClick={() => setPriority('LOW')} className={`flex-1 rounded text-[10px] font-black uppercase transition-all ${priority === 'LOW' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}>{t('prio_low')}</button>
+                <button onClick={() => setPriority('NORMAL')} className={`flex-1 rounded text-[10px] font-black uppercase transition-all ${priority === 'NORMAL' ? 'bg-green-600 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}>{t('prio_normal')}</button>
+                <button onClick={() => setPriority('URGENT')} className={`flex-1 rounded text-[10px] font-black uppercase transition-all ${priority === 'URGENT' ? 'bg-red-600 text-white shadow-md animate-pulse' : 'text-gray-400 hover:text-white'}`}>{t('prio_urgent')}</button>
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-4 pt-4">

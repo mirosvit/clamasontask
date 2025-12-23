@@ -37,7 +37,6 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
     setQuery(value || '');
   }, [value]);
 
-  // OPTIMALIZOVANÉ FILTROVANIE: useMemo namiesto useEffect + obmedzenie na top 50 výsledkov
   const filteredParts = useMemo(() => {
     const trimmedQuery = query.trim();
     if (trimmedQuery === '') return parts.slice(0, 50);
@@ -57,7 +56,6 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
       results = parts.filter(part => part.toLowerCase().includes(q));
     }
 
-    // Limitovanie na 50 položiek pre plynulý render
     return results.slice(0, 50);
   }, [query, parts]);
 
@@ -87,7 +85,6 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
     setQuery(newValue);
     if (onInputChange) onInputChange(newValue);
     
-    // Rýchly check existencie
     const exactMatch = parts.find(p => p.toLowerCase() === newValue.trim().toLowerCase());
     if (exactMatch) {
       onPartSelect(exactMatch);
@@ -126,7 +123,7 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
     <div className="relative" ref={containerRef}>
       <div className="relative">
         <span className="absolute inset-y-0 left-0 flex items-center pl-4">
-          <SearchIcon className="h-5 w-5 text-gray-500" />
+          <SearchIcon className="h-4 w-4 text-gray-500" />
         </span>
         <input
           type="text"
@@ -136,7 +133,7 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
           onKeyDown={handleInternalKeyDown}
           onFocus={() => setIsDropdownVisible(true)}
           placeholder={placeholder || t('input_wildcard_hint')}
-          className="w-full pl-11 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 placeholder:font-mono focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors font-mono uppercase text-lg"
+          className="w-full h-10 pl-10 pr-4 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase text-sm"
         />
       </div>
 
@@ -147,7 +144,7 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
             <li
                 key={index}
                 onClick={() => handleSelectPart(part)}
-                className="px-4 py-2 text-gray-300 hover:bg-teal-600 hover:text-white cursor-pointer transition-colors duration-150 font-mono"
+                className="px-4 py-2 text-gray-300 hover:bg-teal-600 hover:text-white cursor-pointer transition-colors duration-150 font-mono text-sm"
             >
                 {part}
             </li>

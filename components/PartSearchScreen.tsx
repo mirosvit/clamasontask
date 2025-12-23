@@ -148,7 +148,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   
   const partNumbersList = useMemo(() => parts.map(p => p.value), [parts]);
 
-  // Diagnostický indikátor načítania
   const isDataLoading = parts.length === 0 || workplaces.length === 0;
 
   const logisticsOperationsList = useMemo(() => {
@@ -293,7 +292,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                 {activeTab === 'tasks' && hasPermission('perm_tab_tasks') && (
                     <div className="animate-fade-in pb-20">
                     <div className="mb-4 flex justify-center">
-                        <input type="text" value={taskSearchQuery} onChange={e => setTaskSearchQuery(e.target.value)} className="w-full max-w-md px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 placeholder:font-mono focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase" placeholder={t('task_search_placeholder')} />
+                        <input type="text" value={taskSearchQuery} onChange={e => setTaskSearchQuery(e.target.value)} className="w-full max-w-md h-10 px-4 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase text-sm" placeholder={t('task_search_placeholder')} />
                     </div>
                     <TaskList currentUser={currentUserRole} currentUserName={currentUser} tasks={tasks.filter(t => { const q = taskSearchQuery.toLowerCase(); return (t.partNumber && t.partNumber.toLowerCase().includes(q)) || (t.text && t.text.toLowerCase().includes(q)) || (t.workplace && t.workplace.toLowerCase().includes(q)); })} onToggleTask={onToggleTask} onEditTask={onEditTask} onDeleteTask={onDeleteTask} onToggleMissing={onToggleMissing} onSetInProgress={onSetInProgress} onToggleBlock={onToggleBlock} onToggleManualBlock={onToggleManualBlock} onMarkAsIncorrect={onMarkAsIncorrect} onAddNote={onAddNote} onReleaseTask={onReleaseTask} onAuditPart={handleAuditClick} missingReasons={missingReasons} hasPermission={hasPermission} />
                     </div>
@@ -330,7 +329,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                   <h3 className="text-xl font-bold text-white mb-6 text-center uppercase tracking-wide">{t('audit_finish_title')}</h3>
                   <div className="mb-6">
                       <label className="block text-gray-400 text-xs font-bold uppercase mb-2">{t('audit_finish_note')}</label>
-                      <textarea value={auditNote} onChange={(e) => setAuditNote(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg text-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#926a05] h-32" placeholder="..." autoFocus />
+                      <textarea value={auditNote} onChange={(e) => setAuditNote(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg text-white px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#926a05] h-32 text-sm" placeholder="..." autoFocus />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                       <button onClick={() => handleConfirmFinishAudit('found', auditNote)} disabled={!auditNote.trim()} className={`py-4 rounded-lg font-bold transition-all shadow-lg uppercase text-xs flex items-center justify-center gap-2 ${!auditNote.trim() ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-green-600 border border-green-500 text-white'}`}>✅ {t('audit_found_btn')}</button>

@@ -146,8 +146,8 @@ const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, permissions, onA
             <div className="bg-gray-900 rounded-xl p-6 shadow-lg border border-gray-700">
                  <h3 className="text-lg font-bold text-gray-300 mb-4">{t('role_add_new_title')}</h3> 
                  <form onSubmit={handleAddRole} className="flex flex-col sm:flex-row gap-2 max-w-sm mt-4">
-                     <input value={newRoleName} onChange={e => setNewRoleName(e.target.value)} placeholder={t('role_name_place')} className="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm uppercase" />
-                     <button type="submit" className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded font-semibold">{t('role_add_btn')}</button>
+                     <input value={newRoleName} onChange={e => setNewRoleName(e.target.value)} placeholder={t('role_name_place')} className="flex-1 h-10 bg-gray-700 border border-gray-600 rounded px-4 text-white text-sm uppercase font-mono placeholder-gray-500" />
+                     <button type="submit" className="h-10 bg-orange-600 hover:bg-orange-700 text-white px-6 rounded font-black uppercase text-[10px] tracking-widest">PRIDAŤ</button>
                  </form>
              </div>
 
@@ -175,7 +175,7 @@ const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, permissions, onA
                                     setPasswordInput(e.target.value);
                                     setError('');
                                 }}
-                                className="w-full bg-gray-700 border border-gray-600 rounded-lg text-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500"
+                                className="w-full h-10 bg-gray-700 border border-gray-600 rounded-lg text-white px-4 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm placeholder-gray-500"
                                 placeholder="********"
                                 autoFocus
                             />
@@ -185,14 +185,14 @@ const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, permissions, onA
                         <div className="flex gap-3">
                              <button 
                                 onClick={handleCloseModal} 
-                                className="flex-1 py-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 font-bold transition-colors"
+                                className="flex-1 h-10 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 font-bold transition-colors uppercase text-[10px]"
                             >
                                 {t('btn_cancel')}
                             </button>
                             <button 
                                 onClick={handleConfirmDelete} 
                                 disabled={!passwordInput}
-                                className={`flex-1 py-3 text-white rounded-lg font-bold transition-colors shadow-lg flex items-center justify-center gap-2 ${!passwordInput ? 'bg-red-900/50 cursor-not-allowed text-gray-400' : 'bg-red-600 hover:bg-red-700'}`}
+                                className={`flex-1 h-10 text-white rounded-lg font-bold transition-colors shadow-lg flex items-center justify-center gap-2 uppercase text-[10px] ${!passwordInput ? 'bg-red-900/50 cursor-not-allowed text-gray-400' : 'bg-red-600 hover:bg-red-700'}`}
                             >
                                 <TrashIcon className="w-5 h-5" />
                                 {t('role_delete_btn')}

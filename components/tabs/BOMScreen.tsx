@@ -13,7 +13,6 @@ interface BOMScreenProps {
   language: string;
 }
 
-// Internal Icons
 const ClipboardListIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
@@ -146,8 +145,8 @@ const BOMScreen: React.FC<BOMScreenProps> = ({
                                     inputMode="numeric"
                                     value={bomQuantity} 
                                     onChange={(e) => setBomQuantity(e.target.value)} 
-                                    className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white font-mono placeholder-gray-500 placeholder:font-mono focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all text-lg" 
-                                    placeholder="Napr. 500" 
+                                    className="w-full h-10 px-4 bg-gray-700 border border-gray-600 rounded-lg text-white font-mono placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all text-sm uppercase" 
+                                    placeholder="500" 
                                 />
                             </div>
                             <div>
@@ -155,7 +154,7 @@ const BOMScreen: React.FC<BOMScreenProps> = ({
                                 <select 
                                     value={bomSelectedWorkplace || ''} 
                                     onChange={(e) => setBomSelectedWorkplace(e.target.value)} 
-                                    className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase text-lg"
+                                    className="w-full h-10 px-4 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase text-sm"
                                 >
                                     <option value="" className="font-sans normal-case">{t('workplace_placeholder')}</option>
                                     {workplaces.map(wp => <option key={wp.id} value={wp.value}>{wp.value}</option>)}

@@ -51,7 +51,6 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
     const [lastSaved, setLastSaved] = useState<number | null>(null);
     const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
 
-    // Modal state
     const [confirmModal, setConfirmModal] = useState<{
         isOpen: boolean;
         title: string;
@@ -66,7 +65,6 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
         type: 'danger'
     });
 
-    // --- LOGIKA AKTÍVNEJ ÚLOHY ---
     const activeInventoryTask = useMemo(() => {
         return tasks.find(t => 
             t.partNumber === "Počítanie zásob" && 
@@ -263,12 +261,11 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
         }
     };
 
-    const inputBaseClass = "w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 placeholder:font-mono focus:outline-none focus:ring-2 focus:ring-[#4169E1] focus:border-[#4169E1] transition-all font-mono uppercase text-lg";
+    const inputBaseClass = "w-full h-10 bg-gray-700 border border-gray-600 rounded-lg px-4 text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#4169E1] transition-all font-mono uppercase";
     const dangerButtonClass = "bg-red-900/40 hover:bg-red-800 text-red-100 px-6 py-4 rounded-xl text-sm font-black border-2 border-red-800/50 shadow-lg transition-all active:scale-95 uppercase tracking-wider flex items-center justify-center gap-2";
 
     return (
         <div className="max-w-4xl mx-auto space-y-6 pb-20 animate-fade-in">
-            {/* Entry Section */}
             <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 relative overflow-hidden">
                 {!activeInventoryTask ? (
                     <div className="flex flex-col items-center justify-center py-10 space-y-6">
@@ -342,13 +339,13 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                                         value={batch}
                                         onChange={(e) => !isBatchMissing && setBatch(e.target.value.toUpperCase())}
                                         onKeyDown={(e) => e.key === 'Enter' && quantityRef.current?.focus()}
-                                        placeholder={isBatchMissing ? '' : "NAPR. 489523"}
+                                        placeholder={isBatchMissing ? '' : "489523"}
                                         className={`${inputBaseClass.replace('w-full', 'w-1/2')} ${isBatchMissing ? 'text-red-500 border-red-900/50 bg-red-900/10' : ''}`}
                                     />
                                     <button 
                                         type="button"
                                         onClick={toggleBatchMissing}
-                                        className={`w-1/2 py-3 rounded-lg border-2 font-black uppercase text-sm text-white transition-all flex items-center justify-center gap-2 ${isBatchMissing ? 'bg-red-600 border-red-500 shadow-lg' : 'bg-[#4169E1]/20 border-[#4169E1] hover:bg-[#4169E1]/40'}`}
+                                        className={`w-1/2 h-10 rounded-lg border-2 font-black uppercase text-[10px] text-white transition-all flex items-center justify-center gap-2 ${isBatchMissing ? 'bg-red-600 border-red-500 shadow-lg' : 'bg-[#4169E1]/20 border-[#4169E1] hover:bg-[#4169E1]/40'}`}
                                     >
                                         🏷️ {language === 'sk' ? 'Chýba štítok' : 'Label missing'}
                                     </button>
@@ -364,7 +361,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                                     onChange={(e) => setQuantity(e.target.value.replace(/[^0-9.,]/g, ''))}
                                     onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
                                     placeholder="0"
-                                    className={`${inputBaseClass} font-black text-xl`}
+                                    className={`${inputBaseClass} font-black text-sm`}
                                 />
                             </div>
                         </div>
@@ -379,7 +376,6 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                 )}
             </div>
 
-            {/* Summary List */}
             {activeInventoryTask && (
                 <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700 overflow-hidden">
                     <div className="p-4 sm:p-6 border-b border-gray-700 bg-gray-900/50 flex flex-col sm:flex-row justify-between items-center gap-6">
@@ -451,7 +447,6 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                 </div>
             )}
 
-            {/* Confirmation Modal Portal */}
             {confirmModal.isOpen && createPortal(
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}>
                     <div className="bg-gray-800 border-2 border-red-600 rounded-xl shadow-2xl w-full max-w-md p-6 relative" onClick={e => e.stopPropagation()}>

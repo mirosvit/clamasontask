@@ -40,7 +40,6 @@ const LogisticsCenterTab: React.FC<LogisticsCenterTabProps> = ({ tasks, onDelete
     const [filterQuery, setFilterQuery] = useState('');
     const [quickFilter, setQuickFilter] = useState<'ALL' | 'INBOUND' | 'OUTBOUND' | 'PENDING'>('ALL');
     
-    // Filtrovanie iba LOGISTICKÝCH úloh
     const logisticsTasks = useMemo(() => {
         return tasks.filter(task => task.isLogistics).sort((a, b) => {
             const timeA = a.createdAt || 0;
@@ -49,7 +48,6 @@ const LogisticsCenterTab: React.FC<LogisticsCenterTabProps> = ({ tasks, onDelete
         });
     }, [tasks]);
 
-    // Výpočet KPI štatistík
     const stats = useMemo(() => {
         let inbound = 0;
         let outbound = 0;
@@ -59,7 +57,6 @@ const LogisticsCenterTab: React.FC<LogisticsCenterTabProps> = ({ tasks, onDelete
             const qty = parseFloat(task.quantity || '0');
             const op = (task.workplace || '').toUpperCase();
             
-            // Logika pre sčítanie Príjmu/Expedície (podľa jednotných prekladových kľúčov)
             if (op.includes('VYKLÁDKA') || op.includes('UNLOADING') || op.includes('PRÍJEM')) {
                 inbound += qty;
             } else if (op.includes('NAKLÁDKA') || op.includes('LOADING') || op.includes('EXPEDÍCIA')) {
@@ -140,7 +137,6 @@ const LogisticsCenterTab: React.FC<LogisticsCenterTabProps> = ({ tasks, onDelete
 
     return (
         <div className="max-w-7xl mx-auto space-y-6 pb-20 animate-fade-in">
-            {/* KPI DASHBOARD HEADER */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div onClick={() => setQuickFilter('INBOUND')} className={`cursor-pointer bg-gray-800 p-5 rounded-2xl border transition-all hover:scale-[1.02] ${quickFilter === 'INBOUND' ? 'border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'border-gray-700 shadow-lg'}`}>
                     <div className="flex justify-between items-start">
@@ -180,7 +176,6 @@ const LogisticsCenterTab: React.FC<LogisticsCenterTabProps> = ({ tasks, onDelete
             </div>
 
             <div className="bg-gray-800 rounded-2xl shadow-2xl border border-gray-700 overflow-hidden">
-                {/* TOOLBAR */}
                 <div className="p-4 sm:p-6 bg-gray-900/40 border-b border-gray-700 flex flex-col md:flex-row justify-between items-center gap-4">
                     <div className="flex items-center gap-4 w-full md:w-auto">
                         <div className="relative flex-grow md:flex-grow-0 md:w-80">
@@ -189,15 +184,15 @@ const LogisticsCenterTab: React.FC<LogisticsCenterTabProps> = ({ tasks, onDelete
                                 value={filterQuery}
                                 onChange={(e) => setFilterQuery(e.target.value)}
                                 placeholder={t('task_search_placeholder')}
-                                className="w-full bg-gray-800 border border-gray-600 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all pl-10"
+                                className="w-full h-10 bg-gray-800 border border-gray-600 rounded-xl px-4 pl-10 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all font-medium uppercase placeholder-gray-500"
                             />
-                            <svg xmlns="http://www.w3.org/2000/svg" className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="absolute left-3 top-3 h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
                         </div>
-                        <div className="hidden sm:flex bg-gray-800 p-1 rounded-lg border border-gray-700">
-                            <button onClick={() => setQuickFilter('ALL')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${quickFilter === 'ALL' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}>{t('filter_all')}</button>
-                            <button onClick={() => setQuickFilter('PENDING')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${quickFilter === 'PENDING' ? 'bg-orange-600/20 text-orange-400' : 'text-gray-500 hover:text-gray-300'}`}>{language === 'sk' ? 'Otvorené' : 'Open'}</button>
+                        <div className="hidden sm:flex bg-gray-800 h-10 p-1 rounded-lg border border-gray-700">
+                            <button onClick={() => setQuickFilter('ALL')} className={`px-3 rounded-md text-xs font-bold transition-all ${quickFilter === 'ALL' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}>{t('filter_all')}</button>
+                            <button onClick={() => setQuickFilter('PENDING')} className={`px-3 rounded-md text-xs font-bold transition-all ${quickFilter === 'PENDING' ? 'bg-orange-600/20 text-orange-400' : 'text-gray-500 hover:text-gray-300'}`}>{language === 'sk' ? 'Otvorené' : 'Open'}</button>
                         </div>
                     </div>
                     
@@ -212,7 +207,6 @@ const LogisticsCenterTab: React.FC<LogisticsCenterTabProps> = ({ tasks, onDelete
                     </button>
                 </div>
 
-                {/* TABLE SECTION */}
                 <div className="overflow-x-auto custom-scrollbar"> 
                     <table className="w-full text-left border-collapse min-w-[900px]">
                         <thead>
@@ -318,7 +312,6 @@ const LogisticsCenterTab: React.FC<LogisticsCenterTabProps> = ({ tasks, onDelete
     );
 };
 
-// Pomocná komponenta pre Truck ikonu (ak nie je importovaná z App.tsx)
 const TruckIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
