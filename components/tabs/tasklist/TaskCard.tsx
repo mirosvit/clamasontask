@@ -15,6 +15,8 @@ interface TaskCardProps {
   onToggleTask: (id: string) => void;
   onToggleBlock: (id: string) => void;
   onToggleManualBlock: (id: string) => void;
+  /* Fix: Added missing onExhaustSearch prop to TaskCardProps */
+  onExhaustSearch: (id: string) => void;
   onMarkAsIncorrect: (id: string) => void;
   handleMissingClick: (task: Task, e: React.MouseEvent) => void;
   handleNoteClick: (task: Task) => void;
@@ -183,6 +185,8 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
           onToggleTask={props.onToggleTask} 
           onToggleBlock={props.onToggleBlock} 
           onToggleManualBlock={props.onToggleManualBlock} 
+          /* Fix: Passing onExhaustSearch from props to TaskActions */
+          onExhaustSearch={props.onExhaustSearch}
           onMarkAsIncorrect={props.onMarkAsIncorrect} 
           handleMissingClick={props.handleMissingClick} 
           handleNoteClick={props.handleNoteClick} 

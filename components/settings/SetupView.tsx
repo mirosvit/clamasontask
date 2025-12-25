@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { UserData, DBItem, BreakSchedule, BOMItem, SystemConfig } from '../../App';
+import { UserData, DBItem, BreakSchedule, BOMComponent, SystemConfig } from '../../App';
 import { useLanguage } from '../LanguageContext';
 
 interface SetupViewProps {
@@ -10,7 +10,8 @@ interface SetupViewProps {
   missingReasons: DBItem[];
   logisticsOperations: DBItem[];
   breakSchedules: BreakSchedule[];
-  bomItems: BOMItem[];
+  /* Fix: Switched from bomItems array to bomMap to match application state */
+  bomMap: Record<string, BOMComponent[]>;
   systemConfig: SystemConfig;
 }
 
@@ -126,7 +127,10 @@ const SetupView: React.FC<SetupViewProps> = (props) => {
           </div>
           <div className="bg-slate-950/40 p-3 rounded-xl border border-white/5">
             <p className={labelClass}>BOM LINKS</p>
-            <p className="text-2xl font-black text-teal-400">{props.bomItems.length}</p>
+            <p className="text-2xl font-black text-teal-400">
+              {/* Fix: Calculating BOM links length from the flattened bomMap values */}
+              {Object.values(props.bomMap).flat().length}
+            </p>
           </div>
           <div className="bg-slate-950/40 p-3 rounded-xl border border-white/5">
             <p className={labelClass}>LOG OPS</p>

@@ -7,7 +7,7 @@ interface PartsSectionProps {
   parts: DBItem[];
   onAddPart: (val: string, desc?: string) => void;
   onBatchAddParts: (vals: string[]) => void;
-  onDeletePart: (id: string) => void;
+  onDeletePart: (val: string) => void;
   onDeleteAllParts: () => void;
 }
 
@@ -35,15 +35,15 @@ const PartsSection: React.FC<PartsSectionProps> = memo(({ parts, onAddPart, onBa
     <div className={cardClass}>
       <div className="space-y-8">
         <div className="flex justify-between items-center">
-          <h3 className="text-2xl font-black text-white uppercase tracking-tighter">DATABÁZA DIELOV</h3>
+          <h3 className="text-2xl font-black text-white uppercase tracking-tighter">DATABÁZA DIELOV (KYBLÍK)</h3>
           <button onClick={() => { if(window.confirm('VYMAZAŤ VŠETKO?')) onDeleteAllParts(); }} className="text-xs font-black text-red-500 bg-red-500/10 px-6 py-3 rounded-xl border-2 border-red-500/20 uppercase tracking-widest transition-all hover:bg-red-500/20">{t('delete_all')}</button>
         </div>
         <input value={partSearch} onChange={e=>setPartSearch(e.target.value)} placeholder="Hľadať v databáze..." className={inputClass} />
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-h-[350px] overflow-y-auto custom-scrollbar">
           {filteredParts.map(p => (
             <div key={p.id} className="bg-slate-950/40 h-12 px-4 rounded-xl border border-white/5 flex justify-between items-center text-xs font-mono group transition-colors hover:bg-slate-900">
-              <span className="text-slate-300 truncate mr-2">{p.value}</span>
-              <button onClick={() => onDeletePart(p.id)} className="opacity-0 group-hover:opacity-100 text-red-500 font-black px-2 text-lg">×</button>
+              <span className="text-slate-300 truncate mr-2" title={p.description}>{p.value}</span>
+              <button onClick={() => onDeletePart(p.value)} className="opacity-0 group-hover:opacity-100 text-red-500 font-black px-2 text-lg">×</button>
             </div>
           ))}
         </div>

@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { UserData, DBItem, PartRequest, BreakSchedule, BOMItem, BOMRequest, Role, Permission, SystemConfig } from '../../App';
+import { UserData, DBItem, PartRequest, BreakSchedule, BOMComponent, BOMRequest, Role, Permission, SystemConfig } from '../../App';
 import { useLanguage } from '../LanguageContext';
 import PartRequestsSection from './PartRequestsSection';
 import UserSection from './UserSection';
@@ -39,17 +39,22 @@ interface SettingsTabProps {
   onApprovePartRequest: (req: PartRequest) => void;
   onRejectPartRequest: (id: string) => void;
   onArchiveTasks: () => Promise<{ success: boolean; count?: number; error?: string; message?: string }>;
+  /* Fix: Added missing closing handlers for MaintenanceSection */
+  onDailyClosing: () => Promise<{ success: boolean; count: number }>;
+  onWeeklyClosing: () => Promise<{ success: boolean; count: number; sanon?: string }>;
   onGetDocCount: () => Promise<number>;
   onPurgeOldTasks: () => Promise<number>;
   onExportTasksJSON: () => Promise<void>;
   breakSchedules: BreakSchedule[];
   onAddBreakSchedule: (start: string, end: string) => void;
   onDeleteBreakSchedule: (id: string) => void;
-  bomItems: BOMItem[]; 
+  /* Fix: Changed bomItems to bomMap to match App.tsx state and BOMSectionProps */
+  bomMap: Record<string, BOMComponent[]>; 
   bomRequests: BOMRequest[]; 
   onAddBOMItem: (parent: string, child: string, qty: number) => void;
   onBatchAddBOMItems: (vals: string[]) => void;
-  onDeleteBOMItem: (id: string) => void;
+  /* Fix: Corrected onDeleteBOMItem signature to match BOMSection and App.tsx logic */
+  onDeleteBOMItem: (parent: string, child: string) => void;
   onDeleteAllBOMItems: () => void;
   onApproveBOMRequest: (req: BOMRequest) => void;
   onRejectBOMRequest: (id: string) => void;
@@ -152,7 +157,8 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             missingReasons={props.missingReasons}
             logisticsOperations={props.logisticsOperations || []}
             breakSchedules={props.breakSchedules}
-            bomItems={props.bomItems}
+            /* Fix: Passing bomMap instead of bomItems */
+            bomMap={props.bomMap}
             systemConfig={props.systemConfig}
           />
         )}
@@ -189,7 +195,8 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
         )}
         {activeSubTab === 'bom' && (
           <BOMSection 
-            bomItems={props.bomItems} 
+            /* Fix: Correcting prop name and source to match actual BOMSection and state */
+            bomMap={props.bomMap} 
             onAddBOMItem={props.onAddBOMItem} 
             onBatchAddBOMItems={props.onBatchAddBOMItems} 
             onDeleteBOMItem={props.onDeleteBOMItem} 
@@ -211,6 +218,9 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             systemConfig={props.systemConfig} 
             onUpdateSystemConfig={props.onUpdateSystemConfig} 
             onArchiveTasks={props.onArchiveTasks} 
+            /* Fix: Added daily and weekly closing handlers to MaintenanceSection */
+            onDailyClosing={props.onDailyClosing}
+            onWeeklyClosing={props.onWeeklyClosing}
             onGetDocCount={props.onGetDocCount}
             onPurgeOldTasks={props.onPurgeOldTasks}
             onExportTasksJSON={props.onExportTasksJSON}

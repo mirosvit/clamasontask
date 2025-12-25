@@ -1,12 +1,12 @@
 
 import React, { useState, useMemo } from 'react';
 import PartNumberInput from '../PartNumberInput';
-import { DBItem, BOMItem, PriorityLevel } from '../../App';
+import { DBItem, BOMComponent, PriorityLevel } from '../../App';
 
 interface BOMScreenProps {
   parts: DBItem[];
   workplaces: DBItem[];
-  bomItems: BOMItem[];
+  bomMap: Record<string, BOMComponent[]>;
   onAddTask: (partNumber: string, workplace: string | null, quantity: string | null, quantityUnit: string | null, priority: PriorityLevel, isLogistics?: boolean) => void;
   onRequestBOM: (parent: string) => Promise<boolean>;
   t: (key: any, params?: any) => string;
@@ -46,7 +46,7 @@ const PlusIcon: React.FC<{ className?: string }> = ({ className }) => (
 const BOMScreen: React.FC<BOMScreenProps> = ({ 
   parts, 
   workplaces, 
-  bomItems, 
+  bomMap, 
   onAddTask, 
   onRequestBOM, 
   t, 
@@ -105,13 +105,13 @@ const BOMScreen: React.FC<BOMScreenProps> = ({
 
   const bomResults = useMemo(() => {
     if (!displayedBomParent || !displayedBomQuantity) return [];
-    return bomItems
-        .filter(item => item.parentPart === displayedBomParent)
-        .map(item => ({
-            ...item,
-            requiredQty: Math.ceil(item.quantity * displayedBomQuantity)
-        }));
-  }, [displayedBomParent, displayedBomQuantity, bomItems]);
+    const components = bomMap[displayedBomParent] || [];
+    return components.map(item => ({
+        childPart: item.child,
+        quantity: item.consumption,
+        requiredQty: Math.ceil(item.consumption * displayedBomQuantity)
+    }));
+  }, [displayedBomParent, displayedBomQuantity, bomMap]);
 
   return (
     <div className="h-full animate-fade-in pb-20">

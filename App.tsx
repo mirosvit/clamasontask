@@ -17,6 +17,7 @@ import {
   where,
   limit,
   setDoc,
+  deleteField,
   increment,
   getCountFromServer
 } from 'firebase/firestore';
@@ -79,6 +80,7 @@ export interface Task {
   auditResult?: 'OK' | 'NOK' | null;
   auditNote?: string | null;
   expireAt?: number;
+  searchExhausted?: boolean;
 }
 
 export interface Notification {
@@ -108,6 +110,11 @@ export interface SystemBreak {
     start: number;
     end?: number;
     isActive: boolean;
+}
+
+export interface BOMComponent {
+    child: string;
+    consumption: number;
 }
 
 export interface BOMItem {
@@ -150,7 +157,11 @@ const App: React.FC = () => {
   const [currentUserRole, setCurrentUserRole] = useState<'ADMIN' | 'USER' | 'LEADER'>('USER');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
-  const [parts, setParts] = useState<DBItem[]>([]);
+  
+  // Kyblíky (Mapy)
+  const [partsMap, setPartsMap] = useState<Record<string, string>>({});
+  const [bomMap, setBomMap] = useState<Record<string, BOMComponent[]>>({});
+  
   const [workplaces, setWorkplaces] = useState<DBItem[]>([]);
   const [missingReasons, setMissingReasons] = useState<DBItem[]>([]);
   const [logisticsOperations, setLogisticsOperations] = useState<DBItem[]>([]); 
@@ -158,7 +169,6 @@ const App: React.FC = () => {
   const [breakSchedules, setBreakSchedules] = useState<BreakSchedule[]>([]);
   const [systemBreaks, setSystemBreaks] = useState<SystemBreak[]>([]);
   const [isBreakActive, setIsBreakActive] = useState(false);
-  const [bomItems, setBomItems] = useState<BOMItem[]>([]);
   const [bomRequests, setBomRequests] = useState<BOMRequest[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
@@ -241,14 +251,13 @@ const App: React.FC = () => {
       }
   }, [systemConfig, isAuthenticated, currentUserRole]);
 
+  // NAČÍTANIE ÚLOH (Iba tie, ktoré nie sú v archíve)
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const fortyEightHoursAgo = Date.now() - (48 * 60 * 60 * 1000);
     const q = query(
         collection(db, 'tasks'), 
-        where('createdAt', '>=', fortyEightHoursAgo),
-        limit(500) // Ochrana proti masívnym načítaniam
+        limit(500)
     ); 
 
     return onSnapshot(q, (snapshot) => {
@@ -299,11 +308,22 @@ const App: React.FC = () => {
       return () => { unsubUsers(); unsubRoles(); unsubPerms(); };
   }, []);
 
+  // NAČÍTANIE KYBLÍKOV
+  useEffect(() => {
+    const unsubParts = onSnapshot(doc(db, 'settings', 'parts'), (s) => {
+      if (s.exists()) setPartsMap(s.data() as Record<string, string>);
+      else setDoc(doc(db, 'settings', 'parts'), {});
+    });
+    const unsubBOM = onSnapshot(doc(db, 'settings', 'bom'), (s) => {
+      if (s.exists()) setBomMap(s.data() as Record<string, BOMComponent[]>);
+      else setDoc(doc(db, 'settings', 'bom'), {});
+    });
+    return () => { unsubParts(); unsubBOM(); };
+  }, []);
+
   useEffect(() => { return onSnapshot(query(collection(db, 'workplaces'), orderBy('value')), s => setWorkplaces(s.docs.map(d => ({id:d.id, value:d.data().value, standardTime:d.data().standardTime} as DBItem)))); }, []);
   useEffect(() => { return onSnapshot(query(collection(db, 'missing_reasons'), orderBy('value')), s => setMissingReasons(s.docs.map(d => ({id:d.id, value:d.data().value} as DBItem)))); }, []);
   useEffect(() => { return onSnapshot(query(collection(db, 'break_schedules')), s => setBreakSchedules(s.docs.map(d => ({id:d.id, ...d.data()} as BreakSchedule)))); }, []);
-  useEffect(() => { return onSnapshot(query(collection(db, 'parts'), orderBy('value')), s => setParts(s.docs.map(d => ({id:d.id, ...d.data()} as DBItem)))); }, []);
-  useEffect(() => { return onSnapshot(query(collection(db, 'bom_items'), orderBy('parentPart')), s => setBomItems(s.docs.map(d => ({id:d.id, ...d.data()} as BOMItem)))); }, []);
 
   useEffect(() => { 
       return onSnapshot(query(collection(db, 'logistics_operations'), orderBy('value')), async (s) => {
@@ -343,11 +363,57 @@ const App: React.FC = () => {
   const handleUpdateNickname = async (u: string, n: string) => { const user = users.find(us => us.username === u); if(user) { await updateDoc(doc(db,'users', user.id!), {nickname: n}); } };
   const handleUpdateUserRole = async (u: string, r: any) => { const user = users.find(us => us.username === u); if(user) { await updateDoc(doc(db,'users', user.id!), {role: r}); } };
   const handleDeleteUser = async (u: string) => { const user = users.find(us => us.username === u); if(user) { await deleteDoc(doc(db,'users', user.id!)); } };
-  const handleAddPart = async (v: string, desc?: string) => { await addDoc(collection(db,'parts'), {value:v, description: desc || ''}); };
-  const handleBatchAddParts = async (vs: string[]) => { const b=writeBatch(db); vs.forEach(v => { const [val, desc] = v.split(';'); if(val) b.set(doc(collection(db,'parts')), {value:val.trim(), description: desc ? desc.trim() : ''}); }); await b.commit(); };
-  const handleDeletePart = async (id: string) => { await deleteDoc(doc(db,'parts',id)); };
-  const handleDeleteAllParts = async () => { const s=await getDocs(collection(db,'parts')); const b=writeBatch(db); s.forEach(d=>b.delete(d.ref)); await b.commit(); };
-  const handleAddWorkplace = async (v: string, t?: number) => { await addDoc(collection(db,'workplaces'), {value:v, standardTime:t||0}); };
+  
+  // LOGIKA KYBLÍKOV - DIELY
+  const handleAddPart = async (v: string, desc?: string) => { 
+    await updateDoc(doc(db, 'settings', 'parts'), { [v]: desc || '' }); 
+  };
+  const handleBatchAddParts = async (vs: string[]) => { 
+    const updates: Record<string, string> = {};
+    vs.forEach(line => {
+      const [val, desc] = line.split(';');
+      if (val) updates[val.trim()] = desc ? desc.trim() : '';
+    });
+    await updateDoc(doc(db, 'settings', 'parts'), updates);
+  };
+  const handleDeletePart = async (partValue: string) => { 
+    await updateDoc(doc(db, 'settings', 'parts'), { [partValue]: deleteField() }); 
+  };
+  const handleDeleteAllParts = async () => { 
+    await setDoc(doc(db, 'settings', 'parts'), {}); 
+  };
+
+  // LOGIKA KYBLÍKOV - BOM (Presnosť 5 desatinných miest)
+  const handleAddBOMItem = async (p: string, c: string, q: number) => { 
+    const current = bomMap[p] || [];
+    const sanitizedQty = Number(q.toFixed(5));
+    const updated = [...current.filter(item => item.child !== c), { child: c, consumption: sanitizedQty }];
+    await updateDoc(doc(db, 'settings', 'bom'), { [p]: updated });
+  };
+  const handleBatchAddBOMItems = async (vs: string[]) => { 
+    const updates: Record<string, BOMComponent[]> = { ...bomMap };
+    vs.forEach(l => {
+      const [p, c, q] = l.split(';');
+      if (p && c && q) {
+        const parent = p.trim();
+        if (!updates[parent]) updates[parent] = [];
+        const sanitizedQty = Number(parseFloat(q.trim().replace(',', '.')).toFixed(5));
+        updates[parent] = [...updates[parent].filter(x => x.child !== c.trim()), { child: c.trim(), consumption: sanitizedQty }];
+      }
+    });
+    await setDoc(doc(db, 'settings', 'bom'), updates);
+  };
+  const handleDeleteBOMItem = async (parent: string, child: string) => { 
+    const current = bomMap[parent] || [];
+    const updated = current.filter(item => item.child !== child);
+    if (updated.length === 0) await updateDoc(doc(db, 'settings', 'bom'), { [parent]: deleteField() });
+    else await updateDoc(doc(db, 'settings', 'bom'), { [parent]: updated });
+  };
+  const handleDeleteAllBOMItems = async () => { 
+    await setDoc(doc(db, 'settings', 'bom'), {}); 
+  };
+
+  const handleAddWorkplace = async (v: string, t?: number) => { await addDoc(collection(db, 'workplaces'), {value:v, standardTime:t||0}); };
   const handleBatchAddWorkplaces = async (vs: string[]) => { const b=writeBatch(db); vs.forEach(l=>{const [v,t]=l.split(';'); if(v) b.set(doc(collection(db,'workplaces')), {value:v.trim(), standardTime: parseInt(t)||0})}); await b.commit(); };
   const handleDeleteWorkplace = async (id: string) => { await deleteDoc(doc(db,'workplaces',id)); };
   const handleDeleteAllWorkplaces = async () => { const s=await getDocs(collection(db,'workplaces')); const b=writeBatch(db); s.forEach(d=>b.delete(d.ref)); await b.commit(); };
@@ -358,10 +424,6 @@ const App: React.FC = () => {
   const handleDeleteMissingItem = (id: string) => deleteDoc(doc(db,'tasks',id));
   const handleAddBreakSchedule = async (s:string, e:string) => { await addDoc(collection(db,'break_schedules'), {start:s, end:e}); };
   const handleDeleteBreakSchedule = async (id: string) => { await deleteDoc(doc(db,'break_schedules',id)); };
-  const handleAddBOMItem = async (p:string, c:string, q:number) => { await addDoc(collection(db,'bom_items'), {parentPart:p, childPart:c, quantity:q}); };
-  const handleBatchAddBOMItems = async (vs: string[]) => { const b=writeBatch(db); vs.forEach(l=>{const p=l.split(';'); if(p.length>=3) b.set(doc(collection(db,'bom_items')), {parentPart:p[0].trim(), childPart:p[1].trim(), quantity:parseFloat(p[2].trim().replace(',','.'))})}); await b.commit(); };
-  const handleDeleteBOMItem = async (id: string) => { await deleteDoc(doc(db,'bom_items',id)); };
-  const handleDeleteAllBOMItems = async () => { const s=await getDocs(collection(db,'bom_items')); const b=writeBatch(db); s.forEach(d=>b.delete(d.ref)); await b.commit(); };
   const handleRequestBOM = async (p: string) => { await addDoc(collection(db,'bom_requests'), {parentPart:p, requestedBy:currentUser, requestedAt:Date.now()}); return true; };
   const handleApproveBOMRequest = (r: BOMRequest) => deleteDoc(doc(db,'bom_requests',r.id));
   const handleRejectBOMRequest = (id: string) => deleteDoc(doc(db,'bom_requests',id));
@@ -449,6 +511,11 @@ const App: React.FC = () => {
           await updateDoc(doc(db, 'tasks', id), { isManualBlocked: newState, createdAt: !newState ? Date.now() : t.createdAt, isInProgress: false, inProgressBy: null });
       }
   };
+
+  const handleExhaustSearch = async (id: string) => {
+      await updateDoc(doc(db, 'tasks', id), { searchExhausted: true, isBlocked: false, blockedBy: null });
+  };
+
   const handleStartAudit = async (id: string) => { await updateDoc(doc(db, 'tasks', id), { isAuditInProgress: true, auditBy: currentUser }); };
   const handleFinishAudit = async (id: string, result: 'found' | 'missing', note: string) => {
       const t = tasks.find(x => x.id === id);
@@ -482,18 +549,47 @@ const App: React.FC = () => {
       }
   };
   
-  const handleArchiveTasks = async () => {
-      const q = query(collection(db,'tasks'), where('isDone','==',true), limit(500));
+  // LOGIKA UZÁVIEROK
+  const handleDailyClosing = async () => {
+      const q = query(collection(db, 'tasks'), where('isDone', '==', true));
       const s = await getDocs(q);
-      const toArchive = s.docs.filter(d => !d.data().completedAt || d.data().completedAt < (Date.now() - 86400000));
-      if(toArchive.length===0) return {success:true, count:0, message:"Žiadne staré úlohy."};
-      const b=writeBatch(db);
-      toArchive.forEach(d => { b.set(doc(collection(db,'archived_tasks')), {...d.data(), archivedAt:Date.now()}); b.delete(d.ref); });
-      await b.commit();
-      return {success:true, count:toArchive.length};
+      if (s.empty) return { success: true, count: 0 };
+      
+      const batch = writeBatch(db);
+      s.docs.forEach(d => {
+          batch.set(doc(collection(db, 'archive_drafts')), { ...d.data(), archivedAt: Date.now() });
+          batch.delete(d.ref);
+      });
+      await batch.commit();
+      return { success: true, count: s.size };
   };
 
-  const fetchArchivedTasks = async () => (await getDocs(query(collection(db,'archived_tasks'), limit(500)))).docs.map(d=>({id:d.id, ...d.data()} as Task));
+  const handleWeeklyClosing = async () => {
+      const s = await getDocs(collection(db, 'archive_drafts'));
+      if (s.empty) return { success: true, count: 0 };
+
+      const now = new Date();
+      const year = now.getFullYear();
+      const firstDayOfYear = new Date(year, 0, 1);
+      const pastDaysOfYear = (now.getTime() - firstDayOfYear.getTime()) / 86400000;
+      const weekNum = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+      const sanonName = `sanon_${year}_${weekNum}`;
+
+      const batch = writeBatch(db);
+      s.docs.forEach(d => {
+          batch.set(doc(collection(db, sanonName)), d.data());
+          batch.delete(d.ref);
+      });
+      await batch.commit();
+      return { success: true, count: s.size, sanon: sanonName };
+  };
+
+  const handleArchiveTasks = async () => {
+      // Pôvodná funkcia upravená na Daily Closing
+      return await handleDailyClosing();
+  };
+
+  const fetchArchivedTasks = async () => (await getDocs(query(collection(db,'archive_drafts'), limit(500)))).docs.map(d=>({id:d.id, ...d.data()} as Task));
   
   const handleUpdateSystemConfig = async (newConfig: Partial<SystemConfig>) => { const configRef = doc(db, 'system_data', 'config'); await setDoc(configRef, newConfig, { merge: true }); };
 
@@ -524,6 +620,8 @@ const App: React.FC = () => {
       a.click();
   }, []);
 
+  const partsArray = Object.entries(partsMap).map(([value, description]) => ({ id: value, value, description }));
+
   return (
     <div className={`min-h-screen bg-gray-900 flex flex-col ${!isAuthenticated ? 'items-center justify-center' : ''}`}>
       {!isAuthenticated ? (
@@ -535,22 +633,25 @@ const App: React.FC = () => {
           onDeleteTask={handleDeleteTask}
           onUpdateTask={handleUpdateTask}
           onToggleMissing={handleToggleMissing} onSetInProgress={handleSetInProgress} onToggleBlock={handleToggleBlock} onToggleManualBlock={handleToggleManualBlock}
+          onExhaustSearch={handleExhaustSearch}
           onStartAudit={handleStartAudit} onFinishAudit={handleFinishAudit}
           users={users} onAddUser={handleAddUser} onUpdatePassword={handleUpdatePassword} onUpdateNickname={handleUpdateNickname} onUpdateUserRole={handleUpdateUserRole} onDeleteUser={handleDeleteUser}
-          parts={parts} workplaces={workplaces} missingReasons={missingReasons} logisticsOperations={logisticsOperations}
+          parts={partsArray} workplaces={workplaces} missingReasons={missingReasons} logisticsOperations={logisticsOperations}
           onAddPart={handleAddPart} onBatchAddParts={handleBatchAddParts} onDeletePart={handleDeletePart} onDeleteAllParts={handleDeleteAllParts}
           onAddWorkplace={handleAddWorkplace} onBatchAddWorkplaces={handleBatchAddWorkplaces} onDeleteWorkplace={handleDeleteWorkplace} onDeleteAllWorkplaces={handleDeleteAllWorkplaces}
           onAddMissingReason={handleAddMissingReason} onDeleteMissingReason={handleDeleteMissingReason}
           onAddLogisticsOperation={handleAddLogisticsOperation} onDeleteLogisticsOperation={handleDeleteLogisticsOperation}
           partRequests={partRequests} onRequestPart={handleRequestNewPart} onApprovePartRequest={handleApprovePartRequest} onRejectPartRequest={handleRejectPartRequest}
           onArchiveTasks={handleArchiveTasks} 
+          onDailyClosing={handleDailyClosing}
+          onWeeklyClosing={handleWeeklyClosing}
           onFetchArchivedTasks={fetchArchivedTasks}
           onDeleteMissingItem={handleDeleteMissingItem}
           onGetDocCount={handleGetDocCount}
           onPurgeOldTasks={handlePurgeOldTasks}
           onExportTasksJSON={handleExportTasksJSON}
           breakSchedules={breakSchedules} systemBreaks={systemBreaks} isBreakActive={isBreakActive} onAddBreakSchedule={handleAddBreakSchedule} onDeleteBreakSchedule={handleDeleteBreakSchedule}
-          bomItems={bomItems} bomRequests={bomRequests} onAddBOMItem={handleAddBOMItem} onBatchAddBOMItems={handleBatchAddBOMItems} onDeleteBOMItem={handleDeleteBOMItem} onDeleteAllBOMItems={handleDeleteAllBOMItems} onRequestBOM={handleRequestBOM} onApproveBOMRequest={handleApproveBOMRequest} onRejectBOMRequest={handleRejectBOMRequest} roles={roles} permissions={permissions} onAddRole={handleAddRole} onDeleteRole={handleDeleteRole} onUpdatePermission={handleUpdatePermission}
+          bomMap={bomMap} bomRequests={bomRequests} onAddBOMItem={handleAddBOMItem} onBatchAddBOMItems={handleBatchAddBOMItems} onDeleteBOMItem={handleDeleteBOMItem} onDeleteAllBOMItems={handleDeleteAllBOMItems} onRequestBOM={handleRequestBOM} onApproveBOMRequest={handleApproveBOMRequest} onRejectBOMRequest={handleRejectBOMRequest} roles={roles} permissions={permissions} onAddRole={handleAddRole} onDeleteRole={handleDeleteRole} onUpdatePermission={handleUpdatePermission}
           onVerifyAdminPassword={handleVerifyAdminPassword}
           notifications={notifications} onClearNotification={handleClearNotification}
           installPrompt={deferredPrompt} onInstallApp={handleInstallApp}

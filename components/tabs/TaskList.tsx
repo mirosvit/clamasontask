@@ -17,6 +17,7 @@ interface TaskListProps {
   onSetInProgress: (id: string) => void;
   onToggleBlock: (id: string) => void;
   onToggleManualBlock: (id: string) => void;
+  onExhaustSearch: (id: string) => void;
   onMarkAsIncorrect: (id: string) => void;
   onAddNote: (id: string, note: string) => void;
   onReleaseTask: (id: string) => void;
@@ -69,11 +70,6 @@ const TaskList: React.FC<TaskListProps> = (props) => {
     setPriorityEditId(null); setMissingId(null); setDeleteId(null);
   };
 
-  const saveNote = (id: string) => {
-    props.onAddNote(id, noteVal);
-    setNoteId(null);
-  };
-
   const handleDeleteClick = (id: string) => {
     setDeleteId(id);
     setPriorityEditId(null); setMissingId(null); setNoteId(null);
@@ -92,6 +88,12 @@ const TaskList: React.FC<TaskListProps> = (props) => {
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 1500);
     }).catch(err => console.error('Copy failed', err));
+  };
+
+  /* Fix: Added saveNote implementation which was missing in line 143 of TaskModals usage */
+  const saveNote = (id: string) => {
+    props.onAddNote(id, noteVal);
+    setNoteId(null);
   };
 
   return (
@@ -116,6 +118,7 @@ const TaskList: React.FC<TaskListProps> = (props) => {
             onToggleTask={props.onToggleTask}
             onToggleBlock={props.onToggleBlock}
             onToggleManualBlock={props.onToggleManualBlock}
+            onExhaustSearch={props.onExhaustSearch}
             onMarkAsIncorrect={props.onMarkAsIncorrect}
             handleMissingClick={handleMissingClick}
             handleNoteClick={handleNoteClick}

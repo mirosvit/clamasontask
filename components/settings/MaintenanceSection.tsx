@@ -7,6 +7,8 @@ interface MaintenanceSectionProps {
   systemConfig: SystemConfig;
   onUpdateSystemConfig: (config: Partial<SystemConfig>) => void;
   onArchiveTasks: () => Promise<{ success: boolean; count?: number; error?: string; message?: string }>;
+  onDailyClosing: () => Promise<{ success: boolean; count: number }>;
+  onWeeklyClosing: () => Promise<{ success: boolean; count: number; sanon?: string }>;
   onGetDocCount: () => Promise<number>;
   onPurgeOldTasks: () => Promise<number>;
   onExportTasksJSON: () => Promise<void>;
@@ -20,9 +22,9 @@ const Icons = {
   External: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
 };
 
-const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, onUpdateSystemConfig, onArchiveTasks, onGetDocCount, onPurgeOldTasks, onExportTasksJSON }) => {
+const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, onUpdateSystemConfig, onArchiveTasks, onDailyClosing, onWeeklyClosing, onGetDocCount, onPurgeOldTasks, onExportTasksJSON }) => {
   const { t } = useLanguage();
-  const [isArchiving, setIsArchiving] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [isPurging, setIsPurging] = useState(false);
   const [docCount, setDocCount] = useState<number | null>(null);
   const [scheduleStart, setScheduleStart] = useState(systemConfig.maintenanceStart || '');
@@ -40,6 +42,22 @@ const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, o
       alert(`Vymazaných ${purged} starých dokumentov.`);
       onGetDocCount().then(setDocCount);
       setIsPurging(false);
+  };
+
+  const handleDaily = async () => {
+      if (!window.confirm("Spustiť dennú uzávierku? Všetky hotové úlohy budú presunuté do denného archívu.")) return;
+      setIsClosing(true);
+      const res = await onDailyClosing();
+      alert(`Denná uzávierka úspešná. Presunutých ${res.count} úloh.`);
+      setIsClosing(false);
+  };
+
+  const handleWeekly = async () => {
+      if (!window.confirm("Spustiť týždennú uzávierku? Denný archív bude presunutý do nového šanónu.")) return;
+      setIsClosing(true);
+      const res = await onWeeklyClosing();
+      alert(`Týždenná uzávierka úspešná. Presunutých ${res.count} úloh do: ${res.sanon}.`);
+      setIsClosing(false);
   };
 
   const cardClass = "bg-gray-800/40 border border-slate-700/50 rounded-2xl p-6 shadow-2xl backdrop-blur-sm";
@@ -63,17 +81,6 @@ const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, o
                   {systemConfig.maintenanceMode ? 'DEAKTIVOVAŤ' : 'AKTIVOVAŤ SERVISNÝ MÓD'}
                 </button>
               </div>
-              <div className="bg-slate-950/40 p-8 rounded-3xl border border-white/5 shadow-inner">
-                <h4 className={labelClass}>SCHEDULED MAINTENANCE</h4>
-                <div className="grid grid-cols-1 gap-4 mb-6">
-                  <input type="datetime-local" value={scheduleStart} onChange={e=>setScheduleStart(e.target.value)} className={inputClass} />
-                  <input type="datetime-local" value={scheduleEnd} onChange={e=>setScheduleEnd(e.target.value)} className={inputClass} />
-                </div>
-                <div className="flex gap-4">
-                  <button onClick={() => onUpdateSystemConfig({maintenanceStart:scheduleStart, maintenanceEnd:scheduleEnd})} className="flex-1 h-12 bg-teal-600 text-white font-black rounded-xl text-xs uppercase tracking-widest border-2 border-teal-500 shadow-lg">ULOŽIŤ PLÁN</button>
-                  <button onClick={() => { setScheduleStart(''); setScheduleEnd(''); onUpdateSystemConfig({maintenanceStart:'', maintenanceEnd:''}); }} className="h-12 bg-slate-800 text-slate-400 font-black px-6 rounded-xl text-xs uppercase tracking-widest border-2 border-slate-700">ZRUŠIŤ</button>
-                </div>
-              </div>
             </div>
             <div className="bg-slate-950/40 p-8 rounded-3xl border border-white/5 space-y-8 shadow-inner">
               <div className="flex justify-between items-center">
@@ -88,13 +95,6 @@ const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, o
                   </div>
                 ))}
               </div>
-              <div className="pt-4 border-t border-slate-800">
-                <h5 className={labelClass}>ADD IP / WILDCARD</h5>
-                <div className="flex gap-4">
-                  <input value={newIp} onChange={e=>setNewIp(e.target.value)} placeholder="0.0.0.0" className={inputClass} />
-                  <button onClick={() => { if(newIp) { onUpdateSystemConfig({allowedIPs: [...(systemConfig.allowedIPs||[]), newIp.trim()]}); setNewIp(''); } }} className="h-12 w-16 bg-blue-600 text-white rounded-xl font-black text-2xl border-2 border-blue-500 shadow-lg">+</button>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -105,12 +105,17 @@ const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, o
           <div className="h-full flex flex-col justify-center items-center py-10 space-y-6 text-center">
             <div className="p-6 bg-purple-500/10 rounded-full border-2 border-purple-500/20 text-purple-400 mb-2 animate-pulse shadow-[0_0_30px_rgba(168,85,247,0.2)]"><Icons.Archive /></div>
             <div className="space-y-2">
-              <h3 className="text-xl font-black text-white uppercase tracking-tighter">ARCHIVÁCIA</h3>
-              <p className="text-slate-400 text-xs leading-relaxed font-medium px-4">{t('maint_desc')}</p>
+              <h3 className="text-xl font-black text-white uppercase tracking-tighter">UZÁVIERKY (ŠANÓNY)</h3>
+              <p className="text-slate-400 text-xs leading-relaxed font-medium px-4">Uzávierky presúvajú hotové úlohy do archívov pre lepšiu prehľadnosť a výkon systému.</p>
             </div>
-            <button onClick={() => { setIsArchiving(true); onArchiveTasks().then(() => setIsArchiving(false)); }} disabled={isArchiving} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-black py-4 rounded-xl uppercase tracking-widest text-sm shadow-xl transition-all active:scale-95 border-2 border-purple-400">
-              {isArchiving ? t('archiving') : t('archive_btn')}
-            </button>
+            <div className="grid grid-cols-1 gap-4 w-full">
+                <button onClick={handleDaily} disabled={isClosing} className="bg-teal-600 hover:bg-teal-500 text-white font-black py-4 rounded-xl uppercase tracking-widest text-sm shadow-xl transition-all active:scale-95 border-2 border-teal-400">
+                📦 DENNÁ UZÁVIERKA
+                </button>
+                <button onClick={handleWeekly} disabled={isClosing} className="bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl uppercase tracking-widest text-sm shadow-xl transition-all active:scale-95 border-2 border-blue-400">
+                🗄️ TÝŽDENNÁ UZÁVIERKA
+                </button>
+            </div>
           </div>
         </div>
 
@@ -123,7 +128,6 @@ const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, o
                 <span className="text-rose-400 font-black text-2xl font-mono">{docCount ?? '...'}</span>
                 <span className="text-slate-500 text-[10px] ml-2 uppercase font-black">Dokumentov</span>
               </div>
-              <p className="text-slate-500 text-[10px] uppercase font-bold mt-2">TTL: 90 dní automaticky</p>
             </div>
             <div className="grid grid-cols-2 gap-4 w-full px-4 mb-4">
                 <button onClick={onExportTasksJSON} className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-black py-3 rounded-xl uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 border border-slate-600 transition-all active:scale-95">
@@ -132,16 +136,6 @@ const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, o
                 <button onClick={handlePurge} disabled={isPurging} className="bg-rose-900/20 hover:bg-rose-600 text-rose-500 hover:text-white font-black py-3 rounded-xl uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 border border-rose-900/50 transition-all active:scale-95">
                     <Icons.Trash /> {isPurging ? '...' : 'PURGE'}
                 </button>
-            </div>
-            <div className="w-full px-4">
-                <a 
-                  href="https://console.firebase.google.com/u/0/project/sklad-ulohy/firestore/databases/-default-/data" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="w-full h-10 bg-slate-800/50 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-400 hover:text-white transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em]"
-                >
-                    {t('sect_maint_db_link')} <Icons.External />
-                </a>
             </div>
           </div>
         </div>

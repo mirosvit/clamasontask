@@ -16,6 +16,7 @@ interface TaskActionsProps {
   onToggleTask: (id: string) => void;
   onToggleBlock: (id: string) => void;
   onToggleManualBlock: (id: string) => void;
+  onExhaustSearch: (id: string) => void;
   onMarkAsIncorrect: (id: string) => void;
   handleMissingClick: (task: Task, e: React.MouseEvent) => void;
   handleNoteClick: (task: Task) => void;
@@ -44,7 +45,7 @@ const Icons = {
 const TaskActions: React.FC<TaskActionsProps> = ({ 
   task, isSystemInventoryTask, isSearchingMode, isManualBlocked, isAuditInProgress, 
   isNoteLockedByAudit, copiedId, hasPermission, onSetInProgress, onToggleTask, 
-  onToggleBlock, onToggleManualBlock, onMarkAsIncorrect, handleMissingClick, 
+  onToggleBlock, onToggleManualBlock, onExhaustSearch, onMarkAsIncorrect, handleMissingClick, 
   handleNoteClick, handleDeleteClick, handleCopyPart, openPriorityModal, onAuditPart 
 }) => {
   const { t } = useLanguage();
@@ -99,8 +100,20 @@ const TaskActions: React.FC<TaskActionsProps> = ({
         </button>
       )}
 
-      {!isManualBlocked && hasPermission('perm_btn_lock') && !isAuditInProgress && (
-        <button onClick={() => onToggleBlock(task.id)} title={t('perm_btn_lock')} className={`w-16 h-16 flex items-center justify-center rounded-lg transition-all active:scale-95 shadow-lg ${task.isBlocked ? 'bg-gray-600 text-white border border-gray-500' : 'bg-gray-700 text-gray-400 hover:bg-gray-600 border border-gray-600'}`}>
+      {/* LUPA: Iba ak je isMissing */}
+      {!isManualBlocked && hasPermission('perm_btn_lock') && !isAuditInProgress && task.isMissing && !task.searchExhausted && (
+        <button 
+            onClick={() => {
+                if (isSearchingMode) {
+                    if (window.confirm("Nenašlo sa ani po hľadaní?")) onExhaustSearch(task.id);
+                    else onToggleBlock(task.id);
+                } else {
+                    onToggleBlock(task.id);
+                }
+            }} 
+            title={t('perm_btn_lock')} 
+            className={`w-16 h-16 flex items-center justify-center rounded-lg transition-all active:scale-95 shadow-lg ${task.isBlocked ? 'bg-gray-600 text-white border border-gray-500' : 'bg-gray-700 text-gray-400 hover:bg-gray-600 border border-gray-600'}`}
+        >
           <Icons.Search />
         </button>
       )}

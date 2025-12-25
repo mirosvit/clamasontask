@@ -12,7 +12,7 @@ import BOMScreen from './tabs/BOMScreen';
 import ProductionEntry from './tabs/ProductionEntry';
 import AppHeader from './AppHeader';
 import TabNavigator from './TabNavigator';
-import { UserData, DBItem, PartRequest, BreakSchedule, SystemBreak, BOMItem, BOMRequest, Role, Permission, Task, Notification as AppNotification, PriorityLevel, SystemConfig } from '../App';
+import { UserData, DBItem, PartRequest, BreakSchedule, SystemBreak, BOMComponent, BOMRequest, Role, Permission, Task, Notification as AppNotification, PriorityLevel, SystemConfig } from '../App';
 import { useLanguage } from './LanguageContext';
 
 declare var XLSX: any;
@@ -32,10 +32,13 @@ interface PartSearchScreenProps {
   onSetInProgress: (id: string) => void;
   onToggleBlock: (id: string) => void; 
   onToggleManualBlock: (id: string) => void;
+  onExhaustSearch: (id: string) => void;
   onAddNote: (id: string, note: string) => void;
   onDeleteMissingItem: (id: string) => void;
   onReleaseTask: (id: string) => void;
   onArchiveTasks: () => Promise<{ success: boolean; count?: number; error?: string; message?: string }>;
+  onDailyClosing: () => Promise<{ success: boolean; count: number }>;
+  onWeeklyClosing: () => Promise<{ success: boolean; count: number; sanon?: string }>;
   onFetchArchivedTasks: () => Promise<Task[]>;
   onStartAudit: (id: string) => void;
   onFinishAudit: (id: string, result: 'found' | 'missing', note: string) => void;
@@ -53,7 +56,7 @@ interface PartSearchScreenProps {
   missingReasons: DBItem[];
   onAddPart: (val: string, desc?: string) => void;
   onBatchAddParts: (vals: string[]) => void;
-  onDeletePart: (id: string) => void;
+  onDeletePart: (val: string) => void;
   onDeleteAllParts: () => void;
   onAddWorkplace: (val: string, time?: number) => void;
   onBatchAddWorkplaces: (vals: string[]) => void;
@@ -73,11 +76,11 @@ interface PartSearchScreenProps {
   isBreakActive: boolean;
   onAddBreakSchedule: (start: string, end: string) => void;
   onDeleteBreakSchedule: (id: string) => void;
-  bomItems: BOMItem[];
+  bomMap: Record<string, BOMComponent[]>;
   bomRequests: BOMRequest[];
   onAddBOMItem: (parent: string, child: string, qty: number) => void;
   onBatchAddBOMItems: (vals: string[]) => void;
-  onDeleteBOMItem: (id: string) => void;
+  onDeleteBOMItem: (parent: string, child: string) => void;
   onDeleteAllBOMItems: () => void;
   onRequestBOM: (parent: string) => Promise<boolean>;
   onApproveBOMRequest: (req: BOMRequest) => void;
@@ -108,12 +111,12 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   const { 
     currentUser, currentUserRole, onLogout, tasks, onAddTask, onUpdateTask, roles, permissions,
     notifications, onClearNotification, installPrompt, onInstallApp, parts, workplaces,
-    onToggleTask, onEditTask, onDeleteTask, onToggleMissing, onSetInProgress, onToggleBlock, onToggleManualBlock, onMarkAsIncorrect, onAddNote, onReleaseTask, missingReasons,
+    onToggleTask, onEditTask, onDeleteTask, onToggleMissing, onSetInProgress, onToggleBlock, onToggleManualBlock, onExhaustSearch, onMarkAsIncorrect, onAddNote, onReleaseTask, missingReasons,
     users,
     onApprovePartRequest, onRejectPartRequest,
-    onArchiveTasks,
+    onArchiveTasks, onDailyClosing, onWeeklyClosing,
     breakSchedules,
-    bomItems, bomRequests, onApproveBOMRequest, onRejectBOMRequest,
+    bomMap, bomRequests, onApproveBOMRequest, onRejectBOMRequest,
     onAddRole, onDeleteRole, onUpdatePermission, onVerifyAdminPassword,
     systemConfig, onUpdateSystemConfig,
     dbLoadWarning, onGetDocCount, onPurgeOldTasks, onExportTasksJSON
@@ -159,8 +162,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   
   const partNumbersList = useMemo(() => parts.map(p => p.value), [parts]);
 
-  // Vylepšená detekcia načítavania: Ak už máme aspoň nejaké diely v cache, neblokujeme UI.
-  // Pridaný timeout 5s, aby aplikácia nezamrzla pri výpadku spojenia.
   const [hasInitialData, setHasInitialData] = useState(false);
   const [syncTimeout, setSyncTimeout] = useState(false);
 
@@ -324,12 +325,12 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                     <div className="mb-6 flex justify-center">
                         <input type="text" value={taskSearchQuery} onChange={e => setTaskSearchQuery(e.target.value)} className="w-full max-w-lg h-12 px-6 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase text-base" placeholder={t('task_search_placeholder')} />
                     </div>
-                    <TaskList currentUser={currentUserRole} currentUserName={currentUser} tasks={tasks.filter(t => { const q = taskSearchQuery.toLowerCase(); return (t.partNumber && t.partNumber.toLowerCase().includes(q)) || (t.text && t.text.toLowerCase().includes(q)) || (t.workplace && t.workplace.toLowerCase().includes(q)); })} onToggleTask={onToggleTask} onEditTask={onEditTask} onDeleteTask={onDeleteTask} onToggleMissing={onToggleMissing} onSetInProgress={onSetInProgress} onToggleBlock={onToggleBlock} onToggleManualBlock={onToggleManualBlock} onMarkAsIncorrect={onMarkAsIncorrect} onAddNote={onAddNote} onReleaseTask={onReleaseTask} onAuditPart={handleAuditClick} resolveName={resolveName} missingReasons={missingReasons} hasPermission={hasPermission} />
+                    <TaskList currentUser={currentUserRole} currentUserName={currentUser} tasks={tasks.filter(t => { const q = taskSearchQuery.toLowerCase(); return (t.partNumber && t.partNumber.toLowerCase().includes(q)) || (t.text && t.text.toLowerCase().includes(q)) || (t.workplace && t.workplace.toLowerCase().includes(q)); })} onToggleTask={onToggleTask} onEditTask={onEditTask} onDeleteTask={onDeleteTask} onToggleMissing={onToggleMissing} onSetInProgress={onSetInProgress} onToggleBlock={onToggleBlock} onToggleManualBlock={onToggleManualBlock} onExhaustSearch={onExhaustSearch} onMarkAsIncorrect={onMarkAsIncorrect} onAddNote={onAddNote} onReleaseTask={onReleaseTask} onAuditPart={handleAuditClick} resolveName={resolveName} missingReasons={missingReasons} hasPermission={hasPermission} />
                     </div>
                 )}
                 {activeTab === 'analytics' && hasPermission('perm_tab_analytics') && <AnalyticsTab tasks={tasks} onFetchArchivedTasks={props.onFetchArchivedTasks} systemBreaks={props.systemBreaks} resolveName={resolveName} />}
-                {activeTab === 'settings' && hasPermission('perm_tab_settings') && <SettingsTab hasPermission={hasPermission} currentUserRole={currentUserRole} users={users} onAddUser={props.onAddUser} onUpdatePassword={props.onUpdatePassword} onUpdateNickname={props.onUpdateNickname} onUpdateUserRole={props.onUpdateUserRole} onDeleteUser={props.onDeleteUser} parts={parts} workplaces={workplaces} missingReasons={missingReasons} onAddPart={props.onAddPart} onBatchAddParts={props.onBatchAddParts} onDeletePart={props.onDeletePart} onDeleteAllParts={props.onDeleteAllParts} onAddWorkplace={props.onAddWorkplace} onBatchAddWorkplaces={props.onBatchAddWorkplaces} onDeleteWorkplace={props.onDeleteWorkplace} onDeleteAllWorkplaces={props.onDeleteAllWorkplaces} onAddMissingReason={props.onAddMissingReason} onDeleteMissingReason={props.onDeleteMissingReason} logisticsOperations={logisticsOperationsList} onAddLogisticsOperation={props.onAddLogisticsOperation} onDeleteLogisticsOperation={props.onDeleteLogisticsOperation} partRequests={props.partRequests} onApprovePartRequest={onApprovePartRequest} onRejectPartRequest={id => props.onRejectPartRequest(id)} onArchiveTasks={onArchiveTasks} breakSchedules={breakSchedules} onAddBreakSchedule={props.onAddBreakSchedule} onDeleteBreakSchedule={props.onDeleteBreakSchedule} bomItems={bomItems} bomRequests={bomRequests} onAddBOMItem={props.onAddBOMItem} onBatchAddBOMItems={props.onBatchAddBOMItems} onDeleteBOMItem={props.onDeleteBOMItem} onDeleteAllBOMItems={props.onDeleteAllBOMItems} onApproveBOMRequest={onApproveBOMRequest} onRejectBOMRequest={id => props.onRejectBOMRequest(id)} roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={onDeleteRole} onUpdatePermission={onUpdatePermission} installPrompt={installPrompt} onInstallApp={onInstallApp} systemConfig={systemConfig} onUpdateSystemConfig={onUpdateSystemConfig} dbLoadWarning={dbLoadWarning} resolveName={resolveName} onGetDocCount={onGetDocCount} onPurgeOldTasks={onPurgeOldTasks} onExportTasksJSON={onExportTasksJSON} />}
-                {activeTab === 'bom' && hasPermission('perm_tab_bom') && <BOMScreen parts={parts} workplaces={workplaces} bomItems={bomItems} onAddTask={onAddTask} onRequestBOM={props.onRequestBOM} t={t} language={language} />}
+                {activeTab === 'settings' && hasPermission('perm_tab_settings') && <SettingsTab hasPermission={hasPermission} currentUserRole={currentUserRole} users={users} onAddUser={props.onAddUser} onUpdatePassword={props.onUpdatePassword} onUpdateNickname={props.onUpdateNickname} onUpdateUserRole={props.onUpdateUserRole} onDeleteUser={props.onDeleteUser} parts={parts} workplaces={workplaces} missingReasons={missingReasons} onAddPart={props.onAddPart} onBatchAddParts={props.onBatchAddParts} onDeletePart={props.onDeletePart} onDeleteAllParts={props.onDeleteAllParts} onAddWorkplace={props.onAddWorkplace} onBatchAddWorkplaces={props.onBatchAddWorkplaces} onDeleteWorkplace={props.onDeleteWorkplace} onDeleteAllWorkplaces={props.onDeleteAllWorkplaces} onAddMissingReason={props.onAddMissingReason} onDeleteMissingReason={props.onDeleteMissingReason} logisticsOperations={logisticsOperationsList} onAddLogisticsOperation={props.onAddLogisticsOperation} onDeleteLogisticsOperation={props.onDeleteLogisticsOperation} partRequests={props.partRequests} onApprovePartRequest={onApprovePartRequest} onRejectPartRequest={id => props.onRejectPartRequest(id)} onArchiveTasks={onArchiveTasks} onDailyClosing={props.onDailyClosing} onWeeklyClosing={props.onWeeklyClosing} breakSchedules={breakSchedules} onAddBreakSchedule={props.onAddBreakSchedule} onDeleteBreakSchedule={props.onDeleteBreakSchedule} bomMap={bomMap} bomRequests={bomRequests} onAddBOMItem={props.onAddBOMItem} onBatchAddBOMItems={props.onBatchAddBOMItems} onDeleteBOMItem={props.onDeleteBOMItem} onDeleteAllBOMItems={props.onDeleteAllBOMItems} onApproveBOMRequest={onApproveBOMRequest} onRejectBOMRequest={id => props.onRejectBOMRequest(id)} roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={onDeleteRole} onUpdatePermission={onUpdatePermission} installPrompt={installPrompt} onInstallApp={onInstallApp} systemConfig={systemConfig} onUpdateSystemConfig={onUpdateSystemConfig} dbLoadWarning={dbLoadWarning} resolveName={resolveName} onGetDocCount={onGetDocCount} onPurgeOldTasks={onPurgeOldTasks} onExportTasksJSON={onExportTasksJSON} />}
+                {activeTab === 'bom' && hasPermission('perm_tab_bom') && <BOMScreen parts={parts} workplaces={workplaces} bomMap={bomMap} onAddTask={onAddTask} onRequestBOM={props.onRequestBOM} t={t} language={language} />}
                 {activeTab === 'missing' && hasPermission('perm_tab_missing') && <MissingItemsTab tasks={tasks} onDeleteMissingItem={props.onDeleteMissingItem} hasPermission={hasPermission} resolveName={resolveName} />}
                 {activeTab === 'inventory' && hasPermission('perm_tab_inventory') && <InventoryTab currentUser={currentUser} tasks={tasks} onAddTask={onAddTask} onUpdateTask={onUpdateTask} onToggleTask={onToggleTask} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} parts={partNumbersList} onRequestPart={props.onRequestPart} resolveName={resolveName} />}
                 {activeTab === 'logistics' && hasPermission('perm_tab_logistics_center') && <LogisticsCenterTab tasks={tasks} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} resolveName={resolveName} />}
