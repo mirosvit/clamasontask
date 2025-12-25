@@ -1,8 +1,13 @@
 
 import { initializeApp } from "firebase/app";
-import { initializeFirestore, enableMultiTabIndexedDbPersistence } from "firebase/firestore";
+import { 
+  initializeFirestore, 
+  persistentLocalCache, 
+  persistentMultipleTabManager 
+} from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 
-// Your web app's Firebase configuration for sklad-ulohy
+// Konfigurácia pre projekt 'sklad-ulohy'
 const firebaseConfig = {
   apiKey: "AIzaSyAfpO5WnMt-6lWI6i0XNpfcPGkbrMEpoo4",
   authDomain: "sklad-ulohy.firebaseapp.com",
@@ -15,17 +20,14 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Inicializácia Firestore s vynúteným Long Pollingom (rieši blokované WebSockety v továrňach)
+// Inicializácia Firestore s vynúteným Long Pollingom a vypnutými streamami (rieši firewally)
 export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  }),
   experimentalForceLongPolling: true,
+  // Dôležité pre prostredia, ktoré modifikujú HTTP streamy
   useFetchStreams: false
 });
 
-// Aktivácia lokálnej perzistencie dát (minimalizácia Reads a podpora offline režimu)
-enableMultiTabIndexedDbPersistence(db).catch((err) => {
-    if (err.code === 'failed-precondition') {
-        console.warn('Firestore persistence failed: Multiple tabs open');
-    } else if (err.code === 'unimplemented') {
-        console.warn('Firestore persistence is not available in this browser');
-    }
-});
+export const auth = getAuth(app);

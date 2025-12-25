@@ -159,15 +159,25 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   
   const partNumbersList = useMemo(() => parts.map(p => p.value), [parts]);
 
-  // Vylepšená detekcia načítavania: Ak už máme aspoň nejaké diely/pracoviská v pamäti (z cache), neblokujeme UI.
+  // Vylepšená detekcia načítavania: Ak už máme aspoň nejaké diely v cache, neblokujeme UI.
+  // Pridaný timeout 5s, aby aplikácia nezamrzla pri výpadku spojenia.
   const [hasInitialData, setHasInitialData] = useState(false);
+  const [syncTimeout, setSyncTimeout] = useState(false);
+
   useEffect(() => {
-    if (parts.length > 0 && workplaces.length > 0) {
+    if (parts.length > 0) {
         setHasInitialData(true);
     }
-  }, [parts.length, workplaces.length]);
+  }, [parts.length]);
 
-  const isDataLoading = !hasInitialData;
+  useEffect(() => {
+      const timer = setTimeout(() => {
+          if (!hasInitialData) setSyncTimeout(true);
+      }, 5000);
+      return () => clearTimeout(timer);
+  }, [hasInitialData]);
+
+  const isDataLoading = !hasInitialData && !syncTimeout;
 
   const logisticsOperationsList = useMemo(() => {
       if (props.logisticsOperations && props.logisticsOperations.length > 0) {
@@ -297,7 +307,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
               <div className="text-center space-y-6">
                   <div className="inline-block w-14 h-14 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
                   <p className="text-teal-400 font-black animate-pulse uppercase tracking-[0.2em] text-base">Synchronizujem databázu dielov...</p>
-                  <p className="text-gray-600 text-sm">Aplikácia bude fungovať aj v offline režime.</p>
+                  <p className="text-gray-600 text-sm">Pokúšam sa nadviazať spojenie so serverom.</p>
               </div>
           </div>
       ) : (
