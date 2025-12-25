@@ -9,6 +9,8 @@ import HourlyChartSection from './HourlyChartSection';
 import QualityAuditSection from './QualityAuditSection';
 import WorkerDetailModal from './WorkerDetailModal';
 
+declare var XLSX: any;
+
 interface AnalyticsTabProps {
   tasks: Task[];
   onFetchArchivedTasks: () => Promise<Task[]>;
@@ -18,12 +20,6 @@ interface AnalyticsTabProps {
 
 type FilterMode = 'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH';
 type ShiftFilter = 'ALL' | 'MORNING' | 'AFTERNOON';
-
-const ClockSmallIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-  </svg>
-);
 
 const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchArchivedTasks, systemBreaks, resolveName }) => {
   const [filterMode, setFilterMode] = useState<FilterMode>('TODAY');
@@ -35,7 +31,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
   const [selectedWorkerData, setSelectedWorkerData] = useState<{ name: string; tasks: Task[] } | null>(null);
   const { t, language } = useLanguage();
 
-  // Helper function to format duration in ms to human readable string
   const formatDuration = (ms: number) => {
     if (ms <= 0) return '-';
     const minutes = Math.round(ms / 60000);
@@ -163,14 +158,10 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
     const missingPartsMap: Record<string, number> = {};
     for (let i = 0; i < 24; i++) hourlyStatsMap[i] = { production: 0, logistics: 0 };
 
-    let totalReactionTime = 0, countReactionTime = 0, totalLeadTime = 0, countLeadTime = 0, grandTotalExecutionTime = 0;
-    let realErrorsCount = 0, falseAlarmsCount = 0, totalAuditedMissing = 0;
+    let realErrorsCount = 0, totalAuditedMissing = 0, falseAlarmsCount = 0, grandTotalExecutionTime = 0;
     const workerStatsMap: Record<string, any> = {};
 
     const performanceTasks = filteredTasks.filter(t => t.status !== 'incorrectly_entered' && t.auditResult !== 'NOK');
-    const totalCount = performanceTasks.length;
-    const doneCount = performanceTasks.filter(t => t.isDone).length;
-    const efficiency = totalCount <= 0 ? 0 : Math.round((doneCount / totalCount) * 100);
 
     performanceTasks.forEach(task => {
       const qtyVal = parseFloat((task.quantity || '0').replace(',', '.'));
@@ -182,9 +173,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
       const isLogisticsFallback = (task.isLogistics === true) || (!task.isProduction && !task.workplace && !!task.partNumber);
 
       if (task.isMissing === true) {
-        if (task.partNumber) {
-          missingPartsMap[task.partNumber] = (missingPartsMap[task.partNumber] || 0) + 1;
-        }
+        if (task.partNumber) missingPartsMap[task.partNumber] = (missingPartsMap[task.partNumber] || 0) + 1;
         if (task.auditResult) {
           totalAuditedMissing++;
           if (task.auditResult === 'NOK') realErrorsCount++;
@@ -219,16 +208,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
         const worker = task.completedBy;
         if (!workerStatsMap[worker]) {
           workerStatsMap[worker] = { 
-            username: worker, 
-            name: resolveName(worker), 
-            count: 0, 
-            totalVolume: 0, 
-            totalExecutionMs: 0,
-            totalStandardMin: 0,
-            totalReactionMs: 0,
-            reactionCount: 0,
-            missingReported: 0,
-            realErrors: 0,
+            username: worker, name: resolveName(worker), count: 0, totalVolume: 0, totalExecutionMs: 0,
+            totalStandardMin: 0, totalReactionMs: 0, reactionCount: 0, missingReported: 0, realErrors: 0,
             uniqueDays: new Set<string>()
           };
         }
@@ -243,24 +224,16 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
           if (execution > 0) { ws.totalExecutionMs += execution; grandTotalExecutionTime += execution; }
           ws.totalStandardMin += (task.standardTime || 0);
         }
-
         if (task.createdAt && task.startedAt) {
           const react = task.startedAt - task.createdAt;
           if (react > 0) { ws.totalReactionMs += react; ws.reactionCount++; }
         }
-
         if (task.isMissing) {
           ws.missingReported++;
           if (task.auditResult === 'NOK') ws.realErrors++;
         }
       }
     });
-
-    const topHighRunners = Object.entries(highRunnersMap).sort(([, a], [, b]) => b.load - a.load).slice(0, 3).map(([pn, d]) => ({ partNumber: pn, ...d }));
-    const topWorkplaces = Object.entries(workplacesMap).sort(([, a], [, b]) => b.load - a.load).slice(0, 3).map(([wp, d]) => ({ workplace: wp, ...d }));
-    const topMissingParts = Object.entries(missingPartsMap).sort(([, a], [, b]) => b - a).slice(0, 3).map(([pn, count]) => ({ partNumber: pn, count }));
-    const hourlyData = Object.entries(hourlyStatsMap).map(([h, v]) => ({ hour: parseInt(h), label: `${h.padStart(2, '0')}:00`, production: v.production, logistics: v.logistics }))
-      .filter(d => shiftFilter === 'MORNING' ? (d.hour >= 4 && d.hour < 14) : shiftFilter === 'AFTERNOON' ? (d.hour >= 14 && d.hour < 24) : true);
 
     const workerStats = Object.values(workerStatsMap).map((ws: any) => {
       const numDays = Math.max(ws.uniqueDays.size, 1);
@@ -281,20 +254,41 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
       } else sReact = 0.5;
 
       const index = parseFloat((sQuality + sUtil + sNorms + sReact).toFixed(1));
-      return { ...ws, index };
+      return { ...ws, index, pureWorkMin, utilPercent, perfRatio, avgReactSec };
     }).sort((a, b) => b.index - a.index);
 
     return { 
-      total: totalCount, done: doneCount, efficiency, 
-      totalVolume: Object.values(workerStatsMap).reduce((s, w) => s + w.totalVolume, 0), 
-      avgReaction: countReactionTime > 0 ? totalReactionTime / countReactionTime : 0, 
-      avgLead: countLeadTime > 0 ? totalLeadTime / countLeadTime : 0, 
-      grandTotalExecutionTime, 
+      total: performanceTasks.length, done: performanceTasks.filter(t => t.isDone).length, 
+      efficiency: performanceTasks.length <= 0 ? 0 : Math.round((performanceTasks.filter(t => t.isDone).length / performanceTasks.length) * 100),
+      totalVolume: Object.values(workerStatsMap).reduce((s, w) => s + w.totalVolume, 0),
+      avgLead: 0, avgReaction: 0, grandTotalExecutionTime, 
       workerStats, 
-      topHighRunners, topWorkplaces, hourlyData,
-      quality: { realErrorsCount, falseAlarmsCount, totalAuditedMissing, topMissingParts }
+      topHighRunners: Object.entries(highRunnersMap).sort(([, a], [, b]) => b.load - a.load).slice(0, 3).map(([pn, d]) => ({ partNumber: pn, ...d })),
+      topWorkplaces: Object.entries(workplacesMap).sort(([, a], [, b]) => b.load - a.load).slice(0, 3).map(([wp, d]) => ({ workplace: wp, ...d })),
+      hourlyData: Object.entries(hourlyStatsMap).map(([h, v]) => ({ hour: parseInt(h), label: `${h.padStart(2, '0')}:00`, production: v.production, logistics: v.logistics }))
+        .filter(d => shiftFilter === 'MORNING' ? (d.hour >= 4 && d.hour < 14) : shiftFilter === 'AFTERNOON' ? (d.hour >= 14 && d.hour < 24) : true),
+      quality: { realErrorsCount, falseAlarmsCount, totalAuditedMissing, topMissingParts: Object.entries(missingPartsMap).sort(([, a], [, b]) => b - a).slice(0, 3).map(([pn, count]) => ({ partNumber: pn, count })) }
     };
   }, [filteredTasks, systemBreaks, resolveName, shiftFilter]);
+
+  const handleExportSummaryTable = () => {
+    if (typeof XLSX === 'undefined') return;
+    const excelData = stats.workerStats.map((ws, idx) => ({
+      'Poradie': idx + 1,
+      'Meno': ws.name,
+      'INDEX SCORE': ws.index.toFixed(1),
+      'Vybavené úlohy': ws.count,
+      'Objem (pal/ks)': ws.totalVolume.toFixed(1),
+      'Čistý čas práce': formatDuration(ws.totalExecutionMs),
+      'Využitie zmeny': `${ws.utilPercent.toFixed(1)}%`,
+      'Plnenie normy': `${ws.perfRatio.toFixed(0)}%`,
+      'Priem. Reakcia': `${Math.round(ws.avgReactSec)}s`
+    }));
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Výkonnosť_Skladníkov");
+    XLSX.writeFile(wb, `Vykonnost_Skladnikov_${filterMode}_${new Date().getTime()}.xlsx`);
+  };
 
   const getPeriodLabel = () => {
     switch (filterMode) {
@@ -324,7 +318,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
         )}
       </div>
 
-      <AnalyticsExportPanel canExport={canExport} tasks={tasks} resolveName={resolveName} t={t} language={language} />
+      <AnalyticsExportPanel canExport={canExport} tasks={tasks} systemBreaks={systemBreaks} resolveName={resolveName} t={t} language={language} />
 
       <div className="bg-gray-800/40 p-4 rounded-2xl shadow-md border border-gray-700 flex flex-col gap-6">
         <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
@@ -353,7 +347,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
         </div>
         <div className="bg-slate-900/60 p-5 rounded-2xl shadow-xl border border-slate-800 border-l-4 border-l-purple-500">
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">{t('kpi_lead')}</p>
-          {/* Fix: changed stats.lead to stats.avgLead to match returning object property */}
           <p className="text-3xl font-black text-purple-400 mt-2 font-mono">{formatDuration(stats.avgLead)}</p>
         </div>
         <div className="bg-slate-900/60 p-5 rounded-2xl shadow-xl border border-slate-800 border-l-4 border-l-amber-500">
@@ -369,6 +362,13 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
       <div className="bg-slate-950/40 border border-slate-800 p-6 rounded-3xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-6">
           <h3 className="text-sm font-black text-white uppercase tracking-[0.25em]">{t('table_title')}</h3>
+          <button 
+            onClick={handleExportSummaryTable}
+            className="bg-green-700 hover:bg-green-600 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 flex items-center gap-2 border border-green-500"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+            EXPORT DO EXCELU
+          </button>
         </div>
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-left border-separate border-spacing-y-3 min-w-[700px]">
@@ -409,9 +409,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
       </div>
 
       <QualityAuditSection data={stats.quality} t={t} />
-
       <HighRunnerSection topHighRunners={stats.topHighRunners} topWorkplaces={stats.topWorkplaces} t={t} />
-
       <HourlyChartSection hourlyData={stats.hourlyData} t={t} />
 
       {selectedWorkerData && (

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Task } from '../../../App';
+import { Task, SystemBreak } from '../../../App';
 
 declare var XLSX: any;
 
 interface AnalyticsExportPanelProps {
   canExport: boolean;
   tasks: Task[];
+  systemBreaks: SystemBreak[];
   resolveName: (username?: string | null) => string;
   t: (key: any) => string;
   language: string;
@@ -17,7 +18,7 @@ const DownloadIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
-const AnalyticsExportPanel: React.FC<AnalyticsExportPanelProps> = ({ canExport, tasks, resolveName, t, language }) => {
+const AnalyticsExportPanel: React.FC<AnalyticsExportPanelProps> = ({ canExport, tasks, systemBreaks, resolveName, t, language }) => {
   const [archiveExportStart, setArchiveExportStart] = useState('');
   const [archiveExportEnd, setArchiveExportEnd] = useState('');
   const [isExportingArchive, setIsExportingArchive] = useState(false);
@@ -26,6 +27,23 @@ const AnalyticsExportPanel: React.FC<AnalyticsExportPanelProps> = ({ canExport, 
   const formatDate = (ts?: number) => ts ? new Date(ts).toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
   const formatTime = (ts?: number) => ts ? new Date(ts).toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' }) : '';
   const formatDateTime = (ts?: number) => ts ? `${formatDate(ts)} ${formatTime(ts)}` : '';
+
+  const calculateBlockedTime = (history: any[] | undefined, startTime: number, endTime: number): number => {
+    let totalBlocked = 0;
+    if (history && history.length > 0) {
+      history.forEach(session => {
+        const overlapStart = Math.max(startTime, session.start);
+        const overlapEnd = Math.min(endTime, session.end || endTime);
+        if (overlapEnd > overlapStart) totalBlocked += (overlapEnd - overlapStart);
+      });
+    }
+    systemBreaks.forEach(br => {
+      const overlapStart = Math.max(startTime, br.start);
+      const overlapEnd = Math.min(endTime, br.end || endTime);
+      if (overlapEnd > overlapStart) totalBlocked += (overlapEnd - overlapStart);
+    });
+    return totalBlocked;
+  };
 
   const handleAdminArchiveExport = async () => {
     if (!archiveExportStart || !archiveExportEnd) {
@@ -50,10 +68,49 @@ const AnalyticsExportPanel: React.FC<AnalyticsExportPanelProps> = ({ canExport, 
       return;
     }
 
+    // Výpočet indexov pre všetkých pracovníkov v exporte pre zjednotenie dát
+    const workerSummary: Record<string, any> = {};
+    exportTasks.forEach(task => {
+        if (!task.completedBy || !task.isDone) return;
+        const worker = task.completedBy;
+        if (!workerSummary[worker]) {
+            workerSummary[worker] = { execMs: 0, stdMin: 0, reactMs: 0, reactCount: 0, missing: 0, errors: 0, days: new Set() };
+        }
+        const s = workerSummary[worker];
+        s.days.add(new Date(task.completedAt!).toLocaleDateString('sk-SK'));
+        if (task.startedAt && task.completedAt) {
+            let exec = task.completedAt - task.startedAt;
+            exec -= calculateBlockedTime(task.inventoryHistory, task.startedAt, task.completedAt);
+            if (exec > 0) s.execMs += exec;
+            s.stdMin += (task.standardTime || 0);
+        }
+        if (task.createdAt && task.startedAt) {
+            const r = task.startedAt - task.createdAt;
+            if (r > 0) { s.reactMs += r; s.reactCount++; }
+        }
+        if (task.isMissing) {
+            s.missing++;
+            if (task.auditResult === 'NOK') s.errors++;
+        }
+    });
+
+    const workerScores: Record<string, string> = {};
+    Object.entries(workerSummary).forEach(([worker, s]: [string, any]) => {
+        const numDays = Math.max(s.days.size, 1);
+        const util = ((s.execMs / 60000 * 1.15) / (numDays * 450)) * 100;
+        const perf = s.stdMin > 0 ? (s.stdMin / (s.execMs / 60000)) * 100 : 0;
+        const react = s.reactCount > 0 ? (s.reactMs / s.reactCount) / 1000 : 0;
+        const confidence = s.missing > 0 ? ((s.missing - s.errors) / s.missing) * 100 : 100;
+
+        const score = (confidence / 100 * 3.5) + (Math.min(util, 100) / 100 * 3.0) + 
+                      (perf > 0 ? (Math.min(perf, 120) / 120 * 2.5) : 2.0) + 
+                      (react > 0 ? (react < 60 ? 1.0 : react < 180 ? 0.5 : 0) : 0.5);
+        workerScores[worker] = score.toFixed(1);
+    });
+
     const excelData = exportTasks.map(item => {
       let searchResult = item.searchedBy ? (item.searchExhausted || item.auditResult ? 'Nie' : (item.isMissing === false ? 'Áno' : 'Prebieha')) : '';
       let statusText = item.status === 'incorrectly_entered' ? 'Chybne zadané' : (item.auditResult ? 'Auditované' : (item.isDone ? 'Dokončené' : 'Otvorené'));
-      
       const isLogi = (item.isLogistics === true) || (!item.isProduction && !item.workplace && !!item.partNumber);
 
       return {
@@ -67,6 +124,7 @@ const AnalyticsExportPanel: React.FC<AnalyticsExportPanelProps> = ({ canExport, 
         'Jednotka': item.quantityUnit || '',
         'Poznámka': !isLogi ? (item.note || '') : '',
         'Skladník': resolveName(item.completedBy),
+        'Index Skladníka': item.completedBy ? (workerScores[item.completedBy] || '0.0') : '',
         'Dátum dokončenia': formatDate(item.completedAt),
         'Čas dokončenia': formatTime(item.completedAt),
         'Status': statusText,
@@ -86,9 +144,9 @@ const AnalyticsExportPanel: React.FC<AnalyticsExportPanelProps> = ({ canExport, 
     ws['!cols'] = [
       { wch: 15 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 25 },
       { wch: 20 }, { wch: 10 }, { wch: 10 }, { wch: 25 }, { wch: 20 },
-      { wch: 15 }, { wch: 12 }, { wch: 18 }, { wch: 20 }, { wch: 25 },
-      { wch: 15 }, { wch: 20 }, { wch: 18 }, { wch: 15 }, { wch: 35 },
-      { wch: 20 }, { wch: 20 }
+      { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 18 }, { wch: 20 }, 
+      { wch: 25 }, { wch: 15 }, { wch: 20 }, { wch: 18 }, { wch: 15 }, 
+      { wch: 35 }, { wch: 20 }, { wch: 20 }
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "ARCHIV_EXPORT");
@@ -108,7 +166,7 @@ const AnalyticsExportPanel: React.FC<AnalyticsExportPanelProps> = ({ canExport, 
           </div>
           <div>
             <h3 className="text-sm font-black text-white uppercase tracking-widest">ADMIN EXPORT REPORTU</h3>
-            <p className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">Stiahnuť kompletný 22-stĺpcový archív</p>
+            <p className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">Stiahnuť kompletný archív vrátane INDEX SCORE</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">

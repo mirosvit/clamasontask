@@ -159,36 +159,6 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
     return h > 0 ? `${h}h ${m}m` : `${m} min`;
   };
 
-  const handleExcelExport = () => {
-    const tableHtml = `
-      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-      <head><meta charset="utf-8"></head>
-      <body>
-        <table border="1">
-          <tr><td style="font-weight:bold; background-color: #f3f4f6;">REPORT PRACOVNÍKA</td><td style="font-weight:bold;">${name}</td></tr>
-          <tr><td style="background-color: #f3f4f6;">Dátum výpisu</td><td>${new Date().toLocaleString('sk-SK')}</td></tr>
-          <tr><td style="font-weight:bold; background-color: #f3f4f6;">CELKOVÝ INDEX</td><td style="font-weight:bold; color: #0d9488;">${stats.workerIndex.toFixed(1)} / 10</td></tr>
-          <tr><td></td><td></td></tr>
-          <tr><td style="font-weight:bold; background-color: #e5e7eb;">Metrika</td><td style="font-weight:bold; background-color: #e5e7eb;">Hodnota</td></tr>
-          <tr><td>Load Score</td><td>${stats.totalLoad.toFixed(1)}</td></tr>
-          <tr><td>Počet úloh</td><td>${tasks.length}</td></tr>
-          <tr><td>Využitie času</td><td>${stats.utilizationPercent.toFixed(1)}%</td></tr>
-          <tr><td>Čistý čas práce</td><td>${Math.round(stats.pureWorkMinutes)} min</td></tr>
-          <tr><td>Priemerná reakcia</td><td>${Math.round(stats.avgReactionSeconds)} s</td></tr>
-          <tr><td>Plnenie normy</td><td>${stats.performanceRatio.toFixed(1)}%</td></tr>
-        </table>
-      </body>
-      </html>
-    `;
-    const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Report_${name.replace(/\s+/g, '_')}_${new Date().getTime()}.xls`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   const cardStyle = "bg-slate-800/40 border-t-4 p-6 rounded-2xl shadow-xl backdrop-blur-md relative overflow-hidden";
 
   const getUtilColor = (val: number) => {
@@ -433,16 +403,10 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
 
         </div>
 
-        <div className="p-8 sm:p-10 border-t border-slate-800 bg-slate-800/30 flex gap-4">
-          <button 
-            onClick={handleExcelExport}
-            className="flex-1 py-5 bg-green-700 hover:bg-green-600 text-white rounded-[2rem] font-black uppercase text-xs tracking-[0.3em] transition-all shadow-xl active:scale-[0.98] border-2 border-green-500"
-          >
-            EXPORT DO EXCELU
-          </button>
+        <div className="p-8 sm:p-10 border-t border-slate-800 bg-slate-800/30 flex justify-center">
           <button 
             onClick={onClose}
-            className="flex-1 py-5 bg-slate-700 hover:bg-slate-600 text-white rounded-[2rem] font-black uppercase text-xs tracking-[0.3em] transition-all shadow-xl active:scale-[0.98]"
+            className="w-full max-w-md py-5 bg-slate-700 hover:bg-slate-600 text-white rounded-[2rem] font-black uppercase text-xs tracking-[0.3em] transition-all shadow-xl active:scale-[0.98] border-2 border-slate-600"
           >
             ZAVRIEŤ OKNO
           </button>
