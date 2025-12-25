@@ -14,6 +14,7 @@ interface AnalyticsTabProps {
 }
 
 type FilterMode = 'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH';
+type ShiftFilter = 'ALL' | 'MORNING' | 'AFTERNOON';
 
 const DownloadIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -23,6 +24,7 @@ const DownloadIcon: React.FC<{ className?: string }> = ({ className }) => (
 
 const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchArchivedTasks, systemBreaks, resolveName }) => {
   const [filterMode, setFilterMode] = useState<FilterMode>('TODAY');
+  const [shiftFilter, setShiftFilter] = useState<ShiftFilter>('ALL');
   
   // Stavy pre archívny export (skrytý report pre Admina)
   const [archiveExportStart, setArchiveExportStart] = useState('');
@@ -135,23 +137,43 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
         const taskDate = new Date(task.createdAt);
         const taskDayStart = new Date(taskDate.getFullYear(), taskDate.getMonth(), taskDate.getDate());
 
+        // 1. Časové filtrovanie (Dnes, Týždeň...)
+        let passesTimeFilter = false;
         switch(filterMode) {
             case 'TODAY':
-                return taskDayStart.getTime() === todayStart.getTime();
+                passesTimeFilter = taskDayStart.getTime() === todayStart.getTime();
+                break;
             case 'YESTERDAY':
                 const yesterdayStart = new Date(todayStart);
                 yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-                return taskDayStart.getTime() === yesterdayStart.getTime();
+                passesTimeFilter = taskDayStart.getTime() === yesterdayStart.getTime();
+                break;
             case 'WEEK':
                 const weekAgo = todayStart.getTime() - (7 * 86400000);
-                return taskDate.getTime() >= weekAgo;
+                passesTimeFilter = taskDate.getTime() >= weekAgo;
+                break;
             case 'MONTH':
-                return taskDate.getMonth() === now.getMonth() && taskDate.getFullYear() === now.getFullYear();
+                passesTimeFilter = taskDate.getMonth() === now.getMonth() && taskDate.getFullYear() === now.getFullYear();
+                break;
             default:
-                return true;
+                passesTimeFilter = true;
         }
+
+        if (!passesTimeFilter) return false;
+
+        // 2. Filtrovanie zmien (Morning/Afternoon)
+        if (shiftFilter === 'ALL') return true;
+
+        const hours = taskDate.getHours();
+        if (shiftFilter === 'MORNING') {
+            return hours >= 4 && hours < 14; // 04:00 - 13:59
+        } else if (shiftFilter === 'AFTERNOON') {
+            return hours >= 14 && hours < 24; // 14:00 - 23:59
+        }
+
+        return true;
     });
-  }, [tasks, filterMode]);
+  }, [tasks, filterMode, shiftFilter]);
 
   // Formátovacie helpery
   const formatDate = (ts?: number) => {
@@ -472,11 +494,42 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
         )}
 
         {/* ANALYTIKA (VIZUÁLNE FILTRE) */}
-        <div className="bg-gray-800/40 p-5 rounded-2xl shadow-md border border-gray-700 flex flex-col lg:flex-row items-center justify-between gap-6">
-            <div className="flex flex-wrap gap-2 justify-center">
-                {(['TODAY', 'YESTERDAY', 'WEEK', 'MONTH'] as FilterMode[]).map(mode => (
-                    <button key={mode} onClick={() => setFilterMode(mode)} className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${filterMode === mode ? 'bg-teal-600 text-white shadow-lg' : 'bg-slate-800/50 text-gray-400 hover:text-white'}`}>{t(`filter_${mode.toLowerCase()}` as any)}</button>
-                ))}
+        <div className="bg-gray-800/40 p-4 rounded-2xl shadow-md border border-gray-700 flex flex-col gap-6">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
+                {/* ČASOVÝ FILTER */}
+                <div className="flex flex-wrap gap-2 justify-center">
+                    {(['TODAY', 'YESTERDAY', 'WEEK', 'MONTH'] as FilterMode[]).map(mode => (
+                        <button 
+                            key={mode} 
+                            onClick={() => setFilterMode(mode)} 
+                            className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${filterMode === mode ? 'bg-teal-600 text-white shadow-lg' : 'bg-slate-800/50 text-gray-400 hover:text-white'}`}
+                        >
+                            {t(`filter_${mode.toLowerCase()}` as any)}
+                        </button>
+                    ))}
+                </div>
+
+                {/* PREPÍNAČ ZMIEN (SEGMENTED SWITCH) */}
+                <div className="bg-slate-900/80 p-1.5 rounded-2xl flex border border-slate-700 shadow-inner h-14 min-w-[300px]">
+                    <button 
+                        onClick={() => setShiftFilter('ALL')} 
+                        className={`flex-1 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-200 ${shiftFilter === 'ALL' ? 'bg-teal-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
+                    >
+                        {language === 'sk' ? 'Všetky' : 'All'}
+                    </button>
+                    <button 
+                        onClick={() => setShiftFilter('MORNING')} 
+                        className={`flex-1 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-200 ${shiftFilter === 'MORNING' ? 'bg-teal-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
+                    >
+                        {language === 'sk' ? 'Ranná' : 'Morning'}
+                    </button>
+                    <button 
+                        onClick={() => setShiftFilter('AFTERNOON')} 
+                        className={`flex-1 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-200 ${shiftFilter === 'AFTERNOON' ? 'bg-teal-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
+                    >
+                        {language === 'sk' ? 'Poobedná' : 'Afternoon'}
+                    </button>
+                </div>
             </div>
         </div>
 
