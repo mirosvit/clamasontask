@@ -151,6 +151,25 @@ export interface SystemConfig {
     ipCheckEnabled: boolean;
 }
 
+// ROZŠÍRENÉ POMOCNÉ FUNKCIE PRE BEZPEČNÉ KĽÚČE (Firebase Dot/Slash Safety)
+const escapeKey = (key: string) => {
+  if (!key) return key;
+  return key
+    .replace(/\//g, '__SL__')  // Lomka
+    .replace(/\./g, '__DT__')  // Bodka
+    .replace(/-/g, '__DS__')   // Pomlčka
+    .replace(/_/g, '__US__');  // Podčiarkovník
+};
+
+const unescapeKey = (key: string) => {
+  if (!key) return key;
+  return key
+    .replace(/__SL__/g, '/')
+    .replace(/__DT__/g, '.')
+    .replace(/__DS__/g, '-')
+    .replace(/__US__/g, '_');
+};
+
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<string>('');
@@ -158,7 +177,6 @@ const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
   
-  // Kyblíky (Mapy)
   const [partsMap, setPartsMap] = useState<Record<string, string>>({});
   const [bomMap, setBomMap] = useState<Record<string, BOMComponent[]>>({});
   
@@ -251,18 +269,11 @@ const App: React.FC = () => {
       }
   }, [systemConfig, isAuthenticated, currentUserRole]);
 
-  // NAČÍTANIE ÚLOH (Iba tie, ktoré nie sú v archíve)
   useEffect(() => {
     if (!isAuthenticated) return;
-
-    const q = query(
-        collection(db, 'tasks'), 
-        limit(500)
-    ); 
-
+    const q = query(collection(db, 'tasks'), limit(500)); 
     return onSnapshot(q, (snapshot) => {
       const newTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
-      
       if (!isFirstLoad.current) {
           snapshot.docChanges().forEach((change) => {
               if (change.type === 'added') {
@@ -279,7 +290,6 @@ const App: React.FC = () => {
           });
       }
       isFirstLoad.current = false;
-
       const priorityOrder: Record<string, number> = { 'URGENT': 0, 'NORMAL': 1, 'LOW': 2 };
       const sortedTasks = newTasks.sort((a, b) => {
         if (a.isDone !== b.isDone) return a.isDone ? 1 : -1;
@@ -304,19 +314,38 @@ const App: React.FC = () => {
       const unsubUsers = onSnapshot(collection(db, 'users'), s => setUsers(s.docs.map(d => ({id:d.id, ...d.data()} as UserData))));
       const unsubRoles = onSnapshot(collection(db, 'roles'), s => setRoles(s.docs.map(d => ({id:d.id, ...d.data()} as Role))));
       const unsubPerms = onSnapshot(collection(db, 'permissions'), s => setPermissions(s.docs.map(d => ({id:d.id, ...d.data()} as Permission))));
-      
       return () => { unsubUsers(); unsubRoles(); unsubPerms(); };
   }, []);
 
-  // NAČÍTANIE KYBLÍKOV
+  // NAČÍTANIE KYBLÍKOV S UNESCAPE (Vrátane bodiek a pomlčiek)
   useEffect(() => {
     const unsubParts = onSnapshot(doc(db, 'settings', 'parts'), (s) => {
-      if (s.exists()) setPartsMap(s.data() as Record<string, string>);
-      else setDoc(doc(db, 'settings', 'parts'), {});
+      if (s.exists()) {
+          const rawData = s.data();
+          const unescaped: Record<string, string> = {};
+          Object.keys(rawData).forEach(key => {
+              unescaped[unescapeKey(key)] = rawData[key];
+          });
+          setPartsMap(unescaped);
+      } else {
+          setDoc(doc(db, 'settings', 'parts'), {});
+      }
     });
     const unsubBOM = onSnapshot(doc(db, 'settings', 'bom'), (s) => {
-      if (s.exists()) setBomMap(s.data() as Record<string, BOMComponent[]>);
-      else setDoc(doc(db, 'settings', 'bom'), {});
+      if (s.exists()) {
+          const rawData = s.data() as Record<string, BOMComponent[]>;
+          const unescaped: Record<string, BOMComponent[]> = {};
+          Object.keys(rawData).forEach(parentKey => {
+              const comps = rawData[parentKey].map(c => ({
+                  ...c,
+                  child: unescapeKey(c.child)
+              }));
+              unescaped[unescapeKey(parentKey)] = comps;
+          });
+          setBomMap(unescaped);
+      } else {
+          setDoc(doc(db, 'settings', 'bom'), {});
+      }
     });
     return () => { unsubParts(); unsubBOM(); };
   }, []);
@@ -364,50 +393,56 @@ const App: React.FC = () => {
   const handleUpdateUserRole = async (u: string, r: any) => { const user = users.find(us => us.username === u); if(user) { await updateDoc(doc(db,'users', user.id!), {role: r}); } };
   const handleDeleteUser = async (u: string) => { const user = users.find(us => us.username === u); if(user) { await deleteDoc(doc(db,'users', user.id!)); } };
   
-  // LOGIKA KYBLÍKOV - DIELY
+  // LOGIKA KYBLÍKOV - DIELY (S ROZŠÍRENÝM ESCAPE)
   const handleAddPart = async (v: string, desc?: string) => { 
-    await updateDoc(doc(db, 'settings', 'parts'), { [v]: desc || '' }); 
+    await updateDoc(doc(db, 'settings', 'parts'), { [escapeKey(v)]: desc || '' }); 
   };
   const handleBatchAddParts = async (vs: string[]) => { 
     const updates: Record<string, string> = {};
     vs.forEach(line => {
       const [val, desc] = line.split(';');
-      if (val) updates[val.trim()] = desc ? desc.trim() : '';
+      if (val) updates[escapeKey(val.trim())] = desc ? desc.trim() : '';
     });
     await updateDoc(doc(db, 'settings', 'parts'), updates);
   };
   const handleDeletePart = async (partValue: string) => { 
-    await updateDoc(doc(db, 'settings', 'parts'), { [partValue]: deleteField() }); 
+    await updateDoc(doc(db, 'settings', 'parts'), { [escapeKey(partValue)]: deleteField() }); 
   };
   const handleDeleteAllParts = async () => { 
     await setDoc(doc(db, 'settings', 'parts'), {}); 
   };
 
-  // LOGIKA KYBLÍKOV - BOM (Presnosť 5 desatinných miest)
+  // LOGIKA KYBLÍKOV - BOM (S ROZŠÍRENÝM ESCAPE)
   const handleAddBOMItem = async (p: string, c: string, q: number) => { 
     const current = bomMap[p] || [];
     const sanitizedQty = Number(q.toFixed(5));
-    const updated = [...current.filter(item => item.child !== c), { child: c, consumption: sanitizedQty }];
-    await updateDoc(doc(db, 'settings', 'bom'), { [p]: updated });
+    const updated = [...current.filter(item => item.child !== c), { child: escapeKey(c), consumption: sanitizedQty }];
+    await updateDoc(doc(db, 'settings', 'bom'), { [escapeKey(p)]: updated });
   };
   const handleBatchAddBOMItems = async (vs: string[]) => { 
-    const updates: Record<string, BOMComponent[]> = { ...bomMap };
+    const updates: Record<string, BOMComponent[]> = {};
     vs.forEach(l => {
       const [p, c, q] = l.split(';');
       if (p && c && q) {
-        const parent = p.trim();
-        if (!updates[parent]) updates[parent] = [];
+        const parentEsc = escapeKey(p.trim());
+        const childEsc = escapeKey(c.trim());
         const sanitizedQty = Number(parseFloat(q.trim().replace(',', '.')).toFixed(5));
-        updates[parent] = [...updates[parent].filter(x => x.child !== c.trim()), { child: c.trim(), consumption: sanitizedQty }];
+        
+        if (!updates[parentEsc]) updates[parentEsc] = [];
+        updates[parentEsc] = [...updates[parentEsc].filter(x => x.child !== childEsc), { child: childEsc, consumption: sanitizedQty }];
       }
     });
-    await setDoc(doc(db, 'settings', 'bom'), updates);
+    const docRef = doc(db, 'settings', 'bom');
+    const docSnap = await getDocs(query(collection(db, 'settings'), where('__name__', '==', 'bom')));
+    const existing = docSnap.docs[0]?.data() || {};
+    await setDoc(docRef, { ...existing, ...updates });
   };
   const handleDeleteBOMItem = async (parent: string, child: string) => { 
     const current = bomMap[parent] || [];
-    const updated = current.filter(item => item.child !== child);
-    if (updated.length === 0) await updateDoc(doc(db, 'settings', 'bom'), { [parent]: deleteField() });
-    else await updateDoc(doc(db, 'settings', 'bom'), { [parent]: updated });
+    const updated = current.filter(item => item.child !== child)
+                           .map(item => ({ ...item, child: escapeKey(item.child) }));
+    if (updated.length === 0) await updateDoc(doc(db, 'settings', 'bom'), { [escapeKey(parent)]: deleteField() });
+    else await updateDoc(doc(db, 'settings', 'bom'), { [escapeKey(parent)]: updated });
   };
   const handleDeleteAllBOMItems = async () => { 
     await setDoc(doc(db, 'settings', 'bom'), {}); 
@@ -440,7 +475,6 @@ const App: React.FC = () => {
     let fQty = qty || ''; if(unit==='boxes') fQty=`${qty} box`; if(unit==='pallet') fQty=`${qty} pal`;
     let text = `${formattedDate} / ${pn}`; if (wp) text += ` / ${wp}`; if (fQty) text += ` / Počet: ${fQty}`;
     if (note) text += ` / Pozn: ${note}`;
-
     let finalStandardTime = 0;
     if (!isLogistics) {
         const wpObj = workplaces.find(w => w.value === wp);
@@ -511,11 +545,9 @@ const App: React.FC = () => {
           await updateDoc(doc(db, 'tasks', id), { isManualBlocked: newState, createdAt: !newState ? Date.now() : t.createdAt, isInProgress: false, inProgressBy: null });
       }
   };
-
   const handleExhaustSearch = async (id: string) => {
       await updateDoc(doc(db, 'tasks', id), { searchExhausted: true, isBlocked: false, blockedBy: null });
   };
-
   const handleStartAudit = async (id: string) => { await updateDoc(doc(db, 'tasks', id), { isAuditInProgress: true, auditBy: currentUser }); };
   const handleFinishAudit = async (id: string, result: 'found' | 'missing', note: string) => {
       const t = tasks.find(x => x.id === id);
@@ -531,7 +563,6 @@ const App: React.FC = () => {
           auditBy: null, 
           auditFinalBadge: badgeText 
       };
-      
       if (result === 'found') {
           await updateDoc(doc(db, 'tasks', id), { ...auditData, isMissing: false });
       } else {
@@ -549,12 +580,10 @@ const App: React.FC = () => {
       }
   };
   
-  // LOGIKA UZÁVIEROK
   const handleDailyClosing = async () => {
       const q = query(collection(db, 'tasks'), where('isDone', '==', true));
       const s = await getDocs(q);
       if (s.empty) return { success: true, count: 0 };
-      
       const batch = writeBatch(db);
       s.docs.forEach(d => {
           batch.set(doc(collection(db, 'archive_drafts')), { ...d.data(), archivedAt: Date.now() });
@@ -563,18 +592,15 @@ const App: React.FC = () => {
       await batch.commit();
       return { success: true, count: s.size };
   };
-
   const handleWeeklyClosing = async () => {
       const s = await getDocs(collection(db, 'archive_drafts'));
       if (s.empty) return { success: true, count: 0 };
-
       const now = new Date();
       const year = now.getFullYear();
       const firstDayOfYear = new Date(year, 0, 1);
       const pastDaysOfYear = (now.getTime() - firstDayOfYear.getTime()) / 86400000;
       const weekNum = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
       const sanonName = `sanon_${year}_${weekNum}`;
-
       const batch = writeBatch(db);
       s.docs.forEach(d => {
           batch.set(doc(collection(db, sanonName)), d.data());
@@ -583,21 +609,13 @@ const App: React.FC = () => {
       await batch.commit();
       return { success: true, count: s.size, sanon: sanonName };
   };
-
-  const handleArchiveTasks = async () => {
-      // Pôvodná funkcia upravená na Daily Closing
-      return await handleDailyClosing();
-  };
-
+  const handleArchiveTasks = async () => { return await handleDailyClosing(); };
   const fetchArchivedTasks = async () => (await getDocs(query(collection(db,'archive_drafts'), limit(500)))).docs.map(d=>({id:d.id, ...d.data()} as Task));
-  
   const handleUpdateSystemConfig = async (newConfig: Partial<SystemConfig>) => { const configRef = doc(db, 'system_data', 'config'); await setDoc(configRef, newConfig, { merge: true }); };
-
   const handleGetDocCount = useCallback(async () => {
       const snap = await getCountFromServer(collection(db, 'tasks'));
       return snap.data().count;
   }, []);
-
   const handlePurgeOldTasks = useCallback(async () => {
       const ninetyDaysAgo = Date.now() - (90 * 24 * 60 * 60 * 1000);
       const q = query(collection(db, 'tasks'), where('createdAt', '<', ninetyDaysAgo), limit(500));
@@ -608,7 +626,6 @@ const App: React.FC = () => {
       await batch.commit();
       return snap.size;
   }, []);
-
   const handleExportTasksJSON = useCallback(async () => {
       const snap = await getDocs(query(collection(db, 'tasks'), limit(1000)));
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
