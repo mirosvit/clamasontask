@@ -161,6 +161,22 @@ const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, o
                   {systemConfig.maintenanceMode ? 'DEAKTIVOVAŤ' : 'AKTIVOVAŤ SERVISNÝ MÓD'}
                 </button>
               </div>
+
+              <div className="bg-slate-950/40 p-8 rounded-3xl border border-white/5 space-y-4 shadow-inner">
+                <div className="flex justify-between items-center">
+                  <h4 className="text-base font-black text-white uppercase tracking-widest">FIREBASE KONZOLA</h4>
+                </div>
+                <p className="text-xs text-slate-500 font-medium">Priamy prístup k archívu úloh v cloudovej databáze.</p>
+                <a 
+                  href="https://console.firebase.google.com/u/0/project/sklad-ulohy/firestore/databases/-default-/data/~2Farchived_tasks~2F01dqr7FtSKYS40pYag2z"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full h-12 flex items-center justify-center gap-3 bg-slate-900 px-5 rounded-xl border border-white/5 text-xs font-mono font-bold text-orange-400 hover:bg-slate-800 transition-all shadow-md group"
+                >
+                  <span>OPEN FIRESTORE DB</span>
+                  <Icons.External />
+                </a>
+              </div>
             </div>
             <div className="bg-slate-950/40 p-8 rounded-3xl border border-white/5 space-y-8 shadow-inner flex flex-col">
               <div className="flex justify-between items-center">
