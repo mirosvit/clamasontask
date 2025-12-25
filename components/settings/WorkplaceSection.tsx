@@ -7,15 +7,17 @@ interface WorkplaceSectionProps {
   workplaces: DBItem[];
   logisticsOperations: DBItem[];
   onAddWorkplace: (val: string, time?: number) => void;
+  onUpdateWorkplace: (id: string, newTime: number) => void;
   onBatchAddWorkplaces: (vals: string[]) => void;
   onDeleteWorkplace: (id: string) => void;
   onDeleteAllWorkplaces: () => void;
   onAddLogisticsOperation: (val: string, time?: number) => void;
+  onUpdateLogisticsOperation: (id: string, newTime: number) => void;
   onDeleteLogisticsOperation: (id: string) => void;
 }
 
 const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({ 
-  workplaces, logisticsOperations, onAddWorkplace, onBatchAddWorkplaces, onDeleteWorkplace, onDeleteAllWorkplaces, onAddLogisticsOperation, onDeleteLogisticsOperation 
+  workplaces, logisticsOperations, onAddWorkplace, onUpdateWorkplace, onBatchAddWorkplaces, onDeleteWorkplace, onDeleteAllWorkplaces, onAddLogisticsOperation, onUpdateLogisticsOperation, onDeleteLogisticsOperation 
 }) => {
   const { t } = useLanguage();
   const [newWorkplace, setNewWorkplace] = useState('');
@@ -34,6 +36,7 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({
   const cardClass = "bg-gray-800/40 border border-slate-700/50 rounded-2xl p-6 shadow-2xl backdrop-blur-sm";
   const inputClass = "w-full h-12 bg-slate-800/80 border border-slate-700 rounded-xl px-4 text-white text-base focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono placeholder-gray-500 uppercase";
   const labelClass = "block text-xs font-black text-slate-500 uppercase tracking-[0.2em] mb-3";
+  const inlineInputClass = "bg-transparent border-b border-slate-700 w-12 text-center text-teal-400 focus:border-teal-500 outline-none font-mono text-sm";
 
   return (
     <div className="space-y-8">
@@ -47,7 +50,16 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-h-[350px] overflow-y-auto custom-scrollbar">
             {filteredWPs.map(w => (
               <div key={w.id} className="bg-slate-950/40 h-12 px-4 rounded-xl border border-white/5 flex justify-between items-center text-xs font-mono group hover:bg-slate-900 transition-colors">
-                <span className="text-slate-300 truncate">{w.value} <span className="text-slate-600 text-[10px]">({w.standardTime}m)</span></span>
+                <span className="text-slate-300 truncate max-w-[120px]">{w.value}</span>
+                <div className="flex items-center gap-1">
+                  <input 
+                    type="number" 
+                    value={w.standardTime || 0} 
+                    onChange={(e) => onUpdateWorkplace(w.id, parseInt(e.target.value) || 0)}
+                    className={inlineInputClass}
+                  />
+                  <span className="text-slate-600 text-[10px]">m</span>
+                </div>
                 <button onClick={() => onDeleteWorkplace(w.id)} className="opacity-0 group-hover:opacity-100 text-red-500 font-black px-2 text-lg">×</button>
               </div>
             ))}
@@ -74,8 +86,19 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({
           <div className="flex-1 overflow-y-auto max-h-80 bg-slate-950/40 rounded-3xl p-6 space-y-3 border border-white/5 shadow-inner">
             {logisticsOperations.map(op => (
               <div key={op.id} className="flex justify-between items-center bg-slate-800/50 h-12 px-5 rounded-xl border border-white/5 group transition-colors hover:bg-slate-700/50">
-                <span className="text-sm font-bold text-slate-300 uppercase tracking-widest truncate">{op.value} <span className="text-slate-600 ml-3 text-[10px]">({op.standardTime}m)</span></span>
-                <button onClick={() => onDeleteLogisticsOperation(op.id)} className="text-slate-600 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100 font-black px-2 text-lg">×</button>
+                <span className="text-sm font-bold text-slate-300 uppercase tracking-widest truncate max-w-[200px]">{op.value}</span>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1">
+                    <input 
+                      type="number" 
+                      value={op.standardTime || 0} 
+                      onChange={(e) => onUpdateLogisticsOperation(op.id, parseInt(e.target.value) || 0)}
+                      className={inlineInputClass}
+                    />
+                    <span className="text-slate-600 text-[10px]">m</span>
+                  </div>
+                  <button onClick={() => onDeleteLogisticsOperation(op.id)} className="text-slate-600 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100 font-black px-2 text-lg">×</button>
+                </div>
               </div>
             ))}
           </div>

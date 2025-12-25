@@ -287,7 +287,6 @@ const App: React.FC = () => {
         const bManBlocked = b.isManualBlocked ? 1 : 0;
         if (aManBlocked !== bManBlocked) return aManBlocked - bManBlocked;
         const pA = priorityOrder[a.priority || 'NORMAL'];
-        // Fix: Use b.priority instead of pB to avoid using the variable before its declaration
         const pB = priorityOrder[b.priority || 'NORMAL'];
         if (pA !== pB) return pA - pB;
         return (a.createdAt || 0) - (b.createdAt || 0); 
@@ -410,8 +409,6 @@ const App: React.FC = () => {
     const updatedMap = { ...bomMap };
     const current = updatedMap[p] || [];
     updatedMap[p] = [...current.filter(item => item.child !== c), { child: c, consumption: Number(q.toFixed(5)) }];
-    
-    // Sploštenie mapy na pole pre Firestore
     const dataArray: any[] = [];
     Object.entries(updatedMap).forEach(([parent, components]) => {
         components.forEach(comp => {
@@ -458,12 +455,14 @@ const App: React.FC = () => {
   };
 
   const handleAddWorkplace = async (v: string, t?: number) => { await addDoc(collection(db, 'workplaces'), {value:v, standardTime:t||0}); };
+  const handleUpdateWorkplace = async (id: string, t: number) => { await updateDoc(doc(db, 'workplaces', id), { standardTime: t }); };
   const handleBatchAddWorkplaces = async (vs: string[]) => { const b=writeBatch(db); vs.forEach(l=>{const [v,t]=l.split(';'); if(v) b.set(doc(collection(db,'workplaces')), {value:v.trim(), standardTime: parseInt(t)||0})}); await b.commit(); };
   const handleDeleteWorkplace = async (id: string) => { await deleteDoc(doc(db,'workplaces',id)); };
   const handleDeleteAllWorkplaces = async () => { const s=await getDocs(collection(db,'workplaces')); const b=writeBatch(db); s.forEach(d=>b.delete(d.ref)); await b.commit(); };
   const handleAddMissingReason = async (v: string) => { await addDoc(collection(db,'missing_reasons'), {value:v}); };
   const handleDeleteMissingReason = async (id: string) => { await deleteDoc(doc(db,'missing_reasons',id)); };
   const handleAddLogisticsOperation = async (v: string, t?: number) => { await addDoc(collection(db,'logistics_operations'), {value:v, standardTime: t || 0}); };
+  const handleUpdateLogisticsOperation = async (id: string, t: number) => { await updateDoc(doc(db, 'logistics_operations', id), { standardTime: t }); };
   const handleDeleteLogisticsOperation = async (id: string) => { await deleteDoc(doc(db,'logistics_operations',id)); };
   const handleDeleteMissingItem = (id: string) => deleteDoc(doc(db,'tasks',id));
   const handleAddBreakSchedule = async (s:string, e:string) => { await addDoc(collection(db,'break_schedules'), {start:s, end:e}); };
@@ -480,7 +479,6 @@ const App: React.FC = () => {
   const handleRejectPartRequest = (id: string) => deleteDoc(doc(db,'part_requests',id));
 
   const handleAddTask = async (pn: string, wp: string | null, qty: string | null, unit: string | null, prio: PriorityLevel, isLogistics: boolean = false, note?: string) => {
-    // LOGIKA ZAMYKANIA JEDNOTIEK (UNIT LOCK) PODĽA POPISU
     let finalUnit = unit;
     const description = partsMap[pn];
     if (description) {
@@ -488,17 +486,14 @@ const App: React.FC = () => {
         else if (description.includes('S0002S')) finalUnit = 'boxes';
         else if (description.includes('S0003S')) finalUnit = 'pallet';
     }
-
     const formattedDate = new Date().toLocaleString('sk-SK');
     let fQty = qty || ''; 
     if(finalUnit === 'boxes') fQty = `${qty} box`; 
     if(finalUnit === 'pallet') fQty = `${qty} pal`;
-    
     let text = `${formattedDate} / ${pn}`; 
     if (wp) text += ` / ${wp}`; 
     if (fQty) text += ` / Počet: ${fQty}`;
     if (note) text += ` / Pozn: ${note}`;
-
     let finalStandardTime = 0;
     if (!isLogistics) {
         const wpObj = workplaces.find(w => w.value === wp);
@@ -534,7 +529,6 @@ const App: React.FC = () => {
   const handleReleaseTask = (id:string) => updateDoc(doc(db,'tasks',id), {isInProgress:false, inProgressBy:null});
   const handleEditTask = (id:string, txt:string, prio?:PriorityLevel) => updateDoc(doc(db,'tasks',id), {text:txt, priority:prio});
   const handleDeleteTask = (id:string) => deleteDoc(doc(db,'tasks',id));
-  
   const handleToggleMissing = async (id:string, reason?:string) => { 
       const t=tasks.find(x=>x.id===id); 
       if(t) {
@@ -563,7 +557,6 @@ const App: React.FC = () => {
           }
       } 
   };
-  
   const handleClearNotification = (id: string) => deleteDoc(doc(db, 'notifications', id));
   const handleToggleBlock = async (id: string) => {
       const t=tasks.find(x=>x.id===id);
@@ -571,10 +564,8 @@ const App: React.FC = () => {
           const isBlocked = !t.isBlocked;
           const hist = t.inventoryHistory ? [...t.inventoryHistory] : [];
           if(isBlocked) hist.push({start:Date.now()}); else { const last=hist[hist.length-1]; if(last && !last.end) last.end=Date.now(); }
-          
           const u = users.find(x => x.username === currentUser);
           const nickname = u?.nickname || currentUser;
-
           updateDoc(doc(db,'tasks',id), { 
               isBlocked, 
               blockedBy: isBlocked ? currentUser : null, 
@@ -593,23 +584,18 @@ const App: React.FC = () => {
   const handleExhaustSearch = async (id: string) => {
       await updateDoc(doc(db, 'tasks', id), { searchExhausted: true, isBlocked: false, blockedBy: null });
   };
-  
   const handleStartAudit = async (id: string) => { 
       const u = users.find(x => x.username === currentUser);
       const name = (u?.nickname || currentUser);
       await updateDoc(doc(db, 'tasks', id), { isAuditInProgress: true, auditBy: name }); 
   };
-
   const handleFinishAudit = async (id: string, result: 'found' | 'missing', note: string) => {
       const t = tasks.find(x => x.id === id);
       if (!t) return;
-      
       const u = users.find(x => x.username === currentUser);
       const displayName = (u?.nickname || currentUser).toUpperCase();
-      
       const statusLabel = result === 'found' ? 'OK' : 'CHÝBA';
       const badgeText = `AUDIT ${statusLabel}: ${note} (${displayName})`;
-      
       const auditData = { 
           auditedBy: currentUser, 
           auditedAt: Date.now(), 
@@ -635,7 +621,6 @@ const App: React.FC = () => {
           await addDoc(collection(db, 'notifications'), { partNumber: t.partNumber || 'N/A', reason: `AUDIT DOKONČENÝ (${statusLabel}): ${note}`, reportedBy: currentUser, targetUser: t.createdBy, timestamp: Date.now() });
       }
   };
-  
   const handleDailyClosing = async () => {
       const q = query(collection(db, 'tasks'), where('isDone', '==', true));
       const s = await getDocs(q);
@@ -692,7 +677,6 @@ const App: React.FC = () => {
       a.download = `backup_tasks_${new Date().toISOString().slice(0,10)}.json`;
       a.click();
   }, []);
-
   const partsArray = Object.entries(partsMap).map(([value, description]) => ({ id: value, value, description }));
 
   return (
@@ -711,9 +695,9 @@ const App: React.FC = () => {
           users={users} onAddUser={handleAddUser} onUpdatePassword={handleUpdatePassword} onUpdateNickname={handleUpdateNickname} onUpdateExportPermission={handleUpdateExportPermission} onUpdateUserRole={handleUpdateUserRole} onDeleteUser={handleDeleteUser}
           parts={partsArray} workplaces={workplaces} missingReasons={missingReasons} logisticsOperations={logisticsOperations}
           onAddPart={handleAddPart} onBatchAddParts={handleBatchAddParts} onDeletePart={handleDeletePart} onDeleteAllParts={handleDeleteAllParts}
-          onAddWorkplace={handleAddWorkplace} onBatchAddWorkplaces={handleBatchAddWorkplaces} onDeleteWorkplace={handleDeleteWorkplace} onDeleteAllWorkplaces={handleDeleteAllWorkplaces}
+          onAddWorkplace={handleAddWorkplace} onUpdateWorkplace={handleUpdateWorkplace} onBatchAddWorkplaces={handleBatchAddWorkplaces} onDeleteWorkplace={handleDeleteWorkplace} onDeleteAllWorkplaces={handleDeleteAllWorkplaces}
           onAddMissingReason={handleAddMissingReason} onDeleteMissingReason={handleDeleteMissingReason}
-          onAddLogisticsOperation={handleAddLogisticsOperation} onDeleteLogisticsOperation={handleDeleteLogisticsOperation}
+          onAddLogisticsOperation={handleAddLogisticsOperation} onUpdateLogisticsOperation={handleUpdateLogisticsOperation} onDeleteLogisticsOperation={handleDeleteLogisticsOperation}
           partRequests={partRequests} onRequestPart={handleRequestNewPart} onApprovePartRequest={handleApprovePartRequest} onRejectPartRequest={handleRejectPartRequest}
           onArchiveTasks={handleArchiveTasks} 
           onDailyClosing={handleDailyClosing}

@@ -29,6 +29,7 @@ interface SettingsTabProps {
   onDeletePart: (id: string) => void;
   onDeleteAllParts: () => void;
   onAddWorkplace: (val: string, time?: number) => void;
+  onUpdateWorkplace: (id: string, time: number) => void;
   onBatchAddWorkplaces: (vals: string[]) => void;
   onDeleteWorkplace: (id: string) => void;
   onDeleteAllWorkplaces: () => void;
@@ -36,6 +37,7 @@ interface SettingsTabProps {
   onDeleteMissingReason: (id: string) => void;
   logisticsOperations?: DBItem[];
   onAddLogisticsOperation?: (val: string, time?: number) => void;
+  onUpdateLogisticsOperation?: (id: string, time: number) => void;
   onDeleteLogisticsOperation?: (id: string) => void;
   partRequests: PartRequest[];
   onApprovePartRequest: (req: PartRequest) => void;
@@ -187,10 +189,12 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             workplaces={props.workplaces} 
             logisticsOperations={props.logisticsOperations || []}
             onAddWorkplace={props.onAddWorkplace}
+            onUpdateWorkplace={props.onUpdateWorkplace}
             onBatchAddWorkplaces={props.onBatchAddWorkplaces}
             onDeleteWorkplace={props.onDeleteWorkplace}
             onDeleteAllWorkplaces={props.onDeleteAllWorkplaces}
             onAddLogisticsOperation={props.onAddLogisticsOperation || (() => {})}
+            onUpdateLogisticsOperation={props.onUpdateLogisticsOperation || (() => {})}
             onDeleteLogisticsOperation={props.onDeleteLogisticsOperation || (() => {})}
           />
         )}
