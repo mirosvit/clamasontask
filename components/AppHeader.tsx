@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserData } from '../App';
 
 interface AppHeaderProps {
@@ -46,6 +46,19 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   currentUser, currentUserRole, onLogout, language, setLanguage, t,
   isFullscreen, onToggleFullscreen, installPrompt, onInstallApp, hasPermission, resolveName
 }) => {
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+    useEffect(() => {
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
+
     const handleLogoutWithCheck = () => {
         const savedScans = localStorage.getItem('inventory_scans');
         if (savedScans) {
@@ -66,10 +79,17 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     return (
         <div className="bg-gray-900 shadow-2xl z-40 p-3 border-b border-gray-800 relative">
             <div className="max-w-7xl mx-auto w-full flex items-center justify-between relative">
-                <div className="flex items-center z-10">
+                <div className="flex items-center gap-4 z-10">
                     <div className="flex bg-gray-800 rounded-lg p-1 border border-gray-700 shadow-inner">
                         <button onClick={() => setLanguage('sk')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all duration-200 ${language === 'sk' ? 'bg-teal-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>SK</button>
                         <button onClick={() => setLanguage('en')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all duration-200 ${language === 'en' ? 'bg-teal-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>EN</button>
+                    </div>
+                    {/* Network Status Badge */}
+                    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md border ${isOnline ? 'border-green-500/30 bg-green-500/10' : 'border-red-500/30 bg-red-500/10 animate-pulse'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`}></div>
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${isOnline ? 'text-green-500' : 'text-red-500'}`}>
+                            {isOnline ? 'ONLINE' : 'OFFLINE MODE'}
+                        </span>
                     </div>
                 </div>
                 <div className="flex items-center gap-3 z-10">

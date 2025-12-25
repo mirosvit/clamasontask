@@ -159,7 +159,15 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   
   const partNumbersList = useMemo(() => parts.map(p => p.value), [parts]);
 
-  const isDataLoading = parts.length === 0 || workplaces.length === 0;
+  // Vylepšená detekcia načítavania: Ak už máme aspoň nejaké diely/pracoviská v pamäti (z cache), neblokujeme UI.
+  const [hasInitialData, setHasInitialData] = useState(false);
+  useEffect(() => {
+    if (parts.length > 0 && workplaces.length > 0) {
+        setHasInitialData(true);
+    }
+  }, [parts.length, workplaces.length]);
+
+  const isDataLoading = !hasInitialData;
 
   const logisticsOperationsList = useMemo(() => {
       if (props.logisticsOperations && props.logisticsOperations.length > 0) {
@@ -289,7 +297,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
               <div className="text-center space-y-6">
                   <div className="inline-block w-14 h-14 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
                   <p className="text-teal-400 font-black animate-pulse uppercase tracking-[0.2em] text-base">Synchronizujem databázu dielov...</p>
-                  <p className="text-gray-600 text-sm">Toto môže chvíľu trvať pri prvom spustení.</p>
+                  <p className="text-gray-600 text-sm">Aplikácia bude fungovať aj v offline režime.</p>
               </div>
           </div>
       ) : (

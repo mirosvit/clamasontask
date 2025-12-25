@@ -1,6 +1,6 @@
 
 import { initializeApp } from "firebase/app";
-import { getFirestore, enableMultiTabIndexedDbPersistence } from "firebase/firestore";
+import { initializeFirestore, enableMultiTabIndexedDbPersistence } from "firebase/firestore";
 
 // Your web app's Firebase configuration for sklad-ulohy
 const firebaseConfig = {
@@ -15,16 +15,17 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Export the database for use in the application
-export const db = getFirestore(app);
+// Inicializácia Firestore s vynúteným Long Pollingom (rieši blokované WebSockety v továrňach)
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+  useFetchStreams: false
+});
 
-// Aktivácia lokálnej perzistencie dát (minimalizácia Reads)
+// Aktivácia lokálnej perzistencie dát (minimalizácia Reads a podpora offline režimu)
 enableMultiTabIndexedDbPersistence(db).catch((err) => {
     if (err.code === 'failed-precondition') {
-        // Viacero tabov otvorených naraz, perzistencia funguje len v jednom (pri starších verziách)
         console.warn('Firestore persistence failed: Multiple tabs open');
     } else if (err.code === 'unimplemented') {
-        // Prehliadač nepodporuje IndexedDB
         console.warn('Firestore persistence is not available in this browser');
     }
 });
