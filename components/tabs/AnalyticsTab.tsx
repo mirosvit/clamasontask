@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { db } from '../../firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { Task, SystemBreak } from '../../App';
 import { useLanguage } from '../LanguageContext';
 
@@ -13,7 +13,7 @@ interface AnalyticsTabProps {
   resolveName: (username?: string | null) => string;
 }
 
-type FilterMode = 'ALL' | 'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH' | 'CUSTOM';
+type FilterMode = 'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH';
 
 const DownloadIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -22,22 +22,21 @@ const DownloadIcon: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchArchivedTasks, systemBreaks, resolveName }) => {
-  const [filterMode, setFilterMode] = useState<FilterMode>('ALL');
-  const [customStart, setCustomStart] = useState('');
-  const [customEnd, setCustomEnd] = useState('');
+  const [filterMode, setFilterMode] = useState<FilterMode>('TODAY');
   
-  // Stavy pre archívny export
+  // Stavy pre archívny export (skrytý report pre Admina)
   const [archiveExportStart, setArchiveExportStart] = useState('');
   const [archiveExportEnd, setArchiveExportEnd] = useState('');
   const [isExportingArchive, setIsExportingArchive] = useState(false);
   const [exportProgress, setExportProgress] = useState('');
   
-  // Prísne oprávnenie na export (skryté predvolene)
+  // Prísne oprávnenie na export
   const [canExport, setCanExport] = useState(false);
 
-  const [includeArchive, setIncludeArchive] = useState(false);
+  // Cache pre archívne dáta
   const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
   const [isLoadingArchive, setIsLoadingArchive] = useState(false);
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
   const { t, language } = useLanguage();
 
   // Overenie oprávnenia canExportAnalytics priamo z profilu v DB
@@ -52,7 +51,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
             
             if (!querySnapshot.empty) {
                 const userData = querySnapshot.docs[0].data();
-                // Sekcia sa zobrazí IBA ak je v DB explicitne true
                 setCanExport(userData.canExportAnalytics === true);
             }
         } catch (error) {
@@ -63,27 +61,71 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
     checkExportPermission();
   }, []);
 
+  // Analytika teraz vždy spája live dáta s archívnou cache
   const tasks = useMemo(() => {
-      return includeArchive ? [...liveTasks, ...archivedTasks] : liveTasks;
-  }, [liveTasks, archivedTasks, includeArchive]);
+      return [...liveTasks, ...archivedTasks];
+  }, [liveTasks, archivedTasks]);
 
+  // AUTOMATICKÉ NAČÍTANIE ARCHÍVU S RATE LIMITEROM (5 MINÚT)
   useEffect(() => {
-      if (includeArchive && archivedTasks.length === 0) {
+      const FIVE_MINUTES = 5 * 60 * 1000;
+      const isStale = Date.now() - lastFetchTime > FIVE_MINUTES;
+
+      // Ak nemáme dáta alebo sú staré, na načítame relevantný rozsah (cca posledný mesiac)
+      if (archivedTasks.length === 0 || isStale) {
           const load = async () => {
               setIsLoadingArchive(true);
-              const data = await onFetchArchivedTasks();
-              setArchivedTasks(data);
-              setIsLoadingArchive(false);
+              try {
+                  const results: Task[] = [];
+                  const now = new Date();
+                  const currentYear = now.getFullYear();
+                  
+                  // 1. Načítanie z archive_drafts
+                  const draftsSnap = await getDocs(query(collection(db, 'archive_drafts'), limit(500)));
+                  draftsSnap.forEach(d => {
+                      results.push({ ...(d.data() as Task), id: d.id });
+                  });
+
+                  // 2. Načítanie týždenných šanónov pre aktuálny mesiac
+                  const getISOWeek = (date: Date) => {
+                      const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+                      const dayNum = d.getUTCDay() || 7;
+                      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+                      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+                      return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+                  };
+
+                  const currentWeek = getISOWeek(now);
+                  const monthAgo = new Date(now.getTime() - 31 * 24 * 60 * 60 * 1000);
+                  const startWeek = getISOWeek(monthAgo);
+                  
+                  const weekCollections = [];
+                  for (let w = startWeek; w <= currentWeek; w++) {
+                      weekCollections.push(`sanon_${currentYear}_${w}`);
+                  }
+
+                  for (const colName of [...new Set(weekCollections)]) {
+                      try {
+                          const s = await getDocs(collection(db, colName));
+                          s.forEach(d => {
+                              results.push({ ...(d.data() as Task), id: d.id });
+                          });
+                      } catch (e) { /* Kolekcia nemusí existovať */ }
+                  }
+
+                  setArchivedTasks(results);
+                  setLastFetchTime(Date.now());
+              } catch (err) {
+                  console.error("Archive auto-sync error:", err);
+              } finally {
+                  setIsLoadingArchive(false);
+              }
           };
           load();
-      } else if (!includeArchive && archivedTasks.length > 0) {
-        setArchivedTasks([]);
       }
-  }, [includeArchive, archivedTasks.length, onFetchArchivedTasks]);
+  }, [lastFetchTime, archivedTasks.length]);
 
   const filteredTasks = useMemo(() => {
-    if (filterMode === 'ALL') return tasks;
-
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
@@ -105,18 +147,13 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
                 return taskDate.getTime() >= weekAgo;
             case 'MONTH':
                 return taskDate.getMonth() === now.getMonth() && taskDate.getFullYear() === now.getFullYear();
-            case 'CUSTOM':
-                if (!customStart) return true;
-                const start = new Date(customStart).setHours(0,0,0,0);
-                const end = customEnd ? new Date(customEnd).setHours(23,59,59,999) : Infinity;
-                return taskDate.getTime() >= start && taskDate.getTime() <= end;
             default:
                 return true;
         }
     });
-  }, [tasks, filterMode, customStart, customEnd]);
+  }, [tasks, filterMode]);
 
-  // Formátovacie helpery (zdieľané s YearlyClosing)
+  // Formátovacie helpery
   const formatDate = (ts?: number) => {
     if (!ts) return '';
     const d = new Date(ts);
@@ -162,7 +199,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
               const breakStart = br.start;
               const breakEnd = br.end || endTime;
               const overlapStart = Math.max(startTime, breakStart);
-              // Fix: blockEnd replaced with breakEnd to fix 'Cannot find name blockEnd' error
               const overlapEnd = Math.min(endTime, breakEnd);
               if (overlapEnd > overlapStart) totalBlocked += (overlapEnd - overlapStart);
           });
@@ -262,7 +298,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
     };
   }, [filteredTasks, systemBreaks, resolveName]);
 
-  // UNIVERZÁLNA EXPORT LOGIKA (IDENTICKÁ S YEARLY CLOSING)
   const generateExcelFromTasks = (allTasks: any[], fileName: string) => {
       const excelData = allTasks.map(item => {
         let searchResult = '';
@@ -358,7 +393,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
                   const data = d.data() as Task;
                   const ts = data.createdAt || 0;
                   if (ts >= startDate && ts <= endDate) {
-                      // Fix: Safe push to avoid duplicate 'id' key if data already contains an id field
                       results.push({ ...data, id: d.id });
                   }
               });
@@ -384,15 +418,15 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
     <div className="max-w-6xl mx-auto space-y-6 pb-20 animate-fade-in">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <h1 className="text-2xl sm:text-3xl font-black text-teal-400 uppercase tracking-tighter">{t('analytics_title')}</h1>
-            <div className="flex flex-wrap justify-center gap-3">
-                <label className="flex items-center cursor-pointer gap-2 bg-slate-900 p-2.5 rounded-xl border border-slate-800 transition-all hover:bg-slate-800">
-                    <input type="checkbox" checked={includeArchive} onChange={() => setIncludeArchive(!includeArchive)} className="form-checkbox h-5 w-5 text-teal-500 rounded focus:ring-teal-500 bg-gray-700 border-gray-600"/>
-                    <span className="text-xs font-black text-teal-400 uppercase tracking-widest">{isLoadingArchive ? t('loading_hist') : t('include_archive')}</span>
-                </label>
-            </div>
+            {isLoadingArchive && (
+                <div className="flex items-center gap-3 bg-slate-900 px-4 py-2 rounded-xl border border-slate-800">
+                    <div className="w-3 h-3 border-2 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-[10px] font-black text-teal-400 uppercase tracking-widest">{t('loading_hist')}</span>
+                </div>
+            )}
         </div>
 
-        {/* SEKČIA: EXPORT DÁT PRE REPORT (PODMIENENÉ OPRÁVNENÍM V DB) */}
+        {/* SEKČIA: EXPORT DÁT PRE REPORT (VIDITEĽNÉ LEN PRE ADMINA S PERMISIOU) */}
         {canExport && (
             <div className="bg-slate-900/60 border border-slate-700/50 p-6 rounded-3xl shadow-2xl space-y-6 animate-fade-in">
                 <div className="flex items-center gap-3 border-b border-white/5 pb-4">
@@ -437,20 +471,13 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
             </div>
         )}
 
-        {/* ANALYTIKA LIVE DÁT (VIZUÁLNE FILTRE) */}
+        {/* ANALYTIKA (VIZUÁLNE FILTRE) */}
         <div className="bg-gray-800/40 p-5 rounded-2xl shadow-md border border-gray-700 flex flex-col lg:flex-row items-center justify-between gap-6">
             <div className="flex flex-wrap gap-2 justify-center">
-                {(['ALL', 'TODAY', 'YESTERDAY', 'WEEK', 'MONTH', 'CUSTOM'] as FilterMode[]).map(mode => (
+                {(['TODAY', 'YESTERDAY', 'WEEK', 'MONTH'] as FilterMode[]).map(mode => (
                     <button key={mode} onClick={() => setFilterMode(mode)} className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${filterMode === mode ? 'bg-teal-600 text-white shadow-lg' : 'bg-slate-800/50 text-gray-400 hover:text-white'}`}>{t(`filter_${mode.toLowerCase()}` as any)}</button>
                 ))}
             </div>
-            {filterMode === 'CUSTOM' && (
-                <div className="flex items-center gap-2 bg-slate-900/50 p-2 rounded-xl border border-slate-700">
-                    <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="bg-transparent text-white text-xs font-bold outline-none"/>
-                    <span className="text-slate-600">—</span>
-                    <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="bg-transparent text-white text-xs font-bold outline-none"/>
-                </div>
-            )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
