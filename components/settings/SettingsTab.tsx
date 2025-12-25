@@ -10,6 +10,7 @@ import WorkplaceSection from './WorkplaceSection';
 import SystemSection from './SystemSection';
 import MaintenanceSection from './MaintenanceSection';
 import SetupView from './SetupView';
+import YearlyClosing from './YearlyClosing';
 
 interface SettingsTabProps {
   currentUserRole: 'ADMIN' | 'USER' | 'LEADER';
@@ -39,7 +40,6 @@ interface SettingsTabProps {
   onApprovePartRequest: (req: PartRequest) => void;
   onRejectPartRequest: (id: string) => void;
   onArchiveTasks: () => Promise<{ success: boolean; count?: number; error?: string; message?: string }>;
-  /* Fix: Added missing closing handlers for MaintenanceSection */
   onDailyClosing: () => Promise<{ success: boolean; count: number }>;
   onWeeklyClosing: () => Promise<{ success: boolean; count: number; sanon?: string }>;
   onGetDocCount: () => Promise<number>;
@@ -48,12 +48,10 @@ interface SettingsTabProps {
   breakSchedules: BreakSchedule[];
   onAddBreakSchedule: (start: string, end: string) => void;
   onDeleteBreakSchedule: (id: string) => void;
-  /* Fix: Changed bomItems to bomMap to match App.tsx state and BOMSectionProps */
   bomMap: Record<string, BOMComponent[]>; 
   bomRequests: BOMRequest[]; 
   onAddBOMItem: (parent: string, child: string, qty: number) => void;
   onBatchAddBOMItems: (vals: string[]) => void;
-  /* Fix: Corrected onDeleteBOMItem signature to match BOMSection and App.tsx logic */
   onDeleteBOMItem: (parent: string, child: string) => void;
   onDeleteAllBOMItems: () => void;
   onApproveBOMRequest: (req: BOMRequest) => void;
@@ -79,7 +77,8 @@ const Icons = {
   BOM: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>,
   System: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
   Archive: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>,
-  Summary: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+  Summary: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  Yearly: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
 };
 
 const SettingsTab: React.FC<SettingsTabProps> = (props) => {
@@ -95,6 +94,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
       { id: 'bom', label: t('sect_bom'), icon: <Icons.BOM />, perm: 'perm_settings_bom' },
       { id: 'system', label: 'SYSTÉM', icon: <Icons.System />, perm: 'perm_settings_system' },
       { id: 'maint', label: 'ÚDRŽBA', icon: <Icons.Archive />, perm: 'perm_settings_maint' },
+      { id: 'yearly', label: language === 'sk' ? 'UZÁVIERKA' : 'CLOSING', icon: <Icons.Yearly />, perm: 'perm_manage_roles' },
     ];
     return all.filter(tile => hasPermission(tile.perm));
   }, [language, t, hasPermission]);
@@ -123,7 +123,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
       />
 
       <div className={`grid gap-3 mb-8 ${
-          navTiles.length <= 4 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-4 lg:grid-cols-7'
+          navTiles.length <= 4 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-4 lg:grid-cols-8'
       }`}>
         {navTiles.map(tile => {
           const isActive = activeSubTab === tile.id;
@@ -157,7 +157,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             missingReasons={props.missingReasons}
             logisticsOperations={props.logisticsOperations || []}
             breakSchedules={props.breakSchedules}
-            /* Fix: Passing bomMap instead of bomItems */
             bomMap={props.bomMap}
             systemConfig={props.systemConfig}
           />
@@ -195,7 +194,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
         )}
         {activeSubTab === 'bom' && (
           <BOMSection 
-            /* Fix: Correcting prop name and source to match actual BOMSection and state */
             bomMap={props.bomMap} 
             onAddBOMItem={props.onAddBOMItem} 
             onBatchAddBOMItems={props.onBatchAddBOMItems} 
@@ -218,13 +216,15 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             systemConfig={props.systemConfig} 
             onUpdateSystemConfig={props.onUpdateSystemConfig} 
             onArchiveTasks={props.onArchiveTasks} 
-            /* Fix: Added daily and weekly closing handlers to MaintenanceSection */
             onDailyClosing={props.onDailyClosing}
             onWeeklyClosing={props.onWeeklyClosing}
             onGetDocCount={props.onGetDocCount}
             onPurgeOldTasks={props.onPurgeOldTasks}
             onExportTasksJSON={props.onExportTasksJSON}
           />
+        )}
+        {activeSubTab === 'yearly' && (
+          <YearlyClosing resolveName={resolveName} />
         )}
       </div>
     </div>
