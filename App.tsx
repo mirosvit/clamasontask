@@ -151,25 +151,6 @@ export interface SystemConfig {
     ipCheckEnabled: boolean;
 }
 
-// ROZŠÍRENÉ POMOCNÉ FUNKCIE PRE BEZPEČNÉ KĽÚČE (Firebase Dot/Slash Safety)
-const escapeKey = (key: string) => {
-  if (!key) return key;
-  return key
-    .replace(/\//g, '__SL__')  // Lomka
-    .replace(/\./g, '__DT__')  // Bodka
-    .replace(/-/g, '__DS__')   // Pomlčka
-    .replace(/_/g, '__US__');  // Podčiarkovník
-};
-
-const unescapeKey = (key: string) => {
-  if (!key) return key;
-  return key
-    .replace(/__SL__/g, '/')
-    .replace(/__DT__/g, '.')
-    .replace(/__DS__/g, '-')
-    .replace(/__US__/g, '_');
-};
-
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<string>('');
@@ -177,6 +158,7 @@ const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
   
+  // Lokálne mapy pre rýchly prístup v UI
   const [partsMap, setPartsMap] = useState<Record<string, string>>({});
   const [bomMap, setBomMap] = useState<Record<string, BOMComponent[]>>({});
   
@@ -317,34 +299,34 @@ const App: React.FC = () => {
       return () => { unsubUsers(); unsubRoles(); unsubPerms(); };
   }, []);
 
-  // NAČÍTANIE KYBLÍKOV S OKAMŽITÝM UNESCAPE PRE UI
+  // NAČÍTANIE KYBLÍKOV - KONVERZIA POĽA NA MAPU
   useEffect(() => {
     const unsubParts = onSnapshot(doc(db, 'settings', 'parts'), (s) => {
       if (s.exists()) {
-          const rawData = s.data();
+          const raw = s.data().data || [];
           const cleanMap: Record<string, string> = {};
-          Object.keys(rawData).forEach(key => {
-              cleanMap[unescapeKey(key)] = rawData[key];
+          raw.forEach((item: any) => {
+              if (item.p) cleanMap[item.p] = item.d || '';
           });
           setPartsMap(cleanMap);
       } else {
-          setDoc(doc(db, 'settings', 'parts'), {});
+          setDoc(doc(db, 'settings', 'parts'), { data: [] });
       }
     });
+
     const unsubBOM = onSnapshot(doc(db, 'settings', 'bom'), (s) => {
       if (s.exists()) {
-          const rawData = s.data() as Record<string, BOMComponent[]>;
+          const raw = s.data().data || [];
           const cleanMap: Record<string, BOMComponent[]> = {};
-          Object.keys(rawData).forEach(parentKey => {
-              const comps = rawData[parentKey].map(c => ({
-                  ...c,
-                  child: unescapeKey(c.child)
-              }));
-              cleanMap[unescapeKey(parentKey)] = comps;
+          raw.forEach((item: any) => {
+              if (item.parent && item.child) {
+                  if (!cleanMap[item.parent]) cleanMap[item.parent] = [];
+                  cleanMap[item.parent].push({ child: item.child, consumption: item.q || 0 });
+              }
           });
           setBomMap(cleanMap);
       } else {
-          setDoc(doc(db, 'settings', 'bom'), {});
+          setDoc(doc(db, 'settings', 'bom'), { data: [] });
       }
     });
     return () => { unsubParts(); unsubBOM(); };
@@ -393,63 +375,81 @@ const App: React.FC = () => {
   const handleUpdateUserRole = async (u: string, r: any) => { const user = users.find(us => us.username === u); if(user) { await updateDoc(doc(db,'users', user.id!), {role: r}); } };
   const handleDeleteUser = async (u: string) => { const user = users.find(us => us.username === u); if(user) { await deleteDoc(doc(db,'users', user.id!)); } };
   
-  // LOGIKA KYBLÍKOV - DIELY (S ROZŠÍRENÝM ESCAPE PRI ZÁPISE)
+  // LOGIKA KYBLÍKOV - DIELY (UKLADANIE AKO POLE OBJEKTOV)
   const handleAddPart = async (v: string, desc?: string) => { 
-    await updateDoc(doc(db, 'settings', 'parts'), { [escapeKey(v)]: desc || '' }); 
+    const updatedMap = { ...partsMap, [v.trim()]: desc || '' };
+    const dataArray = Object.entries(updatedMap).map(([p, d]) => ({ p, d }));
+    await setDoc(doc(db, 'settings', 'parts'), { data: dataArray });
   };
   const handleBatchAddParts = async (vs: string[]) => { 
-    const updates: Record<string, string> = {};
+    const updatedMap = { ...partsMap };
     vs.forEach(line => {
       const [val, desc] = line.split(';');
-      if (val) updates[escapeKey(val.trim())] = desc ? desc.trim() : '';
+      if (val) updatedMap[val.trim()] = desc ? desc.trim() : '';
     });
-    await updateDoc(doc(db, 'settings', 'parts'), updates);
+    const dataArray = Object.entries(updatedMap).map(([p, d]) => ({ p, d }));
+    await setDoc(doc(db, 'settings', 'parts'), { data: dataArray });
   };
   const handleDeletePart = async (partValue: string) => { 
-    await updateDoc(doc(db, 'settings', 'parts'), { [escapeKey(partValue)]: deleteField() }); 
+    const updatedMap = { ...partsMap };
+    delete updatedMap[partValue];
+    const dataArray = Object.entries(updatedMap).map(([p, d]) => ({ p, d }));
+    await setDoc(doc(db, 'settings', 'parts'), { data: dataArray });
   };
   const handleDeleteAllParts = async () => { 
-    await setDoc(doc(db, 'settings', 'parts'), {}); 
+    await setDoc(doc(db, 'settings', 'parts'), { data: [] }); 
   };
 
-  // LOGIKA KYBLÍKOV - BOM (S ROZŠÍRENÝM ESCAPE PRI ZÁPISE)
+  // LOGIKA KYBLÍKOV - BOM (UKLADANIE AKO POLE OBJEKTOV)
   const handleAddBOMItem = async (p: string, c: string, q: number) => { 
-    // bomMap obsahuje unescaped dáta, musíme ich pred zápisom znova escaped-núť
-    const currentRaw = bomMap[p] || [];
-    const sanitizedQty = Number(q.toFixed(5));
-    const updated = [
-        ...currentRaw.filter(item => item.child !== c).map(item => ({ ...item, child: escapeKey(item.child) })),
-        { child: escapeKey(c), consumption: sanitizedQty }
-    ];
-    await updateDoc(doc(db, 'settings', 'bom'), { [escapeKey(p)]: updated });
+    const updatedMap = { ...bomMap };
+    const current = updatedMap[p] || [];
+    updatedMap[p] = [...current.filter(item => item.child !== c), { child: c, consumption: Number(q.toFixed(5)) }];
+    
+    // Sploštenie mapy na pole pre Firestore
+    const dataArray: any[] = [];
+    Object.entries(updatedMap).forEach(([parent, components]) => {
+        components.forEach(comp => {
+            dataArray.push({ parent, child: comp.child, q: comp.consumption });
+        });
+    });
+    await setDoc(doc(db, 'settings', 'bom'), { data: dataArray });
   };
   const handleBatchAddBOMItems = async (vs: string[]) => { 
-    const updates: Record<string, BOMComponent[]> = {};
+    const updatedMap = { ...bomMap };
     vs.forEach(l => {
       const [p, c, q] = l.split(';');
       if (p && c && q) {
-        const parentEsc = escapeKey(p.trim());
-        const childEsc = escapeKey(c.trim());
+        const parent = p.trim();
+        if (!updatedMap[parent]) updatedMap[parent] = [];
         const sanitizedQty = Number(parseFloat(q.trim().replace(',', '.')).toFixed(5));
-        
-        if (!updates[parentEsc]) updates[parentEsc] = [];
-        updates[parentEsc] = [...updates[parentEsc].filter(x => x.child !== childEsc), { child: childEsc, consumption: sanitizedQty }];
+        updatedMap[parent] = [...updatedMap[parent].filter(x => x.child !== c.trim()), { child: c.trim(), consumption: sanitizedQty }];
       }
     });
-    const docRef = doc(db, 'settings', 'bom');
-    const docSnap = await getDocs(query(collection(db, 'settings'), where('__name__', '==', 'bom')));
-    const existing = docSnap.docs[0]?.data() || {};
-    await setDoc(docRef, { ...existing, ...updates });
+    const dataArray: any[] = [];
+    Object.entries(updatedMap).forEach(([parent, components]) => {
+        components.forEach(comp => {
+            dataArray.push({ parent, child: comp.child, q: comp.consumption });
+        });
+    });
+    await setDoc(doc(db, 'settings', 'bom'), { data: dataArray });
   };
   const handleDeleteBOMItem = async (parent: string, child: string) => { 
-    const currentRaw = bomMap[parent] || [];
-    const updated = currentRaw.filter(item => item.child !== child)
-                              .map(item => ({ ...item, child: escapeKey(item.child) }));
-    if (updated.length === 0) await updateDoc(doc(db, 'settings', 'bom'), { [escapeKey(parent)]: deleteField() });
-    else await updateDoc(doc(db, 'settings', 'bom'), { [escapeKey(parent)]: updated });
+    const updatedMap = { ...bomMap };
+    if (updatedMap[parent]) {
+        updatedMap[parent] = updatedMap[parent].filter(item => item.child !== child);
+        if (updatedMap[parent].length === 0) delete updatedMap[parent];
+    }
+    const dataArray: any[] = [];
+    Object.entries(updatedMap).forEach(([pKey, components]) => {
+        components.forEach(comp => {
+            dataArray.push({ parent: pKey, child: comp.child, q: comp.consumption });
+        });
+    });
+    await setDoc(doc(db, 'settings', 'bom'), { data: dataArray });
   };
   const handleDeleteAllBOMItems = async () => { 
-    await setDoc(doc(db, 'settings', 'bom'), {}); 
+    await setDoc(doc(db, 'settings', 'bom'), { data: [] }); 
   };
 
   const handleAddWorkplace = async (v: string, t?: number) => { await addDoc(collection(db, 'workplaces'), {value:v, standardTime:t||0}); };
