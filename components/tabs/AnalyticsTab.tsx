@@ -1,5 +1,6 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
+import { db } from '../../firebase';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { Task, SystemBreak } from '../../App';
 import { useLanguage } from '../LanguageContext';
 
@@ -25,10 +26,42 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   
+  // Stavy pre archívny export
+  const [archiveExportStart, setArchiveExportStart] = useState('');
+  const [archiveExportEnd, setArchiveExportEnd] = useState('');
+  const [isExportingArchive, setIsExportingArchive] = useState(false);
+  const [exportProgress, setExportProgress] = useState('');
+  
+  // Prísne oprávnenie na export (skryté predvolene)
+  const [canExport, setCanExport] = useState(false);
+
   const [includeArchive, setIncludeArchive] = useState(false);
   const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
   const [isLoadingArchive, setIsLoadingArchive] = useState(false);
   const { t, language } = useLanguage();
+
+  // Overenie oprávnenia canExportAnalytics priamo z profilu v DB
+  useEffect(() => {
+    const checkExportPermission = async () => {
+        const storedUser = localStorage.getItem('app_user');
+        if (!storedUser) return;
+        
+        try {
+            const q = query(collection(db, 'users'), where('username', '==', storedUser));
+            const querySnapshot = await getDocs(q);
+            
+            if (!querySnapshot.empty) {
+                const userData = querySnapshot.docs[0].data();
+                // Sekcia sa zobrazí IBA ak je v DB explicitne true
+                setCanExport(userData.canExportAnalytics === true);
+            }
+        } catch (error) {
+            console.error("Error checking analytics permission:", error);
+            setCanExport(false);
+        }
+    };
+    checkExportPermission();
+  }, []);
 
   const tasks = useMemo(() => {
       return includeArchive ? [...liveTasks, ...archivedTasks] : liveTasks;
@@ -46,7 +79,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
       } else if (!includeArchive && archivedTasks.length > 0) {
         setArchivedTasks([]);
       }
-  }, [includeArchive]);
+  }, [includeArchive, archivedTasks.length, onFetchArchivedTasks]);
 
   const filteredTasks = useMemo(() => {
     if (filterMode === 'ALL') return tasks;
@@ -63,30 +96,43 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
         switch(filterMode) {
             case 'TODAY':
                 return taskDayStart.getTime() === todayStart.getTime();
-            
             case 'YESTERDAY':
                 const yesterdayStart = new Date(todayStart);
                 yesterdayStart.setDate(yesterdayStart.getDate() - 1);
                 return taskDayStart.getTime() === yesterdayStart.getTime();
-            
             case 'WEEK':
                 const weekAgo = todayStart.getTime() - (7 * 86400000);
                 return taskDate.getTime() >= weekAgo;
-
             case 'MONTH':
                 return taskDate.getMonth() === now.getMonth() && taskDate.getFullYear() === now.getFullYear();
-
             case 'CUSTOM':
                 if (!customStart) return true;
                 const start = new Date(customStart).setHours(0,0,0,0);
                 const end = customEnd ? new Date(customEnd).setHours(23,59,59,999) : Infinity;
                 return taskDate.getTime() >= start && taskDate.getTime() <= end;
-                
             default:
                 return true;
         }
     });
   }, [tasks, filterMode, customStart, customEnd]);
+
+  // Formátovacie helpery (zdieľané s YearlyClosing)
+  const formatDate = (ts?: number) => {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return d.toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  const formatTime = (ts?: number) => {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return d.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatDateTime = (ts?: number) => {
+    if (!ts) return '';
+    return `${formatDate(ts)} ${formatTime(ts)}`;
+  };
 
   const formatDuration = (ms: number) => {
     if (ms <= 0) return '-';
@@ -116,6 +162,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
               const breakStart = br.start;
               const breakEnd = br.end || endTime;
               const overlapStart = Math.max(startTime, breakStart);
+              // Fix: blockEnd replaced with breakEnd to fix 'Cannot find name blockEnd' error
               const overlapEnd = Math.min(endTime, breakEnd);
               if (overlapEnd > overlapStart) totalBlocked += (overlapEnd - overlapStart);
           });
@@ -146,24 +193,21 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
     const efficiency = performanceTasks.length === 0 ? 0 : Math.round((done / performanceTasks.length) * 100);
 
     performanceTasks.forEach(task => {
-        let part = task.partNumber;
-        let wp = task.workplace;
         let weight = 1;
-        
         if (task.quantityUnit === 'pallet' && task.quantity) {
              const qty = parseFloat(task.quantity.replace(',', '.'));
              if (!isNaN(qty) && qty > 0) weight = qty;
         }
 
         if (task.isLogistics) {
-            const refLabel = (part && part !== '-') ? part : 'N/A';
-            const opLabel = (wp && wp !== '-') ? wp : '';
+            const refLabel = (task.partNumber && task.partNumber !== '-') ? task.partNumber : 'N/A';
+            const opLabel = (task.workplace && task.workplace !== '-') ? task.workplace : '';
             const compoundKey = opLabel ? `${refLabel} [${opLabel}]` : refLabel;
             logisticsRefCounts[compoundKey] = (logisticsRefCounts[compoundKey] || 0) + weight;
-            if (wp && wp !== '-') logisticsOpCounts[wp] = (logisticsOpCounts[wp] || 0) + 1; 
+            if (task.workplace && task.workplace !== '-') logisticsOpCounts[task.workplace] = (logisticsOpCounts[task.workplace] || 0) + 1; 
         } else {
-            if (part && part !== '-') partCounts[part] = (partCounts[part] || 0) + weight;
-            if (wp && wp !== '-') workplaceCounts[wp] = (workplaceCounts[wp] || 0) + weight;
+            if (task.partNumber && task.partNumber !== '-') partCounts[task.partNumber] = (partCounts[task.partNumber] || 0) + weight;
+            if (task.workplace && task.workplace !== '-') workplaceCounts[task.workplace] = (workplaceCounts[task.workplace] || 0) + weight;
         }
 
         if (task.createdAt) {
@@ -184,33 +228,18 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
                     name: resolveName(worker), 
                     count: 0, 
                     totalVolume: 0,
-                    totalLeadMs: 0, 
-                    countLead: 0, 
-                    totalReactionMs: 0, 
-                    countReaction: 0, 
-                    totalExecutionMs: 0, 
-                    totalStandardMinutes: 0 
+                    totalExecutionMs: 0 
                 };
             }
             const ws = workerStatsMap[worker];
             ws.count += 1; 
             ws.totalVolume += weight;
 
-            if (task.standardTime) ws.totalStandardMinutes += task.standardTime;
-
-            if (task.createdAt) {
-                 if (task.completedAt) {
-                     const lead = task.completedAt - task.createdAt;
-                     if (lead > 0) { ws.totalLeadMs += lead; ws.countLead++; }
-                 }
-                 if (task.startedAt && task.completedAt) {
-                     const reaction = task.startedAt - task.createdAt;
-                     if (reaction > 0) { ws.totalReactionMs += reaction; ws.countReaction++; }
-                     let execution = task.completedAt - task.startedAt;
-                     const blockedTime = calculateBlockedTime(task.inventoryHistory, task.startedAt, task.completedAt);
-                     execution -= blockedTime;
-                     if (execution > 0) { ws.totalExecutionMs += execution; grandTotalExecutionTime += execution; }
-                 }
+            if (task.createdAt && task.startedAt && task.completedAt) {
+                let execution = task.completedAt - task.startedAt;
+                const blockedTime = calculateBlockedTime(task.inventoryHistory, task.startedAt, task.completedAt);
+                execution -= blockedTime;
+                if (execution > 0) { ws.totalExecutionMs += execution; grandTotalExecutionTime += execution; }
             }
         }
     });
@@ -233,114 +262,236 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
     };
   }, [filteredTasks, systemBreaks, resolveName]);
 
-  const handleExportReport = () => {
-    if (typeof XLSX === 'undefined') return;
-    const wb = XLSX.utils.book_new();
-    
-    // Hárok 1: KPI Prehľad
-    const kpiData = [
-        { Metrika: t('kpi_total'), Hodnota: stats.total },
-        { Metrika: t('kpi_worked'), Hodnota: (stats.grandTotalExecutionTime / 3600000).toFixed(2) },
-        { Metrika: t('kpi_lead'), Hodnota: (stats.avgLead / 60000).toFixed(2) },
-        { Metrika: t('kpi_react'), Hodnota: (stats.avgReaction / 60000).toFixed(2) },
-        { Metrika: t('kpi_effic'), Hodnota: stats.efficiency },
-        { Metrika: t('kpi_urgent'), Hodnota: stats.urgent },
-        { Metrika: t('kpi_missing'), Hodnota: stats.missing },
-        { Metrika: t('kpi_incorrect'), Hodnota: stats.incorrectlyEntered },
-    ];
-    const wsKPI = XLSX.utils.json_to_sheet(kpiData);
-    XLSX.utils.book_append_sheet(wb, wsKPI, t('KPI_report_sheet_name') || "KPI");
+  // UNIVERZÁLNA EXPORT LOGIKA (IDENTICKÁ S YEARLY CLOSING)
+  const generateExcelFromTasks = (allTasks: any[], fileName: string) => {
+      const excelData = allTasks.map(item => {
+        let searchResult = '';
+        if (item.searchedBy) {
+          if (item.searchExhausted || item.auditResult) {
+            searchResult = 'Nie';
+          } else if (item.isMissing === false) {
+            searchResult = 'Áno';
+          } else {
+            searchResult = 'Prebieha';
+          }
+        }
 
-    // Hárok 2: Zdrojové Dáta (Raw Data)
-    const rawData = filteredTasks.map(task => ({
-        [t('miss_th_created')]: task.createdAt ? new Date(task.createdAt).toLocaleString('sk-SK') : '-',
-        [t('task_created')]: resolveName(task.createdBy) || '-',
-        [t('miss_th_part')]: task.partNumber || '-',
-        [t('miss_th_wp')]: task.workplace || '-',
-        [t('quantity')]: task.quantity || '0',
-        [language === 'sk' ? 'Jednotka' : 'Unit']: task.quantityUnit || '-',
-        [t('priority_label')]: task.priority || 'NORMAL',
-        [t('status_label')]: task.isDone ? t('status_completed') : t('status_open'),
-        [t('task_completed_by')]: resolveName(task.completedBy) || '-',
-        [language === 'sk' ? 'Dokončené o' : 'Completed at']: task.completedAt ? new Date(task.completedAt).toLocaleString('sk-SK') : '-',
-        [language === 'sk' ? 'Norma (min)' : 'Std Time (min)']: task.standardTime || 0,
-        [language === 'sk' ? 'Typ' : 'Type']: task.isLogistics ? 'logistics' : 'production',
-        [t('btn_note')]: task.note || '-'
-    }));
-    const wsRaw = XLSX.utils.json_to_sheet(rawData);
-    XLSX.utils.book_append_sheet(wb, wsRaw, t('raw_data_sheet_name') || "Source Data");
+        let statusText = 'Otvorené';
+        if (item.status === 'incorrectly_entered') {
+            statusText = 'Chybne zadané';
+        } else if (item.auditResult) {
+            statusText = 'Auditované';
+        } else if (item.isDone) {
+            statusText = 'Dokončené';
+        }
 
-    XLSX.writeFile(wb, `Report_Analytika_${new Date().toISOString().slice(0,10)}.xlsx`);
+        return {
+          'Dátum pridania': formatDate(item.createdAt),
+          'Čas pridania': formatTime(item.createdAt),
+          'Kto pridal': resolveName(item.createdBy),
+          'Diel / Referencia': item.partNumber || '',
+          'Pracovisko / Operácia': item.workplace || '',
+          'SPZ / Prepravca': item.isLogistics ? (item.note || '') : '',
+          'Počet': item.quantity || '',
+          'Jednotka': item.quantityUnit || '',
+          'Poznámka': !item.isLogistics ? (item.note || '') : '',
+          'Skladník': resolveName(item.completedBy),
+          'Dátum dokončenia': formatDate(item.completedAt),
+          'Čas dokončenia': formatTime(item.completedAt),
+          'Status': statusText,
+          'Nahlásil chýbajúce': resolveName(item.missingReportedBy),
+          'Dôvod chýbania': item.missingReason || '',
+          'Čas nahlásenia chyby': item.missingReportedBy ? formatTime(item.completedAt || item.createdAt) : '',
+          'Kto hľadal': item.searchedBy || '',
+          'Výsledok hľadania': searchResult,
+          'Audit (Výsledok)': item.auditResult || '',
+          'Poznámka k auditu': item.auditNote || '',
+          'Audit vykonal': resolveName(item.auditedBy) || item.auditBy || '',
+          'Dátum a čas auditu': formatDateTime(item.auditedAt)
+        };
+      });
+
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      const wscols = [
+        {wch: 15}, {wch: 12}, {wch: 20}, {wch: 20}, {wch: 25}, 
+        {wch: 20}, {wch: 10}, {wch: 10}, {wch: 25}, {wch: 20}, 
+        {wch: 15}, {wch: 12}, {wch: 18}, {wch: 20}, {wch: 25}, 
+        {wch: 15}, {wch: 20}, {wch: 18}, {wch: 15}, {wch: 35},
+        {wch: 20}, {wch: 20}
+      ];
+      ws['!cols'] = wscols;
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "REPORT_OBDOBIE");
+      XLSX.writeFile(wb, `${fileName}.xlsx`);
+  };
+
+  const handleArchiveExport = async () => {
+      if (!archiveExportStart || !archiveExportEnd) {
+          alert(language === 'sk' ? 'Zvoľte prosím rozsah dátumov.' : 'Please select date range.');
+          return;
+      }
+
+      setIsExportingArchive(true);
+      setExportProgress(language === 'sk' ? 'Prehľadávam archív...' : 'Searching archive...');
+
+      try {
+          const startDate = new Date(archiveExportStart).setHours(0,0,0,0);
+          const endDate = new Date(archiveExportEnd).setHours(23,59,59,999);
+          
+          const results: any[] = [];
+          
+          const startYear = new Date(startDate).getFullYear();
+          const endYear = new Date(endDate).getFullYear();
+          
+          const collectionsToTry = ['tasks', 'archive_drafts'];
+          for (let y = startYear; y <= endYear; y++) {
+              for (let w = 1; w <= 53; w++) {
+                  collectionsToTry.push(`sanon_${y}_${w}`);
+              }
+          }
+
+          for (const colName of collectionsToTry) {
+              setExportProgress(`${language === 'sk' ? 'Sťahujem' : 'Fetching'} ${colName}...`);
+              const snap = await getDocs(collection(db, colName));
+              snap.forEach(d => {
+                  const data = d.data() as Task;
+                  const ts = data.createdAt || 0;
+                  if (ts >= startDate && ts <= endDate) {
+                      results.push({ id: d.id, ...data });
+                  }
+              });
+          }
+
+          if (results.length === 0) {
+              alert(language === 'sk' ? 'V tomto období sa nenašli žiadne záznamy.' : 'No records found in this period.');
+          } else {
+              setExportProgress(language === 'sk' ? 'Generujem súbor...' : 'Generating file...');
+              generateExcelFromTasks(results, `REPORT_ARCHIV_${archiveExportStart}_${archiveExportEnd}`);
+          }
+
+      } catch (err) {
+          console.error(err);
+          alert('Chyba pri exporte archívu.');
+      } finally {
+          setIsExportingArchive(false);
+          setExportProgress('');
+      }
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-8 animate-fade-in">
-        <h1 className="text-center text-2xl sm:text-3xl font-bold text-teal-400 mb-2">{t('analytics_title')}</h1>
-        <div className="flex flex-col sm:flex-row justify-end gap-3 mb-2">
-            <label className="flex items-center cursor-pointer gap-2 bg-gray-900 p-2 rounded-lg border border-gray-700">
-                <input type="checkbox" checked={includeArchive} onChange={() => setIncludeArchive(!includeArchive)} className="form-checkbox h-5 w-5 text-teal-500 rounded focus:ring-teal-500 bg-gray-700 border-gray-600"/>
-                <span className="text-sm font-bold text-teal-400">{isLoadingArchive ? t('loading_hist') : t('include_archive')}</span>
-            </label>
-            <button onClick={handleExportReport} className="flex items-center gap-2 bg-green-700 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition-colors">
-                <DownloadIcon className="w-5 h-5" />{t('download_report')}
-            </button>
+    <div className="max-w-6xl mx-auto space-y-6 pb-20 animate-fade-in">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <h1 className="text-2xl sm:text-3xl font-black text-teal-400 uppercase tracking-tighter">{t('analytics_title')}</h1>
+            <div className="flex flex-wrap justify-center gap-3">
+                <label className="flex items-center cursor-pointer gap-2 bg-slate-900 p-2.5 rounded-xl border border-slate-800 transition-all hover:bg-slate-800">
+                    <input type="checkbox" checked={includeArchive} onChange={() => setIncludeArchive(!includeArchive)} className="form-checkbox h-5 w-5 text-teal-500 rounded focus:ring-teal-500 bg-gray-700 border-gray-600"/>
+                    <span className="text-xs font-black text-teal-400 uppercase tracking-widest">{isLoadingArchive ? t('loading_hist') : t('include_archive')}</span>
+                </label>
+            </div>
         </div>
 
-        <div className="bg-gray-800 p-4 rounded-xl shadow-md border border-gray-700 flex flex-col md:flex-row items-center justify-between gap-4">
+        {/* SEKČIA: EXPORT DÁT PRE REPORT (PODMIENENÉ OPRÁVNENÍM V DB) */}
+        {canExport && (
+            <div className="bg-slate-900/60 border border-slate-700/50 p-6 rounded-3xl shadow-2xl space-y-6 animate-fade-in">
+                <div className="flex items-center gap-3 border-b border-white/5 pb-4">
+                    <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-500"><Icons.Archive /></div>
+                    <h2 className="text-sm font-black text-white uppercase tracking-widest">Export dát pre report</h2>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Od</label>
+                        <input 
+                            type="date" 
+                            value={archiveExportStart}
+                            onChange={(e) => setArchiveExportStart(e.target.value)}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 h-12 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Do</label>
+                        <input 
+                            type="date" 
+                            value={archiveExportEnd}
+                            onChange={(e) => setArchiveExportEnd(e.target.value)}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 h-12 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                        />
+                    </div>
+                    <button 
+                        onClick={handleArchiveExport}
+                        disabled={isExportingArchive}
+                        className={`h-12 rounded-xl font-black uppercase text-xs tracking-widest transition-all flex items-center justify-center gap-3 border-2 shadow-lg ${
+                            isExportingArchive ? 'bg-slate-700 border-slate-600 text-slate-400 animate-pulse' : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500'
+                        }`}
+                    >
+                        {isExportingArchive ? '...' : (
+                            <><DownloadIcon className="w-5 h-5" /> STIAHNUŤ REPORT (.xlsx)</>
+                        )}
+                    </button>
+                </div>
+                {exportProgress && (
+                    <p className="text-center text-[10px] font-mono font-bold text-emerald-400 bg-emerald-400/5 py-1.5 rounded-lg border border-emerald-400/20 uppercase tracking-widest">{exportProgress}</p>
+                )}
+            </div>
+        )}
+
+        {/* ANALYTIKA LIVE DÁT (VIZUÁLNE FILTRE) */}
+        <div className="bg-gray-800/40 p-5 rounded-2xl shadow-md border border-gray-700 flex flex-col lg:flex-row items-center justify-between gap-6">
             <div className="flex flex-wrap gap-2 justify-center">
                 {(['ALL', 'TODAY', 'YESTERDAY', 'WEEK', 'MONTH', 'CUSTOM'] as FilterMode[]).map(mode => (
-                    <button key={mode} onClick={() => setFilterMode(mode)} className={`px-4 py-2 rounded text-sm font-bold transition-colors ${filterMode === mode ? 'bg-teal-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>{t(`filter_${mode.toLowerCase()}` as any)}</button>
+                    <button key={mode} onClick={() => setFilterMode(mode)} className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${filterMode === mode ? 'bg-teal-600 text-white shadow-lg' : 'bg-slate-800/50 text-gray-400 hover:text-white'}`}>{t(`filter_${mode.toLowerCase()}` as any)}</button>
                 ))}
             </div>
             {filterMode === 'CUSTOM' && (
-                <div className="flex items-center gap-2 bg-gray-900 p-2 rounded-lg border border-gray-600">
-                    <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="bg-gray-800 text-white text-sm rounded px-2 py-1 border border-gray-600 focus:border-teal-500 outline-none"/>
-                    <span className="text-gray-400">-</span>
-                    <input type="date" value={customEnd} onChange={(e) => setFilterMode('CUSTOM' as any)} className="bg-gray-800 text-white text-sm rounded px-2 py-1 border border-gray-600 focus:border-teal-500 outline-none"/>
+                <div className="flex items-center gap-2 bg-slate-900/50 p-2 rounded-xl border border-slate-700">
+                    <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="bg-transparent text-white text-xs font-bold outline-none"/>
+                    <span className="text-slate-600">—</span>
+                    <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="bg-transparent text-white text-xs font-bold outline-none"/>
                 </div>
             )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-gray-700 p-4 rounded-xl shadow-lg border-l-4 border-blue-500">
-                <p className="text-gray-400 text-sm font-bold uppercase">{t('kpi_total')}</p>
-                <p className="text-3xl font-extrabold text-white mt-1">{stats.total}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="bg-slate-900/60 p-5 rounded-2xl shadow-xl border border-slate-800 border-l-4 border-l-blue-500">
+                <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">{t('kpi_total')}</p>
+                <p className="text-3xl font-black text-white mt-2 font-mono">{stats.total}</p>
             </div>
-            <div className="bg-gray-700 p-4 rounded-xl shadow-lg border-l-4 border-green-500">
-                <p className="text-gray-400 text-sm font-bold uppercase">{t('kpi_worked')}</p>
-                <p className="text-3xl font-extrabold text-green-400 mt-1">{formatDuration(stats.grandTotalExecutionTime)}</p>
+            <div className="bg-slate-900/60 p-5 rounded-2xl shadow-xl border border-slate-800 border-l-4 border-l-emerald-500">
+                <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">{t('kpi_worked')}</p>
+                <p className="text-3xl font-black text-emerald-400 mt-2 font-mono">{formatDuration(stats.grandTotalExecutionTime)}</p>
             </div>
-            <div className="bg-gray-700 p-4 rounded-xl shadow-lg border-l-4 border-purple-500">
-                <p className="text-gray-400 text-sm font-bold uppercase">{t('kpi_lead')}</p>
-                <p className="text-3xl font-extrabold text-purple-400 mt-1">{formatDuration(stats.avgLead)}</p>
+            <div className="bg-slate-900/60 p-5 rounded-2xl shadow-xl border border-slate-800 border-l-4 border-l-purple-500">
+                <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">{t('kpi_lead')}</p>
+                <p className="text-3xl font-black text-purple-400 mt-2 font-mono">{formatDuration(stats.avgLead)}</p>
             </div>
-             <div className="bg-gray-700 p-4 rounded-xl shadow-lg border-l-4 border-yellow-500">
-                <p className="text-gray-400 text-sm font-bold uppercase">{t('kpi_react')}</p>
-                <p className="text-3xl font-extrabold text-yellow-400 mt-1">{formatDuration(stats.avgReaction)}</p>
+             <div className="bg-slate-900/60 p-5 rounded-2xl shadow-xl border border-slate-800 border-l-4 border-l-amber-500">
+                <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">{t('kpi_react')}</p>
+                <p className="text-3xl font-black text-amber-400 mt-2 font-mono">{formatDuration(stats.avgReaction)}</p>
             </div>
         </div>
 
-        <div className="bg-gray-900 border border-gray-700 p-4 rounded-xl shadow-lg">
-             <h3 className="text-lg font-bold text-white mb-4 border-b border-gray-700 pb-2">{t('table_title')}</h3>
+        <div className="bg-slate-950/40 border border-slate-800 p-6 rounded-3xl shadow-xl overflow-hidden">
+             <h3 className="text-sm font-black text-white mb-6 uppercase tracking-widest border-b border-white/5 pb-4">{t('table_title')}</h3>
              <div className="overflow-x-auto custom-scrollbar">
                 <table className="w-full text-left border-collapse min-w-[600px]">
                     <thead>
-                        <tr className="text-gray-400 text-sm border-b border-gray-700">
-                            <th className="py-2 px-2">{t('th_rank')}</th>
-                            <th className="py-2 px-2">{t('th_name')}</th>
-                            <th className="py-2 px-2 text-right">{t('th_done')}</th>
-                            <th className="py-2 px-2 text-right text-sky-400">{language === 'sk' ? 'Objem (pal/ks)' : 'Volume'}</th>
-                            <th className="py-2 px-2 text-right text-green-400">{t('th_work_time')}</th>
+                        <tr className="text-slate-500 text-[10px] font-black uppercase tracking-widest">
+                            <th className="py-4 px-2">{t('th_rank')}</th>
+                            <th className="py-4 px-2">{t('th_name')}</th>
+                            <th className="py-4 px-2 text-right">{t('th_done')}</th>
+                            <th className="py-4 px-2 text-right text-sky-400">{language === 'sk' ? 'Objem (pal/ks)' : 'Volume'}</th>
+                            <th className="py-4 px-2 text-right text-emerald-400">{t('th_work_time')}</th>
                         </tr>
                     </thead>
                     <tbody className="text-sm">
                         {stats.workerStats.map((ws: any, idx: number) => (
-                            <tr key={ws.name} className="border-b border-gray-800 hover:bg-gray-800 transition-colors">
-                                <td className="py-3 px-2 text-gray-500 font-mono">{idx + 1}</td>
-                                <td className="py-3 px-2 font-bold text-white">{ws.name}</td>
-                                <td className="py-3 px-2 text-right text-teal-400 font-bold">{ws.count}</td>
-                                <td className="py-3 px-2 text-right text-sky-400 font-bold font-mono">{Number(ws.totalVolume.toFixed(1))}</td>
-                                <td className="py-3 px-2 text-right text-green-400 font-bold font-mono">{formatDuration(ws.totalExecutionMs)}</td>
+                            <tr key={ws.name} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors group">
+                                <td className="py-4 px-2 text-slate-600 font-mono text-xs">{idx + 1}</td>
+                                <td className="py-4 px-2 font-black text-slate-200 uppercase tracking-tight group-hover:text-teal-400 transition-colors">{ws.name}</td>
+                                <td className="py-4 px-2 text-right text-teal-500 font-black font-mono">{ws.count}</td>
+                                <td className="py-4 px-2 text-right text-sky-400 font-black font-mono">{Number(ws.totalVolume.toFixed(1))}</td>
+                                <td className="py-4 px-2 text-right text-emerald-400 font-black font-mono">{formatDuration(ws.totalExecutionMs)}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -348,52 +499,52 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
              </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div className="bg-gray-900 border border-gray-700 p-6 rounded-xl shadow-lg">
-                <h3 className="text-lg font-bold text-white mb-4 border-b border-gray-700 pb-2">{t('chart_wp')}</h3>
-                <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+            <div className="bg-slate-950/40 border border-slate-800 p-6 rounded-3xl shadow-xl">
+                <h3 className="text-xs font-black text-white mb-6 uppercase tracking-widest border-b border-white/5 pb-4">{t('chart_wp')}</h3>
+                <div className="space-y-5">
                     {stats.topWorkplaces.map(([name, count], idx) => (
                         <div key={name} className="relative">
-                            <div className="flex justify-between text-sm mb-1">
-                                <span className="text-gray-300 font-mono">{idx + 1}. {name}</span>
-                                <span className="text-teal-400 font-bold">{Number(count.toFixed(1))}</span>
+                            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest mb-2">
+                                <span className="text-slate-400">{idx + 1}. {name}</span>
+                                <span className="text-teal-400">{Number(count.toFixed(1))}</span>
                             </div>
-                            <div className="w-full bg-gray-700 rounded-full h-2.5">
-                                <div className="bg-teal-600 h-2.5 rounded-full" style={{ width: `${(count / (stats.topWorkplaces[0]?.[1] || 1)) * 100}%` }}></div>
+                            <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                                <div className="bg-gradient-to-r from-teal-600 to-teal-400 h-full rounded-full" style={{ width: `${(count / (stats.topWorkplaces[0]?.[1] || 1)) * 100}%` }}></div>
                             </div>
                         </div>
                     ))}
                 </div>
             </div>
 
-            <div className="bg-gray-900 border border-gray-700 p-6 rounded-xl shadow-lg">
-                <h3 className="text-lg font-bold text-white mb-4 border-b border-gray-700 pb-2">{t('chart_parts')}</h3>
-                <div className="space-y-4">
+            <div className="bg-slate-950/40 border border-slate-800 p-6 rounded-3xl shadow-xl">
+                <h3 className="text-xs font-black text-white mb-6 uppercase tracking-widest border-b border-white/5 pb-4">{t('chart_parts')}</h3>
+                <div className="space-y-5">
                      {stats.topParts.map(([name, count], idx) => (
                         <div key={name} className="relative">
-                            <div className="flex justify-between text-sm mb-1">
-                                <span className="text-gray-300 font-mono">{idx + 1}. {name}</span>
-                                <span className="text-blue-400 font-bold">{Number(count.toFixed(1))}</span>
+                            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest mb-2">
+                                <span className="text-slate-400">{idx + 1}. {name}</span>
+                                <span className="text-blue-400">{Number(count.toFixed(1))}</span>
                             </div>
-                            <div className="w-full bg-gray-700 rounded-full h-2.5">
-                                <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${(count / (stats.topParts[0]?.[1] || 1)) * 100}%` }}></div>
+                            <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                                <div className="bg-gradient-to-r from-blue-600 to-blue-400 h-full rounded-full" style={{ width: `${(count / (stats.topParts[0]?.[1] || 1)) * 100}%` }}></div>
                             </div>
                         </div>
                     ))}
                 </div>
             </div>
 
-            <div className="bg-gray-900 border border-gray-700 p-6 rounded-xl shadow-lg sm:col-span-2">
-                <h3 className="text-lg font-bold text-sky-400 mb-4 border-b border-gray-700 pb-2">{t('chart_log_refs')}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+            <div className="bg-slate-950/40 border border-slate-800 p-6 rounded-3xl shadow-xl sm:col-span-2">
+                <h3 className="text-xs font-black text-sky-400 mb-6 uppercase tracking-widest border-b border-sky-900/30 pb-4">{t('chart_log_refs')}</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
                      {stats.topLogRefs.map(([name, count], idx) => (
                         <div key={name} className="relative">
-                            <div className="flex justify-between text-sm mb-1">
-                                <span className="text-gray-300 font-mono">{idx + 1}. {name}</span>
-                                <span className="text-sky-400 font-bold">{Number(count.toFixed(1))}</span>
+                            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest mb-2">
+                                <span className="text-slate-400 truncate max-w-[250px]">{idx + 1}. {name}</span>
+                                <span className="text-sky-400">{Number(count.toFixed(1))}</span>
                             </div>
-                            <div className="w-full bg-gray-700 rounded-full h-2.5">
-                                <div className="bg-sky-600 h-2.5 rounded-full" style={{ width: `${(count / (stats.topLogRefs[0]?.[1] || 1)) * 100}%` }}></div>
+                            <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                                <div className="bg-gradient-to-r from-sky-600 to-sky-400 h-full rounded-full" style={{ width: `${(count / (stats.topLogRefs[0]?.[1] || 1)) * 100}%` }}></div>
                             </div>
                         </div>
                     ))}
@@ -402,6 +553,10 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
         </div>
     </div>
   );
+};
+
+const Icons = {
+  Archive: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>,
 };
 
 export default AnalyticsTab;

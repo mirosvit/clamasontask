@@ -9,6 +9,7 @@ interface UserSectionProps {
   onAddUser: (user: UserData) => void;
   onUpdatePassword: (username: string, newPass: string) => void;
   onUpdateNickname: (username: string, newNick: string) => void;
+  onUpdateExportPermission: (username: string, canExport: boolean) => void;
   onDeleteUser: (username: string) => void;
 }
 
@@ -17,8 +18,8 @@ const Icons = {
   Trash: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
 };
 
-const UserSection: React.FC<UserSectionProps> = memo(({ users, roles, onAddUser, onUpdatePassword, onUpdateNickname, onDeleteUser }) => {
-  const { t } = useLanguage();
+const UserSection: React.FC<UserSectionProps> = memo(({ users, roles, onAddUser, onUpdatePassword, onUpdateNickname, onUpdateExportPermission, onDeleteUser }) => {
+  const { t, language } = useLanguage();
   const [newUser, setNewUser] = useState('');
   const [newPass, setNewPass] = useState('');
   const [newRole, setNewRole] = useState<'USER' | 'ADMIN' | 'LEADER'>('USER');
@@ -36,7 +37,7 @@ const UserSection: React.FC<UserSectionProps> = memo(({ users, roles, onAddUser,
           <h3 className="text-2xl font-black text-white uppercase tracking-tighter">SPRÁVA TÍMU</h3>
           <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{users.length} UŽÍVATEĽOV</span>
         </div>
-        <div className="grid grid-cols-1 gap-4 max-h-[450px] overflow-y-auto custom-scrollbar pr-2">
+        <div className="grid grid-cols-1 gap-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
           {users.map(u => (
             <div key={u.id || u.username} className="bg-slate-950/30 p-5 rounded-2xl border border-white/5 flex flex-col md:flex-row justify-between items-center gap-6 group">
               <div className="flex items-center gap-6 min-w-[220px]">
@@ -46,22 +47,32 @@ const UserSection: React.FC<UserSectionProps> = memo(({ users, roles, onAddUser,
                   <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{u.username} • {u.role}</p>
                 </div>
               </div>
-              <div className="flex flex-1 items-center gap-3 w-full">
-                <div className="grid grid-cols-2 gap-3 flex-grow">
+              <div className="flex flex-1 items-center gap-4 w-full">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-grow">
                     <input 
-                    type="text" 
-                    placeholder="Zmeniť Heslo"
-                    value={passwordInputs[u.username] || ''}
-                    onChange={(e) => setPasswordInputs(p => ({ ...p, [u.username]: e.target.value }))}
-                    className={inputClass}
+                      type="text" 
+                      placeholder="Zmeniť Heslo"
+                      value={passwordInputs[u.username] || ''}
+                      onChange={(e) => setPasswordInputs(p => ({ ...p, [u.username]: e.target.value }))}
+                      className={inputClass}
                     />
                     <input 
-                    type="text" 
-                    placeholder="Nickname (Prezývka)"
-                    value={nicknameInputs[u.username] === undefined ? (u.nickname || '') : nicknameInputs[u.username]}
-                    onChange={(e) => setNicknameInputs(p => ({ ...p, [u.username]: e.target.value }))}
-                    className={inputClass}
+                      type="text" 
+                      placeholder="Nickname"
+                      value={nicknameInputs[u.username] === undefined ? (u.nickname || '') : nicknameInputs[u.username]}
+                      onChange={(e) => setNicknameInputs(p => ({ ...p, [u.username]: e.target.value }))}
+                      className={inputClass}
                     />
+                    {/* POVODNY GRID UPRAVENY PRE CHECKBOX */}
+                    <label className="flex items-center justify-center gap-2 bg-slate-800/50 rounded-xl border border-slate-700 px-4 cursor-pointer hover:bg-slate-800 transition-colors">
+                      <input 
+                        type="checkbox" 
+                        checked={u.canExportAnalytics || false}
+                        onChange={(e) => onUpdateExportPermission(u.username, e.target.checked)}
+                        className="form-checkbox h-5 w-5 text-teal-500 rounded border-gray-600 bg-gray-700 focus:ring-teal-500"
+                      />
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Export</span>
+                    </label>
                 </div>
                 <button onClick={() => { 
                     if(passwordInputs[u.username]) { onUpdatePassword(u.username, passwordInputs[u.username]); setPasswordInputs(p => ({...p, [u.username]: ''})); }
@@ -80,7 +91,7 @@ const UserSection: React.FC<UserSectionProps> = memo(({ users, roles, onAddUser,
             <select value={newRole} onChange={e=>setNewRole(e.target.value as any)} className={inputClass}>
               {roles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
             </select>
-            <button onClick={() => { if(newUser && newPass) { onAddUser({username:newUser, password:newPass, role:newRole}); setNewUser(''); setNewPass(''); } }} className="h-12 bg-teal-600 hover:bg-teal-500 text-white font-black px-6 rounded-xl uppercase tracking-widest text-xs transition-all active:scale-95 shadow-xl border-2 border-teal-500">PRIDAŤ</button>
+            <button onClick={() => { if(newUser && newPass) { onAddUser({username:newUser, password:newPass, role:newRole, canExportAnalytics: false}); setNewUser(''); setNewPass(''); } }} className="h-12 bg-teal-600 hover:bg-teal-500 text-white font-black px-6 rounded-xl uppercase tracking-widest text-xs transition-all active:scale-95 shadow-xl border-2 border-teal-500">PRIDAŤ</button>
           </div>
         </div>
       </div>

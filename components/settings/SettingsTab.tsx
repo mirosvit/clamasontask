@@ -19,6 +19,7 @@ interface SettingsTabProps {
   onUpdatePassword: (username: string, newPass: string) => void;
   onUpdateUserRole: (username: string, newRole: 'ADMIN' | 'USER' | 'LEADER') => void;
   onUpdateNickname: (username: string, newNick: string) => void;
+  onUpdateExportPermission: (username: string, canExport: boolean) => void;
   onDeleteUser: (username: string) => void;
   parts: DBItem[];
   workplaces: DBItem[];
@@ -168,6 +169,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             onAddUser={props.onAddUser} 
             onUpdatePassword={props.onUpdatePassword} 
             onUpdateNickname={props.onUpdateNickname}
+            onUpdateExportPermission={props.onUpdateExportPermission}
             onDeleteUser={props.onDeleteUser} 
           />
         )}

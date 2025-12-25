@@ -28,6 +28,7 @@ export interface UserData {
   password: string;
   role: 'ADMIN' | 'USER' | 'LEADER';
   nickname?: string;
+  canExportAnalytics?: boolean;
 }
 
 export interface DBItem {
@@ -370,9 +371,10 @@ const App: React.FC = () => {
   }, []);
 
   const handleLogin = (u: string, r: any) => { setIsAuthenticated(true); setCurrentUser(u); setCurrentUserRole(r); localStorage.setItem('app_user', u); localStorage.setItem('app_role', r); };
-  const handleAddUser = async (u: UserData) => { await addDoc(collection(db, 'users'), u); };
+  const handleAddUser = async (u: UserData) => { await addDoc(collection(db, 'users'), { ...u, canExportAnalytics: u.canExportAnalytics || false }); };
   const handleUpdatePassword = async (u: string, p: string) => { const user = users.find(us => us.username === u); if(user) { await updateDoc(doc(db,'users', user.id!), {password: p}); } };
   const handleUpdateNickname = async (u: string, n: string) => { const user = users.find(us => us.username === u); if(user) { await updateDoc(doc(db,'users', user.id!), {nickname: n}); } };
+  const handleUpdateExportPermission = async (u: string, canExport: boolean) => { const user = users.find(us => us.username === u); if(user) { await updateDoc(doc(db,'users', user.id!), {canExportAnalytics: canExport}); } };
   const handleUpdateUserRole = async (u: string, r: any) => { const user = users.find(us => us.username === u); if(user) { await updateDoc(doc(db,'users', user.id!), {role: r}); } };
   const handleDeleteUser = async (u: string) => { const user = users.find(us => us.username === u); if(user) { await deleteDoc(doc(db,'users', user.id!)); } };
   
@@ -704,7 +706,7 @@ const App: React.FC = () => {
           onToggleMissing={handleToggleMissing} onSetInProgress={handleSetInProgress} onToggleBlock={handleToggleBlock} onToggleManualBlock={handleToggleManualBlock}
           onExhaustSearch={handleExhaustSearch}
           onStartAudit={handleStartAudit} onFinishAudit={handleFinishAudit}
-          users={users} onAddUser={handleAddUser} onUpdatePassword={handleUpdatePassword} onUpdateNickname={handleUpdateNickname} onUpdateUserRole={handleUpdateUserRole} onDeleteUser={handleDeleteUser}
+          users={users} onAddUser={handleAddUser} onUpdatePassword={handleUpdatePassword} onUpdateNickname={handleUpdateNickname} onUpdateExportPermission={handleUpdateExportPermission} onUpdateUserRole={handleUpdateUserRole} onDeleteUser={handleDeleteUser}
           parts={partsArray} workplaces={workplaces} missingReasons={missingReasons} logisticsOperations={logisticsOperations}
           onAddPart={handleAddPart} onBatchAddParts={handleBatchAddParts} onDeletePart={handleDeletePart} onDeleteAllParts={handleDeleteAllParts}
           onAddWorkplace={handleAddWorkplace} onBatchAddWorkplaces={handleBatchAddWorkplaces} onDeleteWorkplace={handleDeleteWorkplace} onDeleteAllWorkplaces={handleDeleteAllWorkplaces}
