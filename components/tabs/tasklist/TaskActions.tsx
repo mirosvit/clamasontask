@@ -82,7 +82,7 @@ const TaskActions: React.FC<TaskActionsProps> = ({
 
   return (
     <div className="grid grid-cols-5 gap-2 items-center justify-center">
-      {!isSearchingMode && !isManualBlocked && hasPermission('perm_btn_resolve') && !isAuditInProgress && (
+      {!isSearchingMode && !isManualBlocked && hasPermission('perm_btn_resolve') && !isAuditInProgress && !task.isMissing && (
         <button onClick={() => onSetInProgress(task.id)} className={`w-16 h-16 flex items-center justify-center rounded-xl transition-all active:scale-95 shadow-lg ${task.isInProgress ? 'bg-yellow-600 text-white border border-yellow-500' : 'bg-gray-700 text-yellow-500 hover:bg-gray-600 border border-gray-600'}`}>
           {task.isInProgress ? <Icons.Pause /> : <Icons.Play />}
         </button>
@@ -94,25 +94,18 @@ const TaskActions: React.FC<TaskActionsProps> = ({
         </button>
       )}
 
-      {!isManualBlocked && hasPermission('perm_btn_missing') && !isAuditInProgress && (
-        <button onClick={(e) => (task.isInProgress || isSearchingMode) && handleMissingClick(task, e)} disabled={!task.isInProgress && !isSearchingMode} className={`w-16 h-16 flex items-center justify-center rounded-xl transition-all shadow-lg border ${(!task.isInProgress && !isSearchingMode) ? 'bg-gray-700 text-gray-500 border-gray-600 cursor-not-allowed opacity-50' : (task.isMissing ? 'bg-red-800 text-white border-red-500' : 'bg-red-600 text-white hover:bg-red-50 border-red-500 active:scale-95')}`}>
+      {!isManualBlocked && hasPermission('perm_btn_missing') && !isAuditInProgress && !task.isMissing && (
+        <button onClick={(e) => task.isInProgress && handleMissingClick(task, e)} disabled={!task.isInProgress} className={`w-16 h-16 flex items-center justify-center rounded-xl transition-all shadow-lg border ${!task.isInProgress ? 'bg-gray-700 text-gray-500 border-gray-600 cursor-not-allowed opacity-50' : 'bg-red-600 text-white hover:bg-red-50 border-red-500 active:scale-95'}`}>
           <Icons.Exclamation />
         </button>
       )}
 
-      {/* LUPA: Iba ak je isMissing */}
-      {!isManualBlocked && hasPermission('perm_btn_lock') && !isAuditInProgress && task.isMissing && !task.searchExhausted && (
+      {/* LUPA: Zobrazuje sa len ak je isMissing. Klikateľná opakovane aj počas hľadania. */}
+      {hasPermission('perm_btn_lock') && !isAuditInProgress && task.isMissing && !task.searchExhausted && (
         <button 
-            onClick={() => {
-                if (isSearchingMode) {
-                    if (window.confirm("Nenašlo sa ani po hľadaní?")) onExhaustSearch(task.id);
-                    else onToggleBlock(task.id);
-                } else {
-                    onToggleBlock(task.id);
-                }
-            }} 
+            onClick={() => onToggleBlock(task.id)} 
             title={t('perm_btn_lock')} 
-            className={`w-16 h-16 flex items-center justify-center rounded-lg transition-all active:scale-95 shadow-lg ${task.isBlocked ? 'bg-gray-600 text-white border border-gray-500' : 'bg-gray-700 text-gray-400 hover:bg-gray-600 border border-gray-600'}`}
+            className={`w-16 h-16 flex items-center justify-center rounded-lg transition-all active:scale-95 shadow-lg ${isSearchingMode ? 'bg-gray-600 text-white border border-gray-500' : 'bg-gray-700 text-gray-400 hover:bg-gray-600 border border-gray-600'}`}
         >
           <Icons.Search />
         </button>
@@ -124,13 +117,13 @@ const TaskActions: React.FC<TaskActionsProps> = ({
         </button>
       )}
 
-      {!isSearchingMode && !isManualBlocked && hasPermission('perm_btn_finish') && !isAuditInProgress && (
+      {!isSearchingMode && !isManualBlocked && hasPermission('perm_btn_finish') && !isAuditInProgress && !task.isMissing && (
         <button onClick={() => task.isInProgress && onToggleTask(task.id)} disabled={!task.isInProgress} className={`w-16 h-16 flex items-center justify-center rounded-xl transition-all shadow-xl border ${task.isInProgress ? 'bg-lime-600 text-white hover:bg-lime-500 active:scale-95 border-lime-500' : 'bg-gray-700 text-gray-500 border-gray-600 cursor-not-allowed opacity-50'}`}>
           <Icons.Check />
         </button>
       )}
 
-      {!isSearchingMode && !isManualBlocked && hasPermission('perm_btn_edit') && !isAuditInProgress && (
+      {!isSearchingMode && !isManualBlocked && hasPermission('perm_btn_edit') && !isAuditInProgress && !task.isMissing && (
         <button onClick={() => openPriorityModal(task)} className="w-16 h-16 flex items-center justify-center rounded-lg bg-gray-700 text-blue-400 border border-gray-600 hover:bg-gray-600 hover:text-white transition-colors">
           <Icons.Signal />
         </button>
@@ -152,7 +145,7 @@ const TaskActions: React.FC<TaskActionsProps> = ({
         </button>
       )}
 
-      {!isSearchingMode && !isManualBlocked && hasPermission('perm_btn_incorrect') && !isAuditInProgress && (
+      {!isSearchingMode && !isManualBlocked && hasPermission('perm_btn_incorrect') && !isAuditInProgress && !task.isMissing && (
         <button onClick={() => onMarkAsIncorrect(task.id)} className="w-16 h-16 flex items-center justify-center rounded-xl transition-all shadow-lg border bg-white border-red-600 text-red-600 hover:bg-red-50 active:scale-95">
           <Icons.Ban />
         </button>

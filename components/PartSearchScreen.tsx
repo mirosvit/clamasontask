@@ -38,6 +38,7 @@ interface PartSearchScreenProps {
   onReleaseTask: (id: string) => void;
   onArchiveTasks: () => Promise<{ success: boolean; count?: number; error?: string; message?: string }>;
   onDailyClosing: () => Promise<{ success: boolean; count: number }>;
+  // Fix: Removed duplicate identifier 'onWeeklyClosing'
   onWeeklyClosing: () => Promise<{ success: boolean; count: number; sanon?: string }>;
   onFetchArchivedTasks: () => Promise<Task[]>;
   onStartAudit: (id: string) => void;
@@ -141,6 +142,24 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   const [auditStartTask, setAuditStartTask] = useState<Task | null>(null);
   const [auditFinishTask, setAuditFinishTask] = useState<Task | null>(null);
   const [auditNote, setAuditNote] = useState('');
+  
+  const [searchConfirmTask, setSearchConfirmTask] = useState<Task | null>(null);
+
+  // LOGIKA ZAMYKANIA JEDNOTIEK
+  const unitLock = useMemo(() => {
+    if (entryMode === 'logistics' || !selectedPart?.description) return null;
+    const desc = selectedPart.description;
+    if (desc.includes('S0001S')) return 'pcs';
+    if (desc.includes('S0002S')) return 'boxes';
+    if (desc.includes('S0003S')) return 'pallet';
+    return null;
+  }, [selectedPart, entryMode]);
+
+  useEffect(() => {
+    if (unitLock) {
+      setQuantityUnit(unitLock);
+    }
+  }, [unitLock]);
 
   const currentRoleId = roles.find(r => r.name === currentUserRole)?.id;
   const hasPermission = useCallback((permName: string) => {
@@ -246,6 +265,36 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   const handleConfirmStartAudit = () => { if (auditStartTask) { props.onStartAudit(auditStartTask.id); setAuditStartTask(null); } };
   const handleConfirmFinishAudit = (result: 'found' | 'missing', note: string) => { if (auditFinishTask && note.trim()) { props.onFinishAudit(auditFinishTask.id, result, note.trim()); setAuditFinishTask(null); } else { alert(t('fill_all_fields')); } };
 
+  // LOGIKA CONFIRM HĽADANIE: Opakované kliknutie na Lupu aktualizuje searchedBy a otvorí modál.
+  const handleSearchIconClick = (id: string) => {
+      const task = tasks.find(t => t.id === id);
+      if (!task) return;
+      
+      const u = users.find(x => x.username === currentUser);
+      const nickname = u?.nickname || currentUser;
+
+      if (task.isBlocked) {
+          // Ak sa už hľadá, prepíšeme searchedBy a otvoríme confirm okno
+          onUpdateTask(id, { searchedBy: nickname });
+          setSearchConfirmTask(task);
+      } else {
+          // Ak sa hľadanie práve začína, handleToggleBlock v App.tsx nastaví isBlocked aj searchedBy
+          onToggleBlock(id);
+      }
+  };
+
+  const handleConfirmFoundItem = (found: boolean) => {
+      if (!searchConfirmTask) return;
+      if (found) {
+          // TOVAR SA NAŠIEL - zrušíme stav missing (tým sa obnovia akčné tlačidlá)
+          onToggleMissing(searchConfirmTask.id);
+      } else {
+          // TOVAR SA NENAŠIEL - prepneme na audit (exhaust search)
+          onExhaustSearch(searchConfirmTask.id);
+      }
+      setSearchConfirmTask(null);
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-white">
       {notifications.length > 0 && (
@@ -318,14 +367,61 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
             <div className="flex-grow overflow-y-auto p-3 md:p-8 custom-scrollbar">
                 <div className="max-w-7xl mx-auto w-full h-full">
                 {activeTab === 'entry' && hasPermission('perm_tab_entry') && (
-                    <ProductionEntry mode={entryMode} setMode={setEntryMode} selectedPart={selectedPart} setSelectedPart={setSelectedPart} selectedWorkplace={selectedWorkplace} setSelectedWorkplace={setSelectedWorkplace} logisticsRef={logisticsRef} setLogisticsRef={setLogisticsRef} logisticsPlate={logisticsPlate} setLogisticsPlate={setLogisticsPlate} logisticsOp={logisticsOp} setLogisticsOp={setLogisticsOp} quantity={quantity} setQuantity={setQuantity} quantityUnit={quantityUnit} setQuantityUnit={setQuantityUnit} priority={priority} setPriority={setPriority} parts={parts} workplaces={workplaces} logisticsOperationsList={logisticsOperationsList} t={t} language={language} hasPermission={hasPermission} handleAdd={handleSendToTasks} onRequestPart={props.onRequestPart} />
+                    <ProductionEntry 
+                        mode={entryMode} 
+                        setMode={setEntryMode} 
+                        selectedPart={selectedPart} 
+                        setSelectedPart={setSelectedPart} 
+                        selectedWorkplace={selectedWorkplace} 
+                        setSelectedWorkplace={setSelectedWorkplace} 
+                        logisticsRef={logisticsRef} 
+                        setLogisticsRef={setLogisticsRef} 
+                        logisticsPlate={logisticsPlate} 
+                        setLogisticsPlate={setLogisticsPlate} 
+                        logisticsOp={logisticsOp} 
+                        setLogisticsOp={setLogisticsOp} 
+                        quantity={quantity} 
+                        setQuantity={setQuantity} 
+                        quantityUnit={quantityUnit} 
+                        setQuantityUnit={setQuantityUnit} 
+                        priority={priority} 
+                        setPriority={setPriority} 
+                        parts={parts} 
+                        workplaces={workplaces} 
+                        logisticsOperationsList={logisticsOperationsList} 
+                        t={t} 
+                        language={language} 
+                        hasPermission={hasPermission} 
+                        handleAdd={handleSendToTasks} 
+                        onRequestPart={props.onRequestPart}
+                        isUnitLocked={!!unitLock} 
+                    />
                 )}
                 {activeTab === 'tasks' && hasPermission('perm_tab_tasks') && (
                     <div className="animate-fade-in pb-20">
                     <div className="mb-6 flex justify-center">
                         <input type="text" value={taskSearchQuery} onChange={e => setTaskSearchQuery(e.target.value)} className="w-full max-w-lg h-12 px-6 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase text-base" placeholder={t('task_search_placeholder')} />
                     </div>
-                    <TaskList currentUser={currentUserRole} currentUserName={currentUser} tasks={tasks.filter(t => { const q = taskSearchQuery.toLowerCase(); return (t.partNumber && t.partNumber.toLowerCase().includes(q)) || (t.text && t.text.toLowerCase().includes(q)) || (t.workplace && t.workplace.toLowerCase().includes(q)); })} onToggleTask={onToggleTask} onEditTask={onEditTask} onDeleteTask={onDeleteTask} onToggleMissing={onToggleMissing} onSetInProgress={onSetInProgress} onToggleBlock={onToggleBlock} onToggleManualBlock={onToggleManualBlock} onExhaustSearch={onExhaustSearch} onMarkAsIncorrect={onMarkAsIncorrect} onAddNote={onAddNote} onReleaseTask={onReleaseTask} onAuditPart={handleAuditClick} resolveName={resolveName} missingReasons={missingReasons} hasPermission={hasPermission} />
+                    <TaskList 
+                        currentUser={currentUserRole} 
+                        currentUserName={currentUser} 
+                        tasks={tasks.filter(t => { const q = taskSearchQuery.toLowerCase(); return (t.partNumber && t.partNumber.toLowerCase().includes(q)) || (t.text && t.text.toLowerCase().includes(q)) || (t.workplace && t.workplace.toLowerCase().includes(q)); })} 
+                        onToggleTask={onToggleTask} 
+                        onEditTask={onEditTask} 
+                        onDeleteTask={onDeleteTask} 
+                        onToggleMissing={onToggleMissing} 
+                        onSetInProgress={onSetInProgress} 
+                        onToggleBlock={handleSearchIconClick} 
+                        onToggleManualBlock={onToggleManualBlock} 
+                        onExhaustSearch={onExhaustSearch} 
+                        onMarkAsIncorrect={onMarkAsIncorrect} 
+                        onAddNote={onAddNote} 
+                        onReleaseTask={onReleaseTask} 
+                        onAuditPart={handleAuditClick} 
+                        resolveName={resolveName} 
+                        missingReasons={missingReasons} 
+                        hasPermission={hasPermission} 
+                    />
                     </div>
                 )}
                 {activeTab === 'analytics' && hasPermission('perm_tab_analytics') && <AnalyticsTab tasks={tasks} onFetchArchivedTasks={props.onFetchArchivedTasks} systemBreaks={props.systemBreaks} resolveName={resolveName} />}
@@ -367,6 +463,41 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                       <button onClick={() => handleConfirmFinishAudit('missing', auditNote)} disabled={!auditNote.trim()} className={`py-5 rounded-xl font-black transition-all shadow-xl uppercase text-xs tracking-widest flex items-center justify-center gap-2 border-2 ${!auditNote.trim() ? 'bg-gray-700 text-gray-500 border-gray-700 cursor-not-allowed' : 'bg-red-600 border-red-500 text-white'}`}>❌ {t('audit_missing_btn')}</button>
                   </div>
                   <button onClick={() => setAuditFinishTask(null)} className="w-full py-4 bg-gray-700 text-gray-300 rounded-xl hover:bg-gray-600 font-black transition-all uppercase text-[10px] tracking-widest">{t('btn_cancel')}</button>
+              </div>
+          </div>,
+          document.body
+      )}
+
+      {searchConfirmTask && createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setSearchConfirmTask(null)}>
+              <div className="bg-gray-800 border-2 border-gray-600 rounded-2xl shadow-2xl w-full max-w-md p-8 relative" onClick={e => e.stopPropagation()}>
+                  <div className="text-center mb-8">
+                      <h3 className="text-2xl font-black text-white mb-3 uppercase tracking-tighter">
+                          {language === 'sk' ? 'Našiel si tovar?' : 'Found the item?'}
+                      </h3>
+                      <p className="text-gray-400 text-base leading-relaxed">
+                          {language === 'sk' 
+                            ? `Potvrď, či sa diel ${searchConfirmTask.partNumber} podarilo nájsť.` 
+                            : `Confirm if you found part ${searchConfirmTask.partNumber}.`}
+                      </p>
+                  </div>
+                  <div className="flex gap-4 mb-4">
+                      <button 
+                        onClick={() => handleConfirmFoundItem(true)} 
+                        className="flex-1 py-5 bg-green-600 hover:bg-green-500 text-white rounded-xl font-black transition-all shadow-xl uppercase text-xs border-2 border-green-500"
+                      >
+                          ✅ {language === 'sk' ? 'Áno, našiel' : 'Yes, found'}
+                      </button>
+                      <button 
+                        onClick={() => handleConfirmFoundItem(false)} 
+                        className="flex-1 py-5 bg-red-600 hover:bg-red-500 text-white rounded-xl font-black transition-all shadow-xl uppercase text-xs border-2 border-red-500"
+                      >
+                          ❌ {language === 'sk' ? 'Nie, nenašiel' : 'No, not found'}
+                      </button>
+                  </div>
+                  <button onClick={() => setSearchConfirmTask(null)} className="w-full py-3 bg-gray-700 text-gray-400 rounded-xl hover:bg-gray-600 font-bold transition-all uppercase text-[10px] tracking-widest">
+                      {t('btn_cancel')}
+                  </button>
               </div>
           </div>,
           document.body

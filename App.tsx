@@ -81,6 +81,7 @@ export interface Task {
   auditNote?: string | null;
   expireAt?: number;
   searchExhausted?: boolean;
+  searchedBy?: string | null;
 }
 
 export interface Notification {
@@ -193,7 +194,7 @@ const App: React.FC = () => {
   const checkPermissionRef = (permName: string) => {
       const currentRole = currentUserRoleRef.current;
       if (currentRole === 'ADMIN') return true;
-      const r = rolesRef.current.find(r => r.name === currentRole);
+      const r = rolesRef.current.find(ro => ro.name === currentRole);
       if (!r) return false;
       return permissionsRef.current.some(p => p.roleId === r.id && p.permissionName === permName);
   };
@@ -475,15 +476,30 @@ const App: React.FC = () => {
   const handleRejectPartRequest = (id: string) => deleteDoc(doc(db,'part_requests',id));
 
   const handleAddTask = async (pn: string, wp: string | null, qty: string | null, unit: string | null, prio: PriorityLevel, isLogistics: boolean = false, note?: string) => {
+    // LOGIKA ZAMYKANIA JEDNOTIEK (UNIT LOCK) PODĽA POPISU
+    let finalUnit = unit;
+    const description = partsMap[pn];
+    if (description) {
+        if (description.includes('S0001S')) finalUnit = 'pcs';
+        else if (description.includes('S0002S')) finalUnit = 'boxes';
+        else if (description.includes('S0003S')) finalUnit = 'pallet';
+    }
+
     const formattedDate = new Date().toLocaleString('sk-SK');
-    let fQty = qty || ''; if(unit==='boxes') fQty=`${qty} box`; if(unit==='pallet') fQty=`${qty} pal`;
-    let text = `${formattedDate} / ${pn}`; if (wp) text += ` / ${wp}`; if (fQty) text += ` / Počet: ${fQty}`;
+    let fQty = qty || ''; 
+    if(finalUnit === 'boxes') fQty = `${qty} box`; 
+    if(finalUnit === 'pallet') fQty = `${qty} pal`;
+    
+    let text = `${formattedDate} / ${pn}`; 
+    if (wp) text += ` / ${wp}`; 
+    if (fQty) text += ` / Počet: ${fQty}`;
     if (note) text += ` / Pozn: ${note}`;
+
     let finalStandardTime = 0;
     if (!isLogistics) {
         const wpObj = workplaces.find(w => w.value === wp);
         finalStandardTime = wpObj?.standardTime || 0;
-        if (unit === 'pallet' && qty) {
+        if (finalUnit === 'pallet' && qty) {
             const numericQty = parseFloat(qty.replace(',', '.'));
             if (!isNaN(numericQty) && numericQty > 0) finalStandardTime = Math.round(finalStandardTime * numericQty);
         }
@@ -497,7 +513,7 @@ const App: React.FC = () => {
     }
     const isInventoryTask = pn === "Počítanie zásob";
     const now = Date.now();
-    await addDoc(collection(db, 'tasks'), { text, partNumber: pn, workplace: wp, quantity: qty, quantityUnit: unit, standardTime: finalStandardTime, isDone:false, priority:prio, createdAt:now, createdBy:currentUser, isLogistics, isInProgress: isInventoryTask, inProgressBy: isInventoryTask ? currentUser : null, startedAt: isInventoryTask ? now : null, note: note || null, expireAt: now + (90 * 24 * 60 * 60 * 1000) });
+    await addDoc(collection(db, 'tasks'), { text, partNumber: pn, workplace: wp, quantity: qty, quantityUnit: finalUnit, standardTime: finalStandardTime, isDone:false, priority:prio, createdAt:now, createdBy:currentUser, isLogistics, isInProgress: isInventoryTask, inProgressBy: isInventoryTask ? currentUser : null, startedAt: isInventoryTask ? now : null, note: note || null, expireAt: now + (90 * 24 * 60 * 60 * 1000) });
   };
 
   const handleUpdateTask = async (id: string, updates: Partial<Task>) => { await updateDoc(doc(db, 'tasks', id), updates); };
@@ -519,7 +535,19 @@ const App: React.FC = () => {
       const t=tasks.find(x=>x.id===id); 
       if(t) {
           const isMissing = !t.isMissing;
-          await updateDoc(doc(db,'tasks',id), { isMissing, missingReportedBy: isMissing?currentUser:null, missingReason: isMissing?(reason||'Iné'):null, isInProgress: false, inProgressBy: null, isBlocked: false, isManualBlocked: false, isAuditInProgress: false, auditBy: null });
+          await updateDoc(doc(db,'tasks',id), { 
+              isMissing, 
+              missingReportedBy: isMissing?currentUser:null, 
+              missingReason: isMissing?(reason||'Iné'):null, 
+              isInProgress: false, 
+              inProgressBy: null, 
+              isBlocked: false, 
+              blockedBy: null, 
+              searchedBy: isMissing ? (t.searchedBy || null) : null,
+              isManualBlocked: false, 
+              isAuditInProgress: false, 
+              auditBy: null 
+          });
           if (isMissing && t.createdBy && t.createdBy !== currentUser) {
               await addDoc(collection(db, 'notifications'), { 
                   partNumber: t.partNumber || 'Unknown', 
@@ -539,7 +567,16 @@ const App: React.FC = () => {
           const isBlocked = !t.isBlocked;
           const hist = t.inventoryHistory ? [...t.inventoryHistory] : [];
           if(isBlocked) hist.push({start:Date.now()}); else { const last=hist[hist.length-1]; if(last && !last.end) last.end=Date.now(); }
-          updateDoc(doc(db,'tasks',id), { isBlocked, blockedBy: isBlocked ? currentUser : null, inventoryHistory:hist });
+          
+          const u = users.find(x => x.username === currentUser);
+          const nickname = u?.nickname || currentUser;
+
+          updateDoc(doc(db,'tasks',id), { 
+              isBlocked, 
+              blockedBy: isBlocked ? currentUser : null, 
+              searchedBy: isBlocked ? nickname : (t.searchedBy || null),
+              inventoryHistory:hist 
+          });
       }
   };
   const handleToggleManualBlock = async (id: string) => {
@@ -552,12 +589,23 @@ const App: React.FC = () => {
   const handleExhaustSearch = async (id: string) => {
       await updateDoc(doc(db, 'tasks', id), { searchExhausted: true, isBlocked: false, blockedBy: null });
   };
-  const handleStartAudit = async (id: string) => { await updateDoc(doc(db, 'tasks', id), { isAuditInProgress: true, auditBy: currentUser }); };
+  
+  const handleStartAudit = async (id: string) => { 
+      const u = users.find(x => x.username === currentUser);
+      const name = (u?.nickname || currentUser);
+      await updateDoc(doc(db, 'tasks', id), { isAuditInProgress: true, auditBy: name }); 
+  };
+
   const handleFinishAudit = async (id: string, result: 'found' | 'missing', note: string) => {
       const t = tasks.find(x => x.id === id);
       if (!t) return;
+      
+      const u = users.find(x => x.username === currentUser);
+      const displayName = (u?.nickname || currentUser).toUpperCase();
+      
       const statusLabel = result === 'found' ? 'OK' : 'CHÝBA';
-      const badgeText = `AUDIT ${statusLabel}: ${note} (${currentUser})`;
+      const badgeText = `AUDIT ${statusLabel}: ${note} (${displayName})`;
+      
       const auditData = { 
           auditedBy: currentUser, 
           auditedAt: Date.now(), 

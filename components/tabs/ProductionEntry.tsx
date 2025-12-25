@@ -30,6 +30,7 @@ interface ProductionEntryProps {
   hasPermission: (perm: string) => boolean;
   handleAdd: () => void;
   onRequestPart: (part: string) => Promise<boolean>;
+  isUnitLocked?: boolean;
 }
 
 const PlusIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -42,9 +43,9 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
   mode, setMode, selectedPart, setSelectedPart, selectedWorkplace, setSelectedWorkplace,
   logisticsRef, setLogisticsRef, logisticsPlate, setLogisticsPlate, logisticsOp, setLogisticsOp, 
   quantity, setQuantity, quantityUnit, setQuantityUnit, priority, setPriority, parts, workplaces,
-  logisticsOperationsList, t, language, hasPermission, handleAdd, onRequestPart
+  logisticsOperationsList, t, language, hasPermission, handleAdd, onRequestPart, isUnitLocked
 }) => {
-  const inputBaseClass = "w-full h-12 bg-gray-700 border border-gray-600 rounded-lg px-4 text-white placeholder-gray-400 focus:outline-none focus:ring-2 transition-all font-mono uppercase text-base";
+  const inputBaseClass = "w-full h-12 bg-gray-700 border border-gray-600 rounded-lg px-4 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase text-base";
 
   const partNumbers = useMemo(() => parts.map(p => p.value), [parts]);
 
@@ -171,20 +172,22 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
                 <div className="flex w-full sm:w-1/2 h-12 bg-gray-700 rounded-lg p-1.5 border border-gray-600">
                   <button 
                     onClick={() => setQuantityUnit('pcs')} 
-                    disabled={mode === 'logistics'} 
-                    className={`flex-1 rounded-md text-xs font-black uppercase transition-all ${quantityUnit === 'pcs' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'} ${mode === 'logistics' ? 'opacity-10 cursor-not-allowed grayscale' : ''}`}
+                    disabled={mode === 'logistics' || isUnitLocked} 
+                    className={`flex-1 rounded-md text-xs font-black uppercase transition-all ${quantityUnit === 'pcs' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'} ${mode === 'logistics' ? 'opacity-10 cursor-not-allowed grayscale' : ''} ${isUnitLocked && quantityUnit !== 'pcs' ? 'opacity-20 cursor-not-allowed' : ''}`}
                   >
                     {t('unit_pcs_short')}
                   </button>
                   <button 
                     onClick={() => setQuantityUnit('boxes')} 
-                    className={`flex-1 rounded-md text-xs font-black uppercase transition-all ${quantityUnit === 'boxes' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}
+                    disabled={isUnitLocked}
+                    className={`flex-1 rounded-md text-xs font-black uppercase transition-all ${quantityUnit === 'boxes' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'} ${isUnitLocked && quantityUnit !== 'boxes' ? 'opacity-20 cursor-not-allowed' : ''}`}
                   >
                     {t('unit_boxes_short')}
                   </button>
                   <button 
                     onClick={() => setQuantityUnit('pallet')} 
-                    className={`flex-1 rounded-md text-xs font-black uppercase transition-all ${quantityUnit === 'pallet' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}
+                    disabled={isUnitLocked}
+                    className={`flex-1 rounded-md text-xs font-black uppercase transition-all ${quantityUnit === 'pallet' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'} ${isUnitLocked && quantityUnit !== 'pallet' ? 'opacity-20 cursor-not-allowed' : ''}`}
                   >
                     {t('unit_pallet_short')}
                   </button>
