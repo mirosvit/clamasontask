@@ -78,7 +78,7 @@ const AnalyticsExportPanel: React.FC<AnalyticsExportPanelProps> = ({ canExport, 
         'Audit (Výsledok)': item.auditResult || '',
         'Poznámka k auditu': item.auditNote || '',
         'Audit vykonal': resolveName(item.auditedBy) || item.auditBy || '',
-        'Dátum a čas auditu': formatDateTime(item.auditedAt)
+        'Dátum a čas auditu': formatDateTime(item.auditedAt ?? undefined)
       };
     });
 

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { db } from '../../firebase';
 import { 
@@ -113,7 +112,7 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName }) => {
           'Audit (Výsledok)': item.auditResult || '',
           'Poznámka k auditu': item.auditNote || '',
           'Audit vykonal': resolveName(item.auditedBy) || item.auditBy || '',
-          'Dátum a čas auditu': formatDateTime(item.auditedAt)
+          'Dátum a čas auditu': formatDateTime(item.auditedAt ?? undefined)
         };
       });
 
