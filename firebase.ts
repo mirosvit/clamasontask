@@ -20,14 +20,13 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Inicializácia Firestore s vynúteným Long Pollingom a vypnutými streamami (rieši firewally)
+// Inicializácia Firestore s vynúteným Long Pollingom (rieši firewally v továrňach)
+// Odstránená vlastnosť useFetchStreams (TS2353 fix)
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
     tabManager: persistentMultipleTabManager()
   }),
-  experimentalForceLongPolling: true,
-  // Dôležité pre prostredia, ktoré modifikujú HTTP streamy
-  useFetchStreams: false
+  experimentalForceLongPolling: true
 });
 
 export const auth = getAuth(app);
