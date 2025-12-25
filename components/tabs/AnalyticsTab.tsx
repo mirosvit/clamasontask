@@ -358,7 +358,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
                   const data = d.data() as Task;
                   const ts = data.createdAt || 0;
                   if (ts >= startDate && ts <= endDate) {
-                      results.push({ id: d.id, ...data });
+                      // Fix: Safe push to avoid duplicate 'id' key if data already contains an id field
+                      results.push({ ...data, id: d.id });
                   }
               });
           }
