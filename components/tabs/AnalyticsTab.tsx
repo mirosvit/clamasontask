@@ -22,6 +22,12 @@ const DownloadIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
+const ClockSmallIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
 const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchArchivedTasks, systemBreaks, resolveName }) => {
   const [filterMode, setFilterMode] = useState<FilterMode>('TODAY');
   const [shiftFilter, setShiftFilter] = useState<ShiftFilter>('ALL');
@@ -243,8 +249,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
     const workerStatsMap: Record<string, any> = {};
 
     // PERFORMANCE TASKS: Zahŕňajú len reálnu prácu.
-    // Vylučujeme 'incorrectly_entered' a potvrdené chýbajúce kusy 'Audit NOK'.
-    // Ak je audit 'OK' a tovar tam bol, úloha tu ZOSTÁVA (znižuje efektivitu, lebo skladník ju prehliadol).
     const performanceTasks = filteredTasks.filter(t => 
         t.status !== 'incorrectly_entered' && 
         t.auditResult !== 'NOK'
@@ -256,7 +260,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
     const missing = performanceTasks.filter(t => t.isMissing).length;
     const urgent = performanceTasks.filter(t => t.priority === 'URGENT' && t.isDone).length;
 
-    // FÉROVÁ EFEKTIVITA: (hotové / celkový očistený pool)
     const efficiency = total <= 0 ? 0 : Math.round((done / total) * 100);
 
     performanceTasks.forEach(task => {
@@ -332,124 +335,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
     };
   }, [filteredTasks, systemBreaks, resolveName]);
 
-  const generateExcelFromTasks = (allTasks: any[], fileName: string) => {
-      const excelData = allTasks.map(item => {
-        let searchResult = '';
-        if (item.searchedBy) {
-          if (item.searchExhausted || item.auditResult) {
-            searchResult = 'Nie';
-          } else if (item.isMissing === false) {
-            searchResult = 'Áno';
-          } else {
-            searchResult = 'Prebieha';
-          }
-        }
-
-        let statusText = 'Otvorené';
-        if (item.status === 'incorrectly_entered') {
-            statusText = 'Chybne zadané';
-        } else if (item.auditResult) {
-            statusText = 'Auditované';
-        } else if (item.isDone) {
-            statusText = 'Dokončené';
-        }
-
-        return {
-          'Dátum pridania': formatDate(item.createdAt),
-          'Čas pridania': formatTime(item.createdAt),
-          'Kto pridal': resolveName(item.createdBy),
-          'Diel / Referencia': item.partNumber || '',
-          'Pracovisko / Operácia': item.workplace || '',
-          'SPZ / Prepravca': item.isLogistics ? (item.note || '') : '',
-          'Počet': item.quantity || '',
-          'Jednotka': item.quantityUnit || '',
-          'Poznámka': !item.isLogistics ? (item.note || '') : '',
-          'Skladník': resolveName(item.completedBy),
-          'Dátum dokončenia': formatDate(item.completedAt),
-          'Čas dokončenia': formatTime(item.completedAt),
-          'Status': statusText,
-          'Nahlásil chýbajúce': resolveName(item.missingReportedBy),
-          'Dôvod chýbania': item.missingReason || '',
-          'Čas nahlásenia chyby': item.missingReportedBy ? formatTime(item.completedAt || item.createdAt) : '',
-          'Kto hľadal': item.searchedBy || '',
-          'Výsledok hľadania': searchResult,
-          'Audit (Výsledok)': item.auditResult || '',
-          'Poznámka k auditu': item.auditNote || '',
-          'Audit vykonal': resolveName(item.auditedBy) || item.auditBy || '',
-          'Dátum a čas auditu': formatDateTime(item.auditedAt)
-        };
-      });
-
-      const ws = XLSX.utils.json_to_sheet(excelData);
-      const wscols = [
-        {wch: 15}, {wch: 12}, {wch: 20}, {wch: 20}, {wch: 25}, 
-        {wch: 20}, {wch: 10}, {wch: 10}, {wch: 25}, {wch: 20}, 
-        {wch: 15}, {wch: 12}, {wch: 18}, {wch: 20}, {wch: 25}, 
-        {wch: 15}, {wch: 20}, {wch: 18}, {wch: 15}, {wch: 35},
-        {wch: 20}, {wch: 20}
-      ];
-      ws['!cols'] = wscols;
-
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "REPORT_OBDOBIE");
-      XLSX.writeFile(wb, `${fileName}.xlsx`);
-  };
-
-  const handleArchiveExport = async () => {
-      if (!archiveExportStart || !archiveExportEnd) {
-          alert(language === 'sk' ? 'Zvoľte prosím rozsah dátumov.' : 'Please select date range.');
-          return;
-      }
-
-      setIsExportingArchive(true);
-      setExportProgress(language === 'sk' ? 'Prehľadávam archív...' : 'Searching archive...');
-
-      try {
-          const startDate = new Date(archiveExportStart).setHours(0,0,0,0);
-          const endDate = new Date(archiveExportEnd).setHours(23,59,59,999);
-          
-          const results: any[] = [];
-          
-          const startYear = new Date(startDate).getFullYear();
-          const endYear = new Date(endDate).getFullYear();
-          
-          const collectionsToTry = ['tasks', 'archive_drafts'];
-          for (let y = startYear; y <= endYear; y++) {
-              for (let w = 1; w <= 53; w++) {
-                  collectionsToTry.push(`sanon_${y}_${w}`);
-              }
-          }
-
-          for (const colName of collectionsToTry) {
-              setExportProgress(`${language === 'sk' ? 'Sťahujem' : 'Fetching'} ${colName}...`);
-              const snap = await getDocs(collection(db, colName));
-              snap.forEach(d => {
-                  const data = d.data() as Task;
-                  const ts = data.createdAt || 0;
-                  if (ts >= startDate && ts <= endDate) {
-                      results.push({ ...data, id: d.id });
-                  }
-              });
-          }
-
-          if (results.length === 0) {
-              alert(language === 'sk' ? 'V tomto období sa nenašli žiadne záznamy.' : 'No records found in this period.');
-          } else {
-              setExportProgress(language === 'sk' ? 'Generujem súbor...' : 'Generating file...');
-              generateExcelFromTasks(results, `REPORT_ARCHIV_${archiveExportStart}_${archiveExportEnd}`);
-          }
-
-      } catch (err) {
-          console.error(err);
-          alert('Chyba pri exporte archívu.');
-      } finally {
-          setIsExportingArchive(false);
-          setExportProgress('');
-      }
-  };
-
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-20 animate-fade-in">
+    <div className="max-w-6xl mx-auto space-y-6 pb-20 animate-fade-in text-slate-200">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <h1 className="text-2xl sm:text-3xl font-black text-teal-400 uppercase tracking-tighter">{t('analytics_title')}</h1>
             {isLoadingArchive && (
@@ -460,55 +347,9 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
             )}
         </div>
 
-        {/* SEKČIA: EXPORT DÁT PRE REPORT (VIDITEĽNÉ LEN PRE ADMINA S PERMISIOU) */}
-        {canExport && (
-            <div className="bg-slate-900/60 border border-slate-700/50 p-6 rounded-3xl shadow-2xl space-y-6 animate-fade-in">
-                <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-                    <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-500"><Icons.Archive /></div>
-                    <h2 className="text-sm font-black text-white uppercase tracking-widest">Export dát pre report</h2>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Od</label>
-                        <input 
-                            type="date" 
-                            value={archiveExportStart}
-                            onChange={(e) => setArchiveExportStart(e.target.value)}
-                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 h-12 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Do</label>
-                        <input 
-                            type="date" 
-                            value={archiveExportEnd}
-                            onChange={(e) => setArchiveExportEnd(e.target.value)}
-                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 h-12 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                        />
-                    </div>
-                    <button 
-                        onClick={handleArchiveExport}
-                        disabled={isExportingArchive}
-                        className={`h-12 rounded-xl font-black uppercase text-xs tracking-widest transition-all flex items-center justify-center gap-3 border-2 shadow-lg ${
-                            isExportingArchive ? 'bg-slate-700 border-slate-600 text-slate-400 animate-pulse' : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500'
-                        }`}
-                    >
-                        {isExportingArchive ? '...' : (
-                            <><DownloadIcon className="w-5 h-5" /> STIAHNUŤ REPORT (.xlsx)</>
-                        )}
-                    </button>
-                </div>
-                {exportProgress && (
-                    <p className="text-center text-[10px] font-mono font-bold text-emerald-400 bg-emerald-400/5 py-1.5 rounded-lg border border-emerald-400/20 uppercase tracking-widest">{exportProgress}</p>
-                )}
-            </div>
-        )}
-
         {/* ANALYTIKA (VIZUÁLNE FILTRE) */}
         <div className="bg-gray-800/40 p-4 rounded-2xl shadow-md border border-gray-700 flex flex-col gap-6">
             <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
-                {/* ČASOVÝ FILTER */}
                 <div className="flex flex-wrap gap-2 justify-center">
                     {(['TODAY', 'YESTERDAY', 'WEEK', 'MONTH'] as FilterMode[]).map(mode => (
                         <button 
@@ -521,7 +362,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
                     ))}
                 </div>
 
-                {/* PREPÍNAČ ZMIEN (SEGMENTED SWITCH) */}
                 <div className="bg-slate-900/80 p-1.5 rounded-2xl flex border border-slate-700 shadow-inner h-14 min-w-[300px]">
                     <button 
                         onClick={() => setShiftFilter('ALL')} 
@@ -569,29 +409,61 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
             </div>
         </div>
 
-        <div className="bg-slate-950/40 border border-slate-800 p-6 rounded-3xl shadow-xl overflow-hidden">
-             <h3 className="text-sm font-black text-white mb-6 uppercase tracking-widest border-b border-white/5 pb-4">{t('table_title')}</h3>
+        {/* TABUĽKA VÝKONNOSTI - REDIZAJN */}
+        <div className="bg-slate-950/40 border border-slate-800 p-6 rounded-3xl shadow-2xl overflow-hidden">
+             <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-6">
+                <h3 className="text-sm font-black text-white uppercase tracking-[0.25em]">{t('table_title')}</h3>
+                <div className="flex gap-4">
+                    <div className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                        <div className="w-2 h-2 rounded-full bg-teal-500"></div> Top Výkon
+                    </div>
+                </div>
+             </div>
+
              <div className="overflow-x-auto custom-scrollbar">
-                <table className="w-full text-left border-collapse min-w-[600px]">
+                <table className="w-full text-left border-separate border-spacing-y-3 min-w-[700px]">
                     <thead>
-                        <tr className="text-slate-500 text-[10px] font-black uppercase tracking-widest">
-                            <th className="py-4 px-2">{t('th_rank')}</th>
-                            <th className="py-4 px-2">{t('th_name')}</th>
-                            <th className="py-4 px-2 text-right">{t('th_done')}</th>
-                            <th className="py-4 px-2 text-right text-sky-400">{language === 'sk' ? 'Objem (pal/ks)' : 'Volume'}</th>
-                            <th className="py-4 px-2 text-right text-emerald-400">{t('th_work_time')}</th>
+                        <tr className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">
+                            <th className="pb-4 px-6">{t('th_rank')}</th>
+                            <th className="pb-4 px-2">{t('th_name')}</th>
+                            <th className="pb-4 px-2 text-right">{t('th_done')}</th>
+                            <th className="pb-4 px-2 text-right text-sky-400">📦 {language === 'sk' ? 'OBJEM' : 'VOLUME'}</th>
+                            <th className="pb-4 px-2 text-right text-purple-400"><div className="flex items-center justify-end gap-1.5"><ClockSmallIcon className="w-3 h-3" /> {language === 'sk' ? 'PRIEMER' : 'AVG'}</div></th>
+                            <th className="pb-4 px-6 text-right text-emerald-400">{t('th_work_time')}</th>
                         </tr>
                     </thead>
-                    <tbody className="text-sm">
-                        {stats.workerStats.map((ws: any, idx: number) => (
-                            <tr key={ws.name} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors group">
-                                <td className="py-4 px-2 text-slate-600 font-mono text-xs">{idx + 1}</td>
-                                <td className="py-4 px-2 font-black text-slate-200 uppercase tracking-tight group-hover:text-teal-400 transition-colors">{ws.name}</td>
-                                <td className="py-4 px-2 text-right text-teal-500 font-black font-mono">{ws.count}</td>
-                                <td className="py-4 px-2 text-right text-sky-400 font-black font-mono">{Number(ws.totalVolume.toFixed(1))}</td>
-                                <td className="py-4 px-2 text-right text-emerald-400 font-black font-mono">{formatDuration(ws.totalExecutionMs)}</td>
-                            </tr>
-                        ))}
+                    <tbody>
+                        {stats.workerStats.map((ws: any, idx: number) => {
+                            const isWinner = idx === 0;
+                            const rowBg = isWinner ? 'bg-slate-800/40' : 'bg-slate-900/40';
+                            const winnerBorder = isWinner ? 'border-y border-teal-500/30' : '';
+                            
+                            return (
+                                <tr key={ws.name} className={`group transition-all hover:bg-slate-800/60 ${isWinner ? 'shadow-[0_0_20px_rgba(20,184,166,0.1)]' : ''}`}>
+                                    <td className={`py-5 px-6 first:rounded-l-2xl text-slate-500 font-mono text-base ${rowBg} ${winnerBorder} ${isWinner ? 'border-l border-teal-500/30' : ''}`}>
+                                        {idx + 1}
+                                    </td>
+                                    <td className={`py-5 px-2 font-black text-lg uppercase tracking-tight ${rowBg} ${winnerBorder} ${isWinner ? 'text-teal-400' : 'text-slate-200'}`}>
+                                        <div className="flex items-center gap-3">
+                                            {isWinner && <span className="text-amber-400 animate-pulse text-xl">★</span>}
+                                            {ws.name}
+                                        </div>
+                                    </td>
+                                    <td className={`py-5 px-2 text-right text-teal-500 font-black font-mono text-lg ${rowBg} ${winnerBorder}`}>
+                                        {ws.count}
+                                    </td>
+                                    <td className={`py-5 px-2 text-right text-sky-400 font-black font-mono text-lg ${rowBg} ${winnerBorder}`}>
+                                        {Number(ws.totalVolume.toFixed(1))}
+                                    </td>
+                                    <td className={`py-5 px-2 text-right text-purple-400 font-black font-mono text-base ${rowBg} ${winnerBorder}`}>
+                                        {formatDuration(ws.totalExecutionMs / ws.count)}
+                                    </td>
+                                    <td className={`py-5 px-6 last:rounded-r-2xl text-right text-emerald-400 font-black font-mono text-base ${rowBg} ${winnerBorder} ${isWinner ? 'border-r border-teal-500/30' : ''}`}>
+                                        {formatDuration(ws.totalExecutionMs)}
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
              </div>
