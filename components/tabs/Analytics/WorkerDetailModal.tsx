@@ -159,7 +159,7 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
     return h > 0 ? `${h}h ${m}m` : `${m} min`;
   };
 
-  const cardStyle = "bg-slate-800/40 border-t-4 p-6 rounded-2xl shadow-xl backdrop-blur-md relative overflow-hidden";
+  const cardStyle = "bg-slate-800/40 border-t-4 p-6 rounded-2xl shadow-xl backdrop-blur-md relative overflow-hidden page-break-avoid";
 
   const getUtilColor = (val: number) => {
     if (val > 85) return 'border-t-emerald-500';
@@ -190,44 +190,52 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
       <style>{`
         @media print {
           @page { size: A4; margin: 1cm; }
-          body * { visibility: hidden; }
-          #worker-modal-print-area, #worker-modal-print-area * { visibility: visible; }
-          #worker-modal-print-area {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
+          html { font-size: 11px !important; }
+          body > *:not(#worker-detail-modal-container) { display: none !important; }
+          #worker-detail-modal-container {
+            position: fixed !important;
+            inset: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            max-width: none !important;
+            max-height: none !important;
             background: white !important;
             color: black !important;
-            box-shadow: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
             border: none !important;
+            box-shadow: none !important;
             display: block !important;
+            overflow: visible !important;
+            transform: none !important;
           }
           .print-hide { display: none !important; }
-          .bg-slate-800\\/40, .bg-slate-900, .bg-slate-950\\/40, .bg-slate-800\\/30, .bg-slate-900\\/50 {
+          .bg-slate-800\\/40, .bg-slate-900, .bg-slate-950\\/40, .bg-slate-800\\/30, .bg-slate-900\\/50, .bg-slate-950\\/60 {
             background: white !important;
             border: 1px solid #e2e8f0 !important;
             color: black !important;
             box-shadow: none !important;
+            backdrop-filter: none !important;
           }
           .text-white, .text-slate-200, .text-slate-300, .text-teal-400, .text-emerald-400, .text-amber-400, .text-blue-400, .text-red-400, .text-slate-500, .text-slate-600 {
             color: black !important;
           }
-          .border-t-4 { border-top: 4px solid black !important; }
-          .border-l-\\[12px\\] { border-left: 12px solid black !important; }
+          .p-8, .p-10, .p-6 { padding: 0.75rem !important; }
+          .gap-8, .gap-6 { gap: 0.5rem !important; }
+          .mb-8 { margin-bottom: 0.5rem !important; }
+          .border-t-4 { border-top-width: 4px !important; border-top-color: black !important; }
+          .border-l-\\[12px\\] { border-left-width: 12px !important; border-left-color: black !important; }
           .bg-slate-950 { background: #f1f5f9 !important; border: 1px solid #cbd5e1 !important; }
+          .page-break-avoid { page-break-inside: avoid !important; }
+          .h-3 { height: 8px !important; border: 1px solid #cbd5e1 !important; }
           .bg-teal-500, .bg-emerald-500, .bg-amber-500, .bg-blue-500 { background: #334155 !important; }
-          .shadow-2xl, .shadow-xl, .shadow-lg { box-shadow: none !important; }
-          .grid { display: grid !important; }
-          .grid-cols-1, .grid-cols-2 { gap: 1rem !important; }
-          .rounded-\\[2\\.5rem\\], .rounded-3xl, .rounded-2xl { rounded: 0 !important; }
-          div, section { page-break-inside: avoid; }
+          h2 { font-size: 2.5rem !important; }
         }
       `}</style>
-      <div id="worker-modal-print-area" className="bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-y-auto custom-scrollbar relative" onClick={e => e.stopPropagation()}>
+      <div id="worker-detail-modal-container" className="bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-y-auto custom-scrollbar relative" onClick={e => e.stopPropagation()}>
         
         {/* HEADER */}
-        <div className="p-8 sm:p-10 border-b border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-slate-800/30">
+        <div className="p-8 sm:p-10 border-b border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-slate-800/30 page-break-avoid">
           <div className="space-y-1">
             <div className="flex items-center gap-3">
                <span className="bg-teal-500/20 text-teal-400 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-teal-500/30">{periodLabel}</span>
@@ -236,14 +244,18 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
             <h2 className="text-5xl font-black text-white uppercase tracking-tighter leading-none">{name}</h2>
           </div>
           
-          <div className="flex gap-4 print-hide">
-             <button onClick={() => window.print()} className="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white p-5 rounded-full transition-all border border-slate-700 flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="flex gap-3 print-hide">
+             <button 
+                onClick={() => window.print()}
+                className="p-4 rounded-full bg-slate-800/50 hover:bg-slate-700 text-teal-400 transition-all border border-slate-700 shadow-lg"
+                title="Tlačiť report"
+             >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                 </svg>
              </button>
-             <button onClick={onClose} className="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white p-5 rounded-full transition-all border border-slate-700 flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+             <button onClick={onClose} className="p-4 rounded-full bg-slate-800/50 hover:bg-slate-700 text-slate-400 transition-all border border-slate-700 shadow-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
              </button>
           </div>
         </div>
@@ -251,7 +263,7 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
         <div className="p-8 sm:p-10 grid grid-cols-1 md:grid-cols-2 gap-8">
           
           {/* INDEX SCORE CARD */}
-          <div className={`col-span-1 md:col-span-2 bg-slate-950/40 border-l-[12px] p-8 rounded-3xl shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-8 ${getIndexBorderColor(stats.workerIndex)}`}>
+          <div className={`col-span-1 md:col-span-2 bg-slate-950/40 border-l-[12px] p-8 rounded-3xl shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-8 page-break-avoid ${getIndexBorderColor(stats.workerIndex)}`}>
             <div className="text-center sm:text-left">
               <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.3em] mb-2">CELKOVÝ INDEX SCORE</h3>
               <p className="text-xs text-slate-600 font-bold uppercase leading-relaxed max-w-sm">Komplexné vyhodnotenie kvality, využitia zmeny, plnenia noriem a rýchlosti reakcie.</p>
@@ -287,7 +299,7 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
                 <span className="text-xl font-black text-white font-mono">{formatMinutes(stats.effectiveWorkMinutes)}</span>
               </div>
 
-              <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden shadow-inner border border-white/5 print-hide">
+              <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden shadow-inner border border-white/5">
                 <div 
                   style={{ width: `${Math.min(stats.utilizationPercent, 100)}%` }} 
                   className={`h-full transition-all duration-1000 ${getUtilBarColor(stats.utilizationPercent)}`}
@@ -418,7 +430,7 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
           </div>
 
           {/* LEGENDA HODNOTENIA */}
-          <div className="col-span-1 md:col-span-2 bg-slate-900/50 border border-slate-800 p-6 rounded-[2rem] shadow-inner animate-fade-in">
+          <div className="col-span-1 md:col-span-2 bg-slate-900/50 border border-slate-800 p-6 rounded-[2rem] shadow-inner animate-fade-in page-break-avoid">
             <h3 className="text-xs font-black text-teal-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               {language === 'sk' ? 'LEGENDA HODNOTENIA (INDEX SCORE)' : 'RATING LEGEND (INDEX SCORE)'}
