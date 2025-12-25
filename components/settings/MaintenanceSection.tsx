@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { SystemConfig } from '../../App';
 import { useLanguage } from '../LanguageContext';
@@ -27,12 +26,17 @@ const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, o
   const [isClosing, setIsClosing] = useState(false);
   const [isPurging, setIsPurging] = useState(false);
   const [docCount, setDocCount] = useState<number | null>(null);
-  const [scheduleStart, setScheduleStart] = useState(systemConfig.maintenanceStart || '');
-  const [scheduleEnd, setScheduleEnd] = useState(systemConfig.maintenanceEnd || '');
   const [newIp, setNewIp] = useState('');
+  const [currentUserIp, setCurrentUserIp] = useState<string>('');
+  const [isActivating, setIsActivating] = useState(false);
 
   useEffect(() => {
       onGetDocCount().then(setDocCount);
+      // Zistenie aktuálnej IP používateľa hneď pri načítaní
+      fetch('https://api.ipify.org?format=json')
+          .then(res => res.json())
+          .then(data => setCurrentUserIp(data.ip))
+          .catch(err => console.error("Failed to fetch user IP", err));
   }, []);
 
   const handlePurge = async () => {
@@ -60,9 +64,85 @@ const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, o
       setIsClosing(false);
   };
 
+  const handleManualAddIp = () => {
+    if (!newIp.trim()) return;
+    const currentList = systemConfig.allowedIPs || [];
+    if (currentList.includes(newIp.trim())) {
+      alert("Táto IP je už na zozname.");
+      return;
+    }
+    onUpdateSystemConfig({ allowedIPs: [...currentList, newIp.trim()] });
+    setNewIp('');
+  };
+
+  const handleToggleIpCheck = async () => {
+    if (systemConfig.ipCheckEnabled) {
+      onUpdateSystemConfig({ ipCheckEnabled: false });
+      return;
+    }
+
+    const currentList = systemConfig.allowedIPs || [];
+    setIsActivating(true);
+    
+    try {
+      // 1. Zistiť aktuálnu IP (ak ešte nemáme z useEffectu)
+      let myIp = currentUserIp;
+      if (!myIp) {
+        const res = await fetch('https://api.ipify.org?format=json');
+        const data = await res.json();
+        myIp = data.ip;
+        setCurrentUserIp(myIp);
+      }
+
+      if (!myIp) {
+        alert("Nepodarilo sa overiť vašu IP adresu. Aktivácia bola zrušená.");
+        return;
+      }
+
+      // 2. Skontrolovať, či je IP v zozname (wildcard alebo presná zhoda)
+      const isAllowed = currentList.some(pattern => {
+        if (pattern.includes('*')) {
+            const prefix = pattern.split('*')[0];
+            return myIp.startsWith(prefix);
+        }
+        return pattern === myIp;
+      });
+
+      let newList = [...currentList];
+      if (!isAllowed) {
+        if (window.confirm(`Vaša aktuálna IP (${myIp}) nie je na zozname povolených. Chcete ju automaticky pridať a zapnúť kontrolu?`)) {
+          newList.push(myIp);
+        } else {
+          setIsActivating(false);
+          return;
+        }
+      }
+
+      // 3. Poistka: Zoznam nesmie byť prázdny
+      if (newList.length === 0) {
+        alert("Zoznam povolených IP je prázdny. Aktivácia nie je možná.");
+        setIsActivating(false);
+        return;
+      }
+
+      onUpdateSystemConfig({ 
+        allowedIPs: newList,
+        ipCheckEnabled: true 
+      });
+      
+    } catch (err) {
+      console.error("IP activation failed", err);
+      alert("Chyba pri overovaní IP adresy.");
+    } finally {
+      setIsActivating(false);
+    }
+  };
+
   const cardClass = "bg-gray-800/40 border border-slate-700/50 rounded-2xl p-6 shadow-2xl backdrop-blur-sm";
   const inputClass = "w-full h-12 bg-slate-800/80 border border-slate-700 rounded-xl px-4 text-white text-base focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono placeholder-gray-500 uppercase";
   const labelClass = "block text-xs font-black text-slate-500 uppercase tracking-[0.2em] mb-3";
+
+  const isListEmpty = (systemConfig.allowedIPs || []).length === 0;
 
   return (
     <div className="space-y-8">
@@ -82,18 +162,72 @@ const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, o
                 </button>
               </div>
             </div>
-            <div className="bg-slate-950/40 p-8 rounded-3xl border border-white/5 space-y-8 shadow-inner">
+            <div className="bg-slate-950/40 p-8 rounded-3xl border border-white/5 space-y-8 shadow-inner flex flex-col">
               <div className="flex justify-between items-center">
-                <h4 className="text-base font-black text-white uppercase tracking-widest">IP WHITELIST</h4>
-                <button onClick={() => onUpdateSystemConfig({ipCheckEnabled: !systemConfig.ipCheckEnabled})} className={`text-xs font-black px-5 h-10 flex items-center rounded-full border-2 transition-all ${systemConfig.ipCheckEnabled ? 'bg-green-500 text-white border-green-400 shadow-[0_0_15px_rgba(34,197,94,0.4)]' : 'bg-slate-800 text-slate-500 border-slate-700'}`}>{systemConfig.ipCheckEnabled ? 'ENABLED' : 'DISABLED'}</button>
+                <div>
+                  <h4 className="text-base font-black text-white uppercase tracking-widest">IP WHITELIST</h4>
+                  <p className="text-[10px] font-mono text-teal-500/80 tracking-wider mt-1">
+                    VAŠA AKTUÁLNA IP: {currentUserIp || 'zisťujem...'}
+                  </p>
+                </div>
+                <button 
+                  onClick={handleToggleIpCheck} 
+                  disabled={isActivating}
+                  className={`text-xs font-black px-5 h-10 flex items-center rounded-full border-2 transition-all ${
+                    systemConfig.ipCheckEnabled 
+                      ? 'bg-green-500 text-white border-green-400 shadow-[0_0_15px_rgba(34,197,94,0.4)]' 
+                      : isListEmpty 
+                        ? 'bg-slate-800 text-rose-500 border-rose-900/30' 
+                        : 'bg-slate-800 text-slate-500 border-slate-700'
+                  }`}
+                >
+                  {isActivating ? '...' : (
+                    <>
+                      {(!systemConfig.ipCheckEnabled && isListEmpty) && <span className="mr-2">⚠️</span>}
+                      {systemConfig.ipCheckEnabled ? 'ENABLED' : 'DISABLED'}
+                    </>
+                  )}
+                </button>
               </div>
-              <div className="space-y-2 max-h-56 overflow-y-auto custom-scrollbar pr-3">
+              
+              <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-3 mb-4">
                 {(systemConfig.allowedIPs || []).map(ip => (
-                  <div key={ip} className="bg-slate-900 px-5 h-12 rounded-xl border border-white/5 flex justify-between items-center text-xs font-mono group hover:bg-slate-800 transition-colors">
+                  <div key={ip} className="bg-slate-900 px-5 h-10 rounded-xl border border-white/5 flex justify-between items-center text-xs font-mono group hover:bg-slate-800 transition-colors">
                     <span className="text-slate-300 font-bold">{ip}</span>
                     <button onClick={() => onUpdateSystemConfig({allowedIPs: (systemConfig.allowedIPs||[]).filter(i=>i!==ip)})} className="text-red-500 opacity-0 group-hover:opacity-100 font-black px-2 text-xl">×</button>
                   </div>
                 ))}
+                {isListEmpty && (
+                  <div className="h-24 flex items-center justify-center border-2 border-dashed border-slate-800 rounded-xl">
+                    <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Whitelist je prázdny</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-auto space-y-3">
+                <div className="flex justify-between items-end">
+                  <h4 className={labelClass}>MANUÁLNE PRIDAŤ IP</h4>
+                  <button 
+                    onClick={() => setNewIp(currentUserIp)}
+                    className="text-[9px] font-black text-teal-500 hover:text-teal-400 uppercase tracking-widest mb-3 transition-colors"
+                  >
+                    POUŽIŤ MOJU IP
+                  </button>
+                </div>
+                <div className="flex gap-3">
+                  <input 
+                    value={newIp} 
+                    onChange={e => setNewIp(e.target.value)} 
+                    placeholder="napr. 192.168.1.*" 
+                    className={inputClass} 
+                  />
+                  <button 
+                    onClick={handleManualAddIp}
+                    className="bg-teal-600 hover:bg-teal-500 text-white font-black px-6 rounded-xl uppercase tracking-widest text-[10px] transition-all border-2 border-teal-500 shadow-lg whitespace-nowrap"
+                  >
+                    PRIDAŤ IP
+                  </button>
+                </div>
               </div>
             </div>
           </div>
