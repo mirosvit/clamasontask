@@ -186,36 +186,81 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/95 backdrop-blur-xl p-4 animate-fade-in print:bg-white print:p-0 print:block print:relative print:z-0" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/95 backdrop-blur-xl p-4 animate-fade-in print:bg-white print:p-0 print:block print:relative print:z-0 overflow-y-auto custom-scrollbar" onClick={onClose}>
       <style>{`
         @media print {
+          @page { margin: 1.5cm; }
           .no-print { display: none !important; }
-          body { background: white !important; }
-          .print-black { color: black !important; border-color: #333 !important; }
-          .print-no-rounded { border-radius: 0 !important; }
-          .print-no-shadow { box-shadow: none !important; }
-          .print-bg-white { background: white !important; }
-          .print-border { border: 1px solid #eee !important; }
+          body { background: white !important; color: black !important; }
+          
+          /* Hlavný kontajner */
+          .print-full-width { 
+            width: 100% !important; 
+            max-width: none !important; 
+            background: white !important; 
+            border: none !important; 
+            box-shadow: none !important; 
+            position: static !important;
+            padding: 0 !important;
+          }
+
+          /* Force single column for cards */
+          .print-stack { 
+            display: flex !important; 
+            flex-direction: column !important; 
+            gap: 24px !important; 
+            padding: 0 !important;
+          }
+
+          /* Profesionálny vzhľad kariet */
+          .print-card-reset {
+            background: white !important;
+            border: 1px solid #ccc !important;
+            border-top-width: 4px !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            color: black !important;
+            padding: 24px !important;
+            page-break-inside: avoid !important;
+            margin: 0 !important;
+            overflow: visible !important;
+          }
+
+          /* Reset textových farieb na čiernu */
+          .print-black-text { color: black !important; }
+          .print-slate-text { color: #444 !important; }
+          .print-bg-gray { background-color: #f3f4f6 !important; }
+          
+          /* Highlight kľúčových čísiel */
+          .print-big-number { 
+            font-weight: 900 !important; 
+            color: black !important;
+            font-size: 3rem !important;
+            line-height: 1 !important;
+          }
+
+          /* Šírka tabuliek */
+          .print-table-fixed { table-layout: fixed !important; width: 100% !important; }
         }
       `}</style>
       
-      <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-y-auto custom-scrollbar relative print:max-h-none print:overflow-visible print:border-none print:bg-white print:shadow-none print:w-full print:rounded-none" onClick={e => e.stopPropagation()}>
+      <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-y-auto custom-scrollbar relative print:print-full-width print:max-h-none print:overflow-visible" onClick={e => e.stopPropagation()}>
         
         {/* PRINT HEADER */}
-        <div className="hidden print:block p-8 border-b-2 border-black mb-6">
+        <div className="hidden print:block p-10 border-b-4 border-black mb-10">
           <div className="flex justify-between items-end">
             <div>
-              <h1 className="text-3xl font-black uppercase text-black">VÝKONNOSTNÝ REPORT PRACOVNÍKA</h1>
-              <p className="text-xl font-bold text-slate-700 uppercase mt-1">{name}</p>
+              <h1 className="text-4xl font-black uppercase text-black tracking-tighter">PERFORMANCE REPORT</h1>
+              <p className="text-2xl font-bold text-slate-800 uppercase mt-2">{name}</p>
             </div>
             <div className="text-right">
-              <p className="text-xs font-bold text-slate-500 uppercase">Vygenerované dňa:</p>
-              <p className="text-sm font-black text-black font-mono">{new Date().toLocaleString('sk-SK')}</p>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Obdobie: {periodLabel}</p>
+              <p className="text-sm font-bold text-black mt-1">Vygenerované: {new Date().toLocaleString('sk-SK')}</p>
             </div>
           </div>
         </div>
 
-        {/* HEADER */}
+        {/* ON-SCREEN HEADER */}
         <div className="p-8 sm:p-10 border-b border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-slate-800/30 no-print">
           <div className="space-y-1">
             <div className="flex items-center gap-3">
@@ -232,113 +277,102 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
           </div>
         </div>
 
-        <div className="p-8 sm:p-10 grid grid-cols-1 md:grid-cols-2 gap-8 print:p-4 print:gap-4 print:text-black">
+        <div className="p-8 sm:p-10 grid grid-cols-1 md:grid-cols-2 gap-8 print:print-stack">
           
-          {/* INDEX SCORE CARD */}
-          <div className={`col-span-1 md:col-span-2 bg-slate-950/40 border-l-[12px] p-8 rounded-3xl shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-8 print:bg-white print:border-l-[8px] print:border-black print:shadow-none print:print-border ${getIndexBorderColor(stats.workerIndex)}`}>
+          {/* 1. INDEX SCORE CARD */}
+          <div className={`col-span-1 md:col-span-2 bg-slate-950/40 border-l-[12px] p-8 rounded-3xl shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-8 ${getIndexBorderColor(stats.workerIndex)} print:print-card-reset print:border-l-[12px] print:border-black`}>
             <div className="text-center sm:text-left">
               <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.3em] mb-2 print:text-black">CELKOVÝ INDEX SCORE</h3>
               <p className="text-xs text-slate-600 font-bold uppercase leading-relaxed max-w-sm print:text-slate-700">Komplexné vyhodnotenie kvality, využitia zmeny, plnenia noriem a rýchlosti reakcie.</p>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className={`text-8xl font-black font-mono leading-none tracking-tighter print:text-black ${getIndexTextColor(stats.workerIndex)}`}>{stats.workerIndex.toFixed(1)}</span>
+              <span className={`text-8xl font-black font-mono leading-none tracking-tighter ${getIndexTextColor(stats.workerIndex)} print:print-big-number`}>{stats.workerIndex.toFixed(1)}</span>
               <span className="text-2xl font-black text-slate-700 font-mono print:text-slate-400">/10</span>
             </div>
           </div>
 
-          {/* KPI VYUŽITIE ZMENY */}
-          <div className={`${cardStyle} ${getUtilColor(stats.utilizationPercent)} print:bg-white print:border-black print:shadow-none print:print-border print:text-black`}>
-            <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4 print:border-black/10">
+          {/* 2. KPI VYUŽITIE ZMENY */}
+          <div className={`${cardStyle} ${getUtilColor(stats.utilizationPercent)} print:print-card-reset print:border-black`}>
+            <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4 print:bg-gray-100 print:p-2 print:border-black/20">
               <h3 className="text-xs font-black text-white uppercase tracking-[0.2em] print:text-black">{t('shift_utilization')}</h3>
-              <span className="bg-slate-900 px-3 py-1 rounded-full text-[9px] font-black text-slate-500 uppercase print:bg-slate-100">
+              <span className="bg-slate-900 px-3 py-1 rounded-full text-[9px] font-black text-slate-500 uppercase print:bg-white print:border print:border-black/20">
                 {stats.numDays} {stats.numDays === 1 ? 'DEŇ' : 'DNI'} @ 7.5h
               </span>
             </div>
             <div className="space-y-5">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-[9px] font-black text-slate-500 uppercase mb-1 print:text-slate-500">Čistý čas práce</p>
+                  <p className="text-[9px] font-black text-slate-500 uppercase mb-1 print:text-slate-600">Čistý čas práce</p>
                   <p className="text-xl font-black text-white font-mono print:text-black">{formatMinutes(stats.pureWorkMinutes)}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[9px] font-black text-slate-500 uppercase mb-1 print:text-slate-500">Využitie kapacity</p>
+                  <p className="text-[9px] font-black text-slate-500 uppercase mb-1 print:text-slate-600">Využitie kapacity</p>
                   <p className={`text-4xl font-black font-mono leading-none print:text-black ${stats.utilizationPercent > 85 ? 'text-emerald-400' : 'text-white'}`}>{stats.utilizationPercent.toFixed(1)}%</p>
                 </div>
               </div>
 
-              <div className="bg-slate-950/40 p-4 rounded-xl border border-white/5 flex justify-between items-center print:bg-slate-50 print:border-black/5">
+              <div className="bg-slate-950/40 p-4 rounded-xl border border-white/5 flex justify-between items-center print:bg-gray-50 print:border-black/10">
                 <span className="text-[10px] font-black text-teal-500 uppercase tracking-widest print:text-slate-700">Efektívny čas (+15% réžia):</span>
-                <span className="text-xl font-black text-white font-mono print:text-black">{formatMinutes(stats.effectiveWorkMinutes)}</span>
+                <span className="text-xl font-black text-white font-mono print:text-black font-bold">{formatMinutes(stats.effectiveWorkMinutes)}</span>
               </div>
 
-              <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden shadow-inner border border-white/5 no-print">
-                <div 
-                  style={{ width: `${Math.min(stats.utilizationPercent, 100)}%` }} 
-                  className={`h-full transition-all duration-1000 ${getUtilBarColor(stats.utilizationPercent)}`}
-                ></div>
-              </div>
-
-              <div className="bg-slate-950/60 p-4 rounded-2xl border border-white/10 flex justify-between items-center shadow-inner print:bg-white print:border-black/20">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] print:text-slate-600">
+              <div className="bg-slate-950/60 p-4 rounded-2xl border border-white/10 flex justify-between items-center shadow-inner print:bg-white print:border-black/30">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] print:text-slate-800">
                   OČAKÁVANÝ FOND ({stats.numDays} {stats.numDays === 1 ? 'DEŇ' : 'DNI'}):
                 </p>
                 <p className="text-2xl font-black text-teal-500 font-mono leading-none print:text-black">
-                  {stats.totalAvailableMinutes} <span className="text-xs font-bold text-slate-600 font-sans print:text-slate-400">MIN</span>
+                  {stats.totalAvailableMinutes} <span className="text-xs font-bold text-slate-600 font-sans">MIN</span>
                 </p>
               </div>
             </div>
           </div>
 
-          {/* KPI VÝKONOVÉ UKAZOVATELE */}
-          <div className={`${cardStyle} border-t-teal-500 print:bg-white print:border-black print:shadow-none print:print-border print:text-black`}>
-            <h3 className="text-xs font-black text-teal-400 uppercase tracking-[0.2em] mb-8 border-b border-white/5 pb-4 print:text-black print:border-black/10">VÝKONOVÉ UKAZOVATELE</h3>
-            <div className="grid grid-cols-3 gap-6 print:gap-4">
+          {/* 3. KPI VÝKONOVÉ UKAZOVATELE */}
+          <div className={`${cardStyle} border-t-teal-500 print:print-card-reset print:border-black`}>
+            <h3 className="text-xs font-black text-teal-400 uppercase tracking-[0.2em] mb-8 border-b border-white/5 pb-4 print:bg-gray-100 print:p-2 print:border-black/20 print:text-black">VÝKONOVÉ UKAZOVATELE</h3>
+            <div className="grid grid-cols-3 gap-6 print:grid-cols-3 print:gap-4">
               <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest print:text-slate-500">LOAD SCORE</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest print:text-slate-600">LOAD SCORE</p>
                 <p className="text-2xl font-black text-teal-400 font-mono print:text-black">{stats.totalLoad.toFixed(1)}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest print:text-slate-500">HOTOVÉ ÚLOHY</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest print:text-slate-600">HOTOVÉ ÚLOHY</p>
                 <p className="text-2xl font-black text-white font-mono print:text-black">{tasks.length}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest print:text-slate-500">PRIEM. REAKCIA</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest print:text-slate-600">PRIEM. REAKCIA</p>
                 <p className="text-2xl font-black text-blue-400 font-mono print:text-black">{Math.round(stats.avgReactionSeconds)}s</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest print:text-slate-500">PLNENIE NORMY</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest print:text-slate-600">PLNENIE NORMY</p>
                 <p className="text-2xl font-black text-white font-mono print:text-black">{stats.performanceRatio > 0 ? stats.performanceRatio.toFixed(0) : '---'}%</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest print:text-slate-500">{t('pallets')}</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest print:text-slate-600">{t('pallets')}</p>
                 <p className="text-2xl font-black text-white font-mono print:text-black">{stats.palCount.toFixed(1)}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest print:text-slate-500">KUSY</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest print:text-slate-600">KUSY</p>
                 <p className="text-2xl font-black text-white font-mono print:text-black">{stats.pcsTasks}</p>
-              </div>
-              <div className="col-span-3 pt-4 border-t border-white/5 flex justify-between items-center print:border-black/10">
-                <span className="text-[10px] font-black text-slate-500 uppercase print:text-slate-500">Aktívny čas na úlohách:</span>
-                <span className="text-xl font-black text-teal-400 font-mono print:text-black">{formatDuration(stats.totalExecMs)}</span>
               </div>
             </div>
           </div>
 
-          {/* KPI KVALITA */}
-          <div className={`${cardStyle} border-t-red-500 print:bg-white print:border-black print:shadow-none print:print-border print:text-black`}>
-            <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4 print:border-black/10">
+          {/* 4. KPI KVALITA */}
+          <div className={`${cardStyle} border-t-red-500 print:print-card-reset print:border-black`}>
+            <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4 print:bg-gray-100 print:p-2 print:border-black/20">
                <h3 className="text-xs font-black text-red-400 uppercase tracking-[0.2em] print:text-black">INTEGRITA & KVALITA</h3>
                <div className="text-right">
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest print:text-slate-500">Confidence Rating</p>
+                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest print:text-slate-600">Confidence Rating</p>
                   <p className={`text-2xl font-black font-mono print:text-black ${stats.confidenceRating > 80 ? 'text-green-400' : 'text-red-400'}`}>{stats.confidenceRating.toFixed(0)}%</p>
                </div>
             </div>
             <div className="space-y-3">
-              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 print:text-slate-500">Posledné hlásenia chýb:</p>
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 print:text-slate-600">Hlásenia chýb (Výber):</p>
               {stats.missingHistory.length > 0 ? stats.missingHistory.map((m, idx) => (
-                <div key={idx} className="flex justify-between items-center bg-slate-900/50 p-3 rounded-xl border border-white/5 text-[11px] print:bg-white print:border-black/10 print:text-black">
+                <div key={idx} className="flex justify-between items-center bg-slate-900/50 p-3 rounded-xl border border-white/5 text-[11px] print:bg-white print:border-black/10">
                   <span className="font-mono text-slate-300 font-bold uppercase truncate max-w-[150px] print:text-black">{m.partNumber}</span>
-                  <span className={`px-2 py-0.5 rounded font-black uppercase text-[9px] print:border print:border-black/10 ${m.auditResult === 'OK' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                  <span className={`px-2 py-0.5 rounded font-black uppercase text-[9px] print:border print:border-black/30 ${m.auditResult === 'OK' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
                     {m.auditResult || 'PENDING'}
                   </span>
                 </div>
@@ -348,50 +382,26 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
             </div>
           </div>
 
-          {/* ČASOVÁ ANALÝZA */}
-          <div className={`${cardStyle} border-t-blue-500 print:bg-white print:border-black print:shadow-none print:print-border print:text-black`}>
-            <h3 className="text-xs font-black text-blue-400 uppercase tracking-[0.2em] mb-8 border-b border-white/5 pb-4 print:text-black print:border-black/10">ČASOVÁ EFEKTIVITA</h3>
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-900/30 p-4 rounded-2xl border border-white/5 print:bg-slate-50 print:border-black/10">
-                  <p className="text-[9px] font-black text-slate-500 uppercase mb-1 print:text-slate-500">Najrýchlejšia úloha</p>
-                  <p className="text-xl font-black text-white font-mono print:text-black">{formatDuration(stats.fastest)}</p>
-                </div>
-                <div className="bg-slate-900/30 p-4 rounded-2xl border border-white/5 print:bg-slate-50 print:border-black/10">
-                  <p className="text-[9px] font-black text-slate-500 uppercase mb-1 print:text-slate-500">Najdlhšia úloha</p>
-                  <p className="text-xl font-black text-white font-mono print:text-black">{formatDuration(stats.longest)}</p>
-                </div>
-              </div>
-              <div className="bg-blue-500/10 p-5 rounded-2xl border border-blue-500/20 flex justify-between items-center print:bg-slate-50 print:border-black/10">
-                 <div className="space-y-1">
-                   <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest print:text-slate-700">Priemer na 1 bod náporu</p>
-                   <p className="text-xs text-slate-500 print:text-slate-400">Menej je lepšie (rýchlosť vybavenia)</p>
-                 </div>
-                 <p className="text-3xl font-black text-white font-mono print:text-black">{Number((stats.avgMsPerPoint / 60000).toFixed(2))} <span className="text-xs font-normal text-slate-500 print:text-slate-400">min</span></p>
-              </div>
-            </div>
-          </div>
-
-          {/* GEOGRAFIA SKLADU */}
-          <div className={`${cardStyle} border-t-amber-500 col-span-1 md:col-span-2 print:bg-white print:border-black print:shadow-none print:print-border print:text-black`}>
-            <h3 className="text-xs font-black text-amber-400 uppercase tracking-[0.2em] mb-8 border-b border-white/5 pb-4 print:text-black print:border-black/10">GEOGRAFIA & MATERIÁL</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 print:gap-4">
+          {/* 5. GEOGRAFIA SKLADU */}
+          <div className={`${cardStyle} border-t-amber-500 col-span-1 md:col-span-2 print:print-card-reset print:border-black`}>
+            <h3 className="text-xs font-black text-amber-400 uppercase tracking-[0.2em] mb-8 border-b border-white/5 pb-4 print:bg-gray-100 print:p-2 print:border-black/20 print:text-black">GEOGRAFIA & MATERIÁL</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 print:grid-cols-2 print:gap-10">
                <div className="space-y-4">
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest print:text-slate-500">TOP 3 PRACOVISKÁ</p>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest print:text-slate-800">TOP 3 PRACOVISKÁ</p>
                   <div className="space-y-2">
                     {stats.topWorkplaces.map((w, i) => (
-                      <div key={i} className="flex justify-between items-center text-xs">
+                      <div key={i} className="flex justify-between items-center text-xs print:border-b print:border-black/5 print:pb-1">
                         <span className="font-bold text-slate-300 truncate max-w-[200px] print:text-black">{w.name}</span>
                         <span className="font-mono text-amber-500 font-black print:text-black">{w.count}×</span>
                       </div>
                     ))}
                   </div>
                </div>
-               <div className="space-y-4 md:border-l md:border-white/5 md:pl-8 print:border-l-0 print:pl-0">
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest print:text-slate-500">TOP 3 DIELY</p>
+               <div className="space-y-4 md:border-l md:border-white/5 md:pl-8 print:border-l print:border-black/10">
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest print:text-slate-800">TOP 3 DIELY</p>
                   <div className="space-y-2">
                     {stats.topParts.map((p, i) => (
-                      <div key={i} className="flex justify-between items-center text-xs">
+                      <div key={i} className="flex justify-between items-center text-xs print:border-b print:border-black/5 print:pb-1">
                         <span className="font-bold text-slate-300 truncate max-w-[200px] print:text-black">{p.name}</span>
                         <span className="font-mono text-teal-500 font-black print:text-black">{p.count}×</span>
                       </div>
@@ -401,34 +411,34 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
             </div>
           </div>
 
-          {/* LEGENDA HODNOTENIA */}
-          <div className="col-span-1 md:col-span-2 bg-slate-900/50 border border-slate-800 p-6 rounded-[2rem] shadow-inner animate-fade-in print:bg-white print:border-black print:shadow-none print:print-border print:text-black">
+          {/* 6. LEGENDA HODNOTENIA */}
+          <div className="col-span-1 md:col-span-2 bg-slate-900/50 border border-slate-800 p-6 rounded-[2rem] shadow-inner animate-fade-in print:print-card-reset print:border-black/40 print:border-t-1">
             <h3 className="text-xs font-black text-teal-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-2 print:text-black">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 no-print" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               {language === 'sk' ? 'LEGENDA HODNOTENIA (INDEX SCORE)' : 'RATING LEGEND (INDEX SCORE)'}
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 print:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 print:grid-cols-2 print:gap-4">
               <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest print:text-slate-600">🎯 KVALITA (35%)</p>
-                <p className="text-[10px] text-slate-500 leading-tight print:text-black">Presnosť nahlásených chýb a výsledky auditov (max 3.5b).</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest print:text-black">🎯 KVALITA (35%)</p>
+                <p className="text-[10px] text-slate-500 leading-tight print:text-slate-700">Presnosť hlásení a výsledky auditov (max 3.5b).</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest print:text-slate-600">⏱️ VYUŽITIE (30%)</p>
-                <p className="text-[10px] text-slate-500 leading-tight print:text-black">Čas strávený reálnou prácou z fondu 450 min (max 3.0b).</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest print:text-black">⏱️ VYUŽITIE (30%)</p>
+                <p className="text-[10px] text-slate-500 leading-tight print:text-slate-700">Čas strávený prácou z fondu 450 min (max 3.0b).</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest print:text-slate-600">🚀 NORMY (25%)</p>
-                <p className="text-[10px] text-slate-500 leading-tight print:text-black">Rýchlosť plnenia úloh voči technickej norme (max 2.5b).</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest print:text-black">🚀 NORMY (25%)</p>
+                <p className="text-[10px] text-slate-500 leading-tight print:text-slate-700">Rýchlosť plnenia voči technickej norme (max 2.5b).</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest print:text-slate-600">📱 REAKCIA (10%)</p>
-                <p className="text-[10px] text-slate-500 leading-tight print:text-black">Rýchlosť prijatia úlohy po jej zobrazení (max 1.0b).</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest print:text-black">📱 REAKCIA (10%)</p>
+                <p className="text-[10px] text-slate-500 leading-tight print:text-slate-700">Rýchlosť prijatia úlohy (max 1.0b).</p>
               </div>
             </div>
           </div>
 
         </div>
 
+        {/* ON-SCREEN FOOTER BUTTONS */}
         <div className="p-8 sm:p-10 border-t border-slate-800 bg-slate-800/30 flex gap-4 no-print">
           <button 
             onClick={() => window.print()}
