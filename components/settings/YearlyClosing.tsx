@@ -15,11 +15,29 @@ interface YearlyClosingProps {
 }
 
 const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName }) => {
-  const { t, language } = useLanguage();
+  const { language } = useLanguage();
   const [isExporting, setIsExporting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [hasExported, setHasExported] = useState(false);
   const [progress, setProgress] = useState('');
+
+  // Helpery pre formátovanie podľa požiadavky (DD.MM.YYYY a HH:mm)
+  const formatDate = (ts?: number) => {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return d.toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  const formatTime = (ts?: number) => {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return d.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatDateTime = (ts?: number) => {
+    if (!ts) return '';
+    return `${formatDate(ts)} ${formatTime(ts)}`;
+  };
 
   const fetchYearlyData = async () => {
     setIsExporting(true);
@@ -28,8 +46,8 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName }) => {
     const allTasks: any[] = [];
     const currentYear = new Date().getFullYear();
     
-    // Zoznam kolekcií na prechádzanie - dynamicky podľa aktuálneho roku
     const collectionsToFetch = ['tasks', 'archive_drafts'];
+    // Pridáme šanóny pre aktuálny rok
     for (let i = 1; i <= 53; i++) {
       collectionsToFetch.push(`sanon_${currentYear}_${i}`);
     }
@@ -39,11 +57,7 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName }) => {
         setProgress(`${language === 'sk' ? 'Sťahujem' : 'Fetching'} ${colName}...`);
         const snap = await getDocs(collection(db, colName));
         snap.forEach(d => {
-          const data = d.data();
-          allTasks.push({
-            id: d.id,
-            ...data
-          });
+          allTasks.push({ id: d.id, ...d.data() });
         });
       }
 
@@ -53,22 +67,70 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName }) => {
         return;
       }
 
-      // Mapovanie na stĺpce Excelu
-      const excelData = allTasks.map(item => ({
-        [language === 'sk' ? 'Dátum' : 'Date']: item.createdAt ? new Date(item.createdAt).toLocaleString('sk-SK') : '-',
-        [language === 'sk' ? 'Číslo dielu' : 'Part Number']: item.partNumber || '-',
-        [language === 'sk' ? 'Popis' : 'Description']: item.text || '-',
-        [language === 'sk' ? 'Množstvo' : 'Quantity']: item.quantity || '0',
-        [language === 'sk' ? 'Jednotka' : 'Unit']: item.quantityUnit || '-',
-        [language === 'sk' ? 'Skladník' : 'Worker']: resolveName(item.completedBy || item.inProgressBy),
-        [language === 'sk' ? 'Stav' : 'Status']: item.status || (item.isDone ? 'COMPLETED' : 'OPEN'),
-        [language === 'sk' ? 'Dôvod chýbania' : 'Missing Reason']: item.missingReason || '-',
-        [language === 'sk' ? 'Audit vykonal' : 'Audited By']: resolveName(item.auditedBy)
-      }));
+      // Mapovanie na fixných 22 stĺpcov podľa presného poradia v zadaní
+      const excelData = allTasks.map(item => {
+        // Logika pre Výsledok hľadania (Áno/Nie)
+        let searchResult = '';
+        if (item.searchedBy) {
+          if (item.searchExhausted || item.auditResult) {
+            searchResult = 'Nie';
+          } else if (item.isMissing === false) {
+            searchResult = 'Áno';
+          } else {
+            searchResult = 'Prebieha';
+          }
+        }
+
+        // Logika pre Status
+        let statusText = 'Otvorené';
+        if (item.status === 'incorrectly_entered') {
+            statusText = 'Chybne zadané';
+        } else if (item.auditResult) {
+            statusText = 'Auditované';
+        } else if (item.isDone) {
+            statusText = 'Dokončené';
+        }
+
+        return {
+          'Dátum pridania': formatDate(item.createdAt),
+          'Čas pridania': formatTime(item.createdAt),
+          'Kto pridal': resolveName(item.createdBy),
+          'Diel / Referencia': item.partNumber || '',
+          'Pracovisko / Operácia': item.workplace || '',
+          'SPZ / Prepravca': item.isLogistics ? (item.note || '') : '',
+          'Počet': item.quantity || '',
+          'Jednotka': item.quantityUnit || '',
+          'Poznámka': !item.isLogistics ? (item.note || '') : '',
+          'Skladník': resolveName(item.completedBy),
+          'Dátum dokončenia': formatDate(item.completedAt),
+          'Čas dokončenia': formatTime(item.completedAt),
+          'Status': statusText,
+          'Nahlásil chýbajúce': resolveName(item.missingReportedBy),
+          'Dôvod chýbania': item.missingReason || '',
+          'Čas nahlásenia chyby': item.missingReportedBy ? formatTime(item.completedAt || item.createdAt) : '',
+          'Kto hľadal': item.searchedBy || '',
+          'Výsledok hľadania': searchResult,
+          'Audit (Výsledok)': item.auditResult || '',
+          'Poznámka k auditu': item.auditNote || '',
+          'Audit vykonal': resolveName(item.auditedBy) || item.auditBy || '',
+          'Dátum a čas auditu': formatDateTime(item.auditedAt)
+        };
+      });
 
       const ws = XLSX.utils.json_to_sheet(excelData);
+      
+      // Nastavenie šírok stĺpcov pre 22 stĺpcov
+      const wscols = [
+        {wch: 15}, {wch: 12}, {wch: 20}, {wch: 20}, {wch: 25}, 
+        {wch: 20}, {wch: 10}, {wch: 10}, {wch: 25}, {wch: 20}, 
+        {wch: 15}, {wch: 12}, {wch: 18}, {wch: 20}, {wch: 25}, 
+        {wch: 15}, {wch: 20}, {wch: 18}, {wch: 15}, {wch: 35},
+        {wch: 20}, {wch: 20}
+      ];
+      ws['!cols'] = wscols;
+
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "ARCHIV_SYSTEM");
+      XLSX.utils.book_append_sheet(wb, ws, "ROCNA_UZAVIERKA");
       XLSX.writeFile(wb, `KOMPLETNY_ARCHIV_${currentYear}_${new Date().getTime()}.xlsx`);
       
       setHasExported(true);
@@ -153,7 +215,7 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName }) => {
         <div className="bg-slate-950/40 p-6 rounded-2xl border border-white/5 space-y-4">
           <h4 className="text-sm font-black text-teal-400 uppercase tracking-widest">1. KROK: EXPORT DÁT</h4>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Stiahne všetky záznamy z aktuálnych úloh aj týždenných šanónov do jedného Excel súboru.
+            Stiahne všetky záznamy z aktuálnych úloh aj týždenných šanónov do jedného Excel súboru s 22 stĺpcami.
           </p>
           <button 
             onClick={fetchYearlyData}
