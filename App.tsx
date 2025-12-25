@@ -73,6 +73,7 @@ export interface Task {
   isManualBlocked?: boolean; 
   inventoryHistory?: InventorySession[];
   isLogistics?: boolean; 
+  isProduction?: boolean;
   isAuditInProgress?: boolean;
   auditBy?: string | null;
   auditFinalBadge?: string | null;
@@ -286,6 +287,7 @@ const App: React.FC = () => {
         const bManBlocked = b.isManualBlocked ? 1 : 0;
         if (aManBlocked !== bManBlocked) return aManBlocked - bManBlocked;
         const pA = priorityOrder[a.priority || 'NORMAL'];
+        // Fix: Use b.priority instead of pB to avoid using the variable before its declaration
         const pB = priorityOrder[b.priority || 'NORMAL'];
         if (pA !== pB) return pA - pB;
         return (a.createdAt || 0) - (b.createdAt || 0); 
@@ -515,7 +517,7 @@ const App: React.FC = () => {
     }
     const isInventoryTask = pn === "Počítanie zásob";
     const now = Date.now();
-    await addDoc(collection(db, 'tasks'), { text, partNumber: pn, workplace: wp, quantity: qty, quantityUnit: finalUnit, standardTime: finalStandardTime, isDone:false, priority:prio, createdAt:now, createdBy:currentUser, isLogistics, isInProgress: isInventoryTask, inProgressBy: isInventoryTask ? currentUser : null, startedAt: isInventoryTask ? now : null, note: note || null, expireAt: now + (90 * 24 * 60 * 60 * 1000) });
+    await addDoc(collection(db, 'tasks'), { text, partNumber: pn, workplace: wp, quantity: qty, quantityUnit: finalUnit, standardTime: finalStandardTime, isDone:false, priority:prio, createdAt:now, createdBy:currentUser, isLogistics, isProduction: !isLogistics, isInProgress: isInventoryTask, inProgressBy: isInventoryTask ? currentUser : null, startedAt: isInventoryTask ? now : null, note: note || null, expireAt: now + (90 * 24 * 60 * 60 * 1000) });
   };
 
   const handleUpdateTask = async (id: string, updates: Partial<Task>) => { await updateDoc(doc(db, 'tasks', id), updates); };

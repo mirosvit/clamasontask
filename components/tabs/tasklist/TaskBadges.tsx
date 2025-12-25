@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Task } from '../../../App';
 import { useLanguage } from '../../LanguageContext';
@@ -19,6 +18,12 @@ const TruckIcon: React.FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
+const FactoryIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-7h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+  </svg>
+);
+
 const TaskBadges: React.FC<TaskBadgesProps> = ({ 
   task, isSystemInventoryTask, isAuditInProgress, isSearchingMode, isManualBlocked, isUrgent, resolveName
 }) => {
@@ -28,6 +33,12 @@ const TaskBadges: React.FC<TaskBadgesProps> = ({
 
   return (
     <div className="flex flex-wrap gap-1.5 mb-2">
+      {task.isProduction && (
+        <div className="w-fit bg-pink-900/30 text-pink-400 border border-pink-800 text-[10px] font-bold uppercase px-2 py-0.5 rounded-md tracking-widest flex items-center gap-1 shadow-sm">
+          <FactoryIcon className="w-3 h-3" /> {language === 'sk' ? 'VÝROBA' : 'PRODUCTION'}
+        </div>
+      )}
+
       {task.isLogistics && (
         <div className="w-fit bg-indigo-600 text-white text-[10px] font-bold uppercase px-2 py-0.5 rounded-md tracking-widest flex items-center gap-1 shadow-sm">
           <TruckIcon className="w-3 h-3" /> {t('status_logistics')}

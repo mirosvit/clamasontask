@@ -1,9 +1,8 @@
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import TaskList from './tabs/TaskList';
 import SettingsTab from './settings/SettingsTab';
-import AnalyticsTab from './tabs/AnalyticsTab';
+import AnalyticsTab from './tabs/Analytics/AnalyticsTab';
 import MissingItemsTab from './tabs/MissingItemsTab';
 import LogisticsCenterTab from './tabs/LogisticsCenterTab';
 import InventoryTab from './tabs/InventoryTab';
@@ -38,7 +37,6 @@ interface PartSearchScreenProps {
   onReleaseTask: (id: string) => void;
   onArchiveTasks: () => Promise<{ success: boolean; count?: number; error?: string; message?: string }>;
   onDailyClosing: () => Promise<{ success: boolean; count: number }>;
-  // Fix: Removed duplicate identifier 'onWeeklyClosing'
   onWeeklyClosing: () => Promise<{ success: boolean; count: number; sanon?: string }>;
   onFetchArchivedTasks: () => Promise<Task[]>;
   onStartAudit: (id: string) => void;
@@ -146,7 +144,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   
   const [searchConfirmTask, setSearchConfirmTask] = useState<Task | null>(null);
 
-  // LOGIKA ZAMYKANIA JEDNOTIEK
   const unitLock = useMemo(() => {
     if (entryMode === 'logistics' || !selectedPart?.description) return null;
     const desc = selectedPart.description;
@@ -266,20 +263,15 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   const handleConfirmStartAudit = () => { if (auditStartTask) { props.onStartAudit(auditStartTask.id); setAuditStartTask(null); } };
   const handleConfirmFinishAudit = (result: 'found' | 'missing', note: string) => { if (auditFinishTask && note.trim()) { props.onFinishAudit(auditFinishTask.id, result, note.trim()); setAuditFinishTask(null); } else { alert(t('fill_all_fields')); } };
 
-  // LOGIKA CONFIRM HĽADANIE: Opakované kliknutie na Lupu aktualizuje searchedBy a otvorí modál.
   const handleSearchIconClick = (id: string) => {
       const task = tasks.find(t => t.id === id);
       if (!task) return;
-      
       const u = users.find(x => x.username === currentUser);
       const nickname = u?.nickname || currentUser;
-
       if (task.isBlocked) {
-          // Ak sa už hľadá, prepíšeme searchedBy a otvoríme confirm okno
           onUpdateTask(id, { searchedBy: nickname });
           setSearchConfirmTask(task);
       } else {
-          // Ak sa hľadanie práve začína, handleToggleBlock v App.tsx nastaví isBlocked aj searchedBy
           onToggleBlock(id);
       }
   };
@@ -287,10 +279,8 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   const handleConfirmFoundItem = (found: boolean) => {
       if (!searchConfirmTask) return;
       if (found) {
-          // TOVAR SA NAŠIEL - zrušíme stav missing (tým sa obnovia akčné tlačidlá)
           onToggleMissing(searchConfirmTask.id);
       } else {
-          // TOVAR SA NENAŠIEL - prepneme na audit (exhaust search)
           onExhaustSearch(searchConfirmTask.id);
       }
       setSearchConfirmTask(null);
