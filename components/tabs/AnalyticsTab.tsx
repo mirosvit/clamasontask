@@ -242,13 +242,22 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
 
     const workerStatsMap: Record<string, any> = {};
 
-    const performanceTasks = filteredTasks.filter(t => t.status !== 'incorrectly_entered');
-    const total = filteredTasks.length;
+    // PERFORMANCE TASKS: Zahŕňajú len reálnu prácu.
+    // Vylučujeme 'incorrectly_entered' a potvrdené chýbajúce kusy 'Audit NOK'.
+    // Ak je audit 'OK' a tovar tam bol, úloha tu ZOSTÁVA (znižuje efektivitu, lebo skladník ju prehliadol).
+    const performanceTasks = filteredTasks.filter(t => 
+        t.status !== 'incorrectly_entered' && 
+        t.auditResult !== 'NOK'
+    );
+    
+    const total = performanceTasks.length;
     const incorrectlyEntered = filteredTasks.filter(t => t.status === 'incorrectly_entered').length;
     const done = performanceTasks.filter(t => t.isDone).length;
     const missing = performanceTasks.filter(t => t.isMissing).length;
     const urgent = performanceTasks.filter(t => t.priority === 'URGENT' && t.isDone).length;
-    const efficiency = performanceTasks.length === 0 ? 0 : Math.round((done / performanceTasks.length) * 100);
+
+    // FÉROVÁ EFEKTIVITA: (hotové / celkový očistený pool)
+    const efficiency = total <= 0 ? 0 : Math.round((done / total) * 100);
 
     performanceTasks.forEach(task => {
         let weight = 1;
@@ -306,8 +315,11 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
         return Object.entries(record).sort(([, a], [, b]) => b - a).slice(0, limit);
     };
 
+    const workerStats = Object.values(workerStatsMap).sort((a, b) => b.count - a.count);
+    const totalVolume = workerStats.reduce((sum, ws) => sum + ws.totalVolume, 0);
+
     return {
-        total, done, missing, urgent, efficiency,
+        total, done, missing, urgent, efficiency, totalVolume,
         avgReaction: countReactionTime > 0 ? totalReactionTime / countReactionTime : 0,
         avgLead: countLeadTime > 0 ? totalLeadTime / countLeadTime : 0,
         grandTotalExecutionTime,
@@ -316,7 +328,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
         topParts: getTop(partCounts, 5),
         topLogRefs: getTop(logisticsRefCounts, 10),
         logisticsOpCounts,
-        workerStats: Object.values(workerStatsMap).sort((a, b) => b.count - a.count)
+        workerStats
     };
   }, [filteredTasks, systemBreaks, resolveName]);
 
@@ -533,10 +545,11 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
             </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
             <div className="bg-slate-900/60 p-5 rounded-2xl shadow-xl border border-slate-800 border-l-4 border-l-blue-500">
                 <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">{t('kpi_total')}</p>
-                <p className="text-3xl font-black text-white mt-2 font-mono">{stats.total}</p>
+                <p className="text-3xl font-black text-white mt-2 font-mono leading-none">{stats.total}</p>
+                <p className="text-xs font-bold text-blue-400/80 mt-1 uppercase tracking-widest">{stats.totalVolume.toFixed(1)} {language === 'sk' ? 'pal/ks' : 'pal/pcs'}</p>
             </div>
             <div className="bg-slate-900/60 p-5 rounded-2xl shadow-xl border border-slate-800 border-l-4 border-l-emerald-500">
                 <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">{t('kpi_worked')}</p>
@@ -549,6 +562,10 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
              <div className="bg-slate-900/60 p-5 rounded-2xl shadow-xl border border-slate-800 border-l-4 border-l-amber-500">
                 <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">{t('kpi_react')}</p>
                 <p className="text-3xl font-black text-amber-400 mt-2 font-mono">{formatDuration(stats.avgReaction)}</p>
+            </div>
+            <div className="bg-slate-900/60 p-5 rounded-2xl shadow-xl border border-slate-800 border-l-4 border-l-teal-500">
+                <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">{language === 'sk' ? 'EFEKTIVITA' : 'EFFICIENCY'}</p>
+                <p className="text-3xl font-black text-teal-400 mt-2 font-mono">{stats.efficiency} %</p>
             </div>
         </div>
 
