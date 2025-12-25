@@ -317,16 +317,16 @@ const App: React.FC = () => {
       return () => { unsubUsers(); unsubRoles(); unsubPerms(); };
   }, []);
 
-  // NAČÍTANIE KYBLÍKOV S UNESCAPE (Vrátane bodiek a pomlčiek)
+  // NAČÍTANIE KYBLÍKOV S OKAMŽITÝM UNESCAPE PRE UI
   useEffect(() => {
     const unsubParts = onSnapshot(doc(db, 'settings', 'parts'), (s) => {
       if (s.exists()) {
           const rawData = s.data();
-          const unescaped: Record<string, string> = {};
+          const cleanMap: Record<string, string> = {};
           Object.keys(rawData).forEach(key => {
-              unescaped[unescapeKey(key)] = rawData[key];
+              cleanMap[unescapeKey(key)] = rawData[key];
           });
-          setPartsMap(unescaped);
+          setPartsMap(cleanMap);
       } else {
           setDoc(doc(db, 'settings', 'parts'), {});
       }
@@ -334,15 +334,15 @@ const App: React.FC = () => {
     const unsubBOM = onSnapshot(doc(db, 'settings', 'bom'), (s) => {
       if (s.exists()) {
           const rawData = s.data() as Record<string, BOMComponent[]>;
-          const unescaped: Record<string, BOMComponent[]> = {};
+          const cleanMap: Record<string, BOMComponent[]> = {};
           Object.keys(rawData).forEach(parentKey => {
               const comps = rawData[parentKey].map(c => ({
                   ...c,
                   child: unescapeKey(c.child)
               }));
-              unescaped[unescapeKey(parentKey)] = comps;
+              cleanMap[unescapeKey(parentKey)] = comps;
           });
-          setBomMap(unescaped);
+          setBomMap(cleanMap);
       } else {
           setDoc(doc(db, 'settings', 'bom'), {});
       }
@@ -393,7 +393,7 @@ const App: React.FC = () => {
   const handleUpdateUserRole = async (u: string, r: any) => { const user = users.find(us => us.username === u); if(user) { await updateDoc(doc(db,'users', user.id!), {role: r}); } };
   const handleDeleteUser = async (u: string) => { const user = users.find(us => us.username === u); if(user) { await deleteDoc(doc(db,'users', user.id!)); } };
   
-  // LOGIKA KYBLÍKOV - DIELY (S ROZŠÍRENÝM ESCAPE)
+  // LOGIKA KYBLÍKOV - DIELY (S ROZŠÍRENÝM ESCAPE PRI ZÁPISE)
   const handleAddPart = async (v: string, desc?: string) => { 
     await updateDoc(doc(db, 'settings', 'parts'), { [escapeKey(v)]: desc || '' }); 
   };
@@ -412,11 +412,15 @@ const App: React.FC = () => {
     await setDoc(doc(db, 'settings', 'parts'), {}); 
   };
 
-  // LOGIKA KYBLÍKOV - BOM (S ROZŠÍRENÝM ESCAPE)
+  // LOGIKA KYBLÍKOV - BOM (S ROZŠÍRENÝM ESCAPE PRI ZÁPISE)
   const handleAddBOMItem = async (p: string, c: string, q: number) => { 
-    const current = bomMap[p] || [];
+    // bomMap obsahuje unescaped dáta, musíme ich pred zápisom znova escaped-núť
+    const currentRaw = bomMap[p] || [];
     const sanitizedQty = Number(q.toFixed(5));
-    const updated = [...current.filter(item => item.child !== c), { child: escapeKey(c), consumption: sanitizedQty }];
+    const updated = [
+        ...currentRaw.filter(item => item.child !== c).map(item => ({ ...item, child: escapeKey(item.child) })),
+        { child: escapeKey(c), consumption: sanitizedQty }
+    ];
     await updateDoc(doc(db, 'settings', 'bom'), { [escapeKey(p)]: updated });
   };
   const handleBatchAddBOMItems = async (vs: string[]) => { 
@@ -438,9 +442,9 @@ const App: React.FC = () => {
     await setDoc(docRef, { ...existing, ...updates });
   };
   const handleDeleteBOMItem = async (parent: string, child: string) => { 
-    const current = bomMap[parent] || [];
-    const updated = current.filter(item => item.child !== child)
-                           .map(item => ({ ...item, child: escapeKey(item.child) }));
+    const currentRaw = bomMap[parent] || [];
+    const updated = currentRaw.filter(item => item.child !== child)
+                              .map(item => ({ ...item, child: escapeKey(item.child) }));
     if (updated.length === 0) await updateDoc(doc(db, 'settings', 'bom'), { [escapeKey(parent)]: deleteField() });
     else await updateDoc(doc(db, 'settings', 'bom'), { [escapeKey(parent)]: updated });
   };
