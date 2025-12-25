@@ -187,7 +187,44 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
 
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/95 backdrop-blur-xl p-4 animate-fade-in" onClick={onClose}>
-      <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-y-auto custom-scrollbar relative" onClick={e => e.stopPropagation()}>
+      <style>{`
+        @media print {
+          @page { size: A4; margin: 1cm; }
+          body * { visibility: hidden; }
+          #worker-modal-print-area, #worker-modal-print-area * { visibility: visible; }
+          #worker-modal-print-area {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white !important;
+            color: black !important;
+            box-shadow: none !important;
+            border: none !important;
+            display: block !important;
+          }
+          .print-hide { display: none !important; }
+          .bg-slate-800\\/40, .bg-slate-900, .bg-slate-950\\/40, .bg-slate-800\\/30, .bg-slate-900\\/50 {
+            background: white !important;
+            border: 1px solid #e2e8f0 !important;
+            color: black !important;
+            box-shadow: none !important;
+          }
+          .text-white, .text-slate-200, .text-slate-300, .text-teal-400, .text-emerald-400, .text-amber-400, .text-blue-400, .text-red-400, .text-slate-500, .text-slate-600 {
+            color: black !important;
+          }
+          .border-t-4 { border-top: 4px solid black !important; }
+          .border-l-\\[12px\\] { border-left: 12px solid black !important; }
+          .bg-slate-950 { background: #f1f5f9 !important; border: 1px solid #cbd5e1 !important; }
+          .bg-teal-500, .bg-emerald-500, .bg-amber-500, .bg-blue-500 { background: #334155 !important; }
+          .shadow-2xl, .shadow-xl, .shadow-lg { box-shadow: none !important; }
+          .grid { display: grid !important; }
+          .grid-cols-1, .grid-cols-2 { gap: 1rem !important; }
+          .rounded-\\[2\\.5rem\\], .rounded-3xl, .rounded-2xl { rounded: 0 !important; }
+          div, section { page-break-inside: avoid; }
+        }
+      `}</style>
+      <div id="worker-modal-print-area" className="bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-y-auto custom-scrollbar relative" onClick={e => e.stopPropagation()}>
         
         {/* HEADER */}
         <div className="p-8 sm:p-10 border-b border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-slate-800/30">
@@ -199,7 +236,12 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
             <h2 className="text-5xl font-black text-white uppercase tracking-tighter leading-none">{name}</h2>
           </div>
           
-          <div className="flex gap-4">
+          <div className="flex gap-4 print-hide">
+             <button onClick={() => window.print()} className="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white p-5 rounded-full transition-all border border-slate-700 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+             </button>
              <button onClick={onClose} className="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white p-5 rounded-full transition-all border border-slate-700 flex items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
              </button>
@@ -245,7 +287,7 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
                 <span className="text-xl font-black text-white font-mono">{formatMinutes(stats.effectiveWorkMinutes)}</span>
               </div>
 
-              <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden shadow-inner border border-white/5">
+              <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden shadow-inner border border-white/5 print-hide">
                 <div 
                   style={{ width: `${Math.min(stats.utilizationPercent, 100)}%` }} 
                   className={`h-full transition-all duration-1000 ${getUtilBarColor(stats.utilizationPercent)}`}
@@ -322,7 +364,7 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
             </div>
           </div>
 
-          {/* ČASOVÁ ANALÝZA */}
+          {/* ČASOVÁ EFEKTIVITA */}
           <div className={`${cardStyle} border-t-blue-500`}>
             <h3 className="text-xs font-black text-blue-400 uppercase tracking-[0.2em] mb-8 border-b border-white/5 pb-4">ČASOVÁ EFEKTIVITA</h3>
             <div className="space-y-6">
@@ -403,7 +445,7 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
 
         </div>
 
-        <div className="p-8 sm:p-10 border-t border-slate-800 bg-slate-800/30 flex justify-center">
+        <div className="p-8 sm:p-10 border-t border-slate-800 bg-slate-800/30 flex justify-center print-hide">
           <button 
             onClick={onClose}
             className="w-full max-w-md py-5 bg-slate-700 hover:bg-slate-600 text-white rounded-[2rem] font-black uppercase text-xs tracking-[0.3em] transition-all shadow-xl active:scale-[0.98] border-2 border-slate-600"
