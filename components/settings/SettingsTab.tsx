@@ -72,6 +72,7 @@ interface SettingsTabProps {
   hasPermission: (perm: string) => boolean;
   resolveName: (username?: string | null) => string;
   onUpdateAdminKey: (oldK: string, newK: string) => Promise<void>;
+  onToggleAdminLock: (val: boolean) => void;
 }
 
 const Icons = {
@@ -217,6 +218,8 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             onAddBreakSchedule={props.onAddBreakSchedule} 
             onDeleteBreakSchedule={props.onDeleteBreakSchedule} 
             onUpdateAdminKey={props.onUpdateAdminKey}
+            isAdminLockEnabled={props.systemConfig.adminLockEnabled || false}
+            onToggleAdminLock={props.onToggleAdminLock}
           />
         )}
         {activeSubTab === 'maint' && (

@@ -11,6 +11,8 @@ interface SystemSectionProps {
   onAddBreakSchedule: (start: string, end: string) => void;
   onDeleteBreakSchedule: (id: string) => void;
   onUpdateAdminKey: (oldK: string, newK: string) => Promise<void>;
+  isAdminLockEnabled: boolean;
+  onToggleAdminLock: (val: boolean) => void;
 }
 
 const Icons = {
@@ -18,7 +20,8 @@ const Icons = {
 };
 
 const SystemSection: React.FC<SystemSectionProps> = ({ 
-  missingReasons, breakSchedules, onAddMissingReason, onDeleteMissingReason, onAddBreakSchedule, onDeleteBreakSchedule, onUpdateAdminKey 
+  missingReasons, breakSchedules, onAddMissingReason, onDeleteMissingReason, onAddBreakSchedule, onDeleteBreakSchedule, onUpdateAdminKey,
+  isAdminLockEnabled, onToggleAdminLock
 }) => {
   const { t, language } = useLanguage();
   const [newMissingReason, setNewMissingReason] = useState('');
@@ -32,6 +35,7 @@ const SystemSection: React.FC<SystemSectionProps> = ({
   const [isUpdating, setIsUpdating] = useState(false);
 
   const handleUpdateKey = async () => {
+    if (!isAdminLockEnabled) return;
     if (!oldKey || !newKey || !confirmKey) {
         alert(language === 'sk' ? 'Prosím, vyplňte všetky polia.' : 'Please fill all fields.');
         return;
@@ -48,7 +52,6 @@ const SystemSection: React.FC<SystemSectionProps> = ({
         setNewKey('');
         setConfirmKey('');
     } catch (e) {
-        // Error handling is inside App.tsx (alert)
     } finally {
         setIsUpdating(false);
     }
@@ -107,8 +110,22 @@ const SystemSection: React.FC<SystemSectionProps> = ({
       {/* ADMIN SECURITY SECTION */}
       <div className={cardClass}>
         <div className="space-y-8">
-          <h3 className="text-2xl font-black text-white uppercase tracking-tighter">ADMIN BEZPEČNOSŤ</h3>
-          <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h3 className="text-2xl font-black text-white uppercase tracking-tighter">ADMIN BEZPEČNOSŤ</h3>
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                {isAdminLockEnabled ? 'ZÁMOK AKTÍVNY' : 'ZÁMOK VYPNUTÝ'}
+              </span>
+              <button 
+                onClick={() => onToggleAdminLock(!isAdminLockEnabled)}
+                className={`w-14 h-7 rounded-full p-1 transition-all duration-300 ${isAdminLockEnabled ? 'bg-teal-600' : 'bg-slate-700'}`}
+              >
+                <div className={`w-5 h-5 bg-white rounded-full transition-all duration-300 transform ${isAdminLockEnabled ? 'translate-x-7' : 'translate-x-0'}`} />
+              </button>
+            </div>
+          </div>
+
+          <div className={`space-y-6 transition-opacity duration-300 ${isAdminLockEnabled ? 'opacity-100' : 'opacity-30 pointer-events-none select-none'}`}>
             <div>
               <h4 className={labelClass}>STARÝ KĽÚČ</h4>
               <input 
@@ -117,6 +134,7 @@ const SystemSection: React.FC<SystemSectionProps> = ({
                 onChange={e => setOldKey(e.target.value)} 
                 placeholder="••••••••" 
                 className={inputClass} 
+                disabled={!isAdminLockEnabled}
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -128,6 +146,7 @@ const SystemSection: React.FC<SystemSectionProps> = ({
                   onChange={e => setNewKey(e.target.value)} 
                   placeholder="••••••••" 
                   className={inputClass} 
+                  disabled={!isAdminLockEnabled}
                 />
               </div>
               <div>
@@ -138,17 +157,26 @@ const SystemSection: React.FC<SystemSectionProps> = ({
                   onChange={e => setConfirmKey(e.target.value)} 
                   placeholder="••••••••" 
                   className={inputClass} 
+                  disabled={!isAdminLockEnabled}
                 />
               </div>
             </div>
             <button 
                 onClick={handleUpdateKey}
-                disabled={isUpdating}
+                disabled={isUpdating || !isAdminLockEnabled}
                 className={`w-full py-4 bg-blue-700 hover:bg-blue-600 text-white font-black rounded-xl uppercase tracking-widest text-xs transition-all border-2 border-blue-500 shadow-lg ${isUpdating ? 'opacity-50 cursor-wait' : ''}`}
             >
               {isUpdating ? 'AKTUALIZUJEM...' : 'AKTUALIZOVAŤ BEZPEČNOSTNÝ KĽÚČ'}
             </button>
           </div>
+          
+          {!isAdminLockEnabled && (
+            <div className="bg-amber-900/20 border border-amber-500/30 p-4 rounded-xl">
+              <p className="text-[10px] font-bold text-amber-400 uppercase text-center leading-relaxed">
+                ⚠️ UPOZORNENIE: Ak je zámok vypnutý, administrátori majú okamžitý prístup do aplikácie bez zadávania kódu.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

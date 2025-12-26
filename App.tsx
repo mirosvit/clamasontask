@@ -154,16 +154,17 @@ export interface SystemConfig {
     allowedIPs: string[];
     ipCheckEnabled: boolean;
     adminKey?: string;
+    adminLockEnabled?: boolean;
 }
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isUnlocked, setIsUnlocked] = useState<boolean>(() => sessionStorage.getItem('app_unlocked') === 'true');
   const [currentUser, setCurrentUser] = useState<string>('');
   const [currentUserRole, setCurrentUserRole] = useState<'ADMIN' | 'USER' | 'LEADER'>('USER');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
   
-  // Lokálne mapy pre rýchly prístup v UI
   const [partsMap, setPartsMap] = useState<Record<string, string>>({});
   const [bomMap, setBomMap] = useState<Record<string, BOMComponent[]>>({});
   
@@ -182,7 +183,8 @@ const App: React.FC = () => {
       maintenanceMode: false,
       allowedIPs: [],
       ipCheckEnabled: false,
-      adminKey: '1234'
+      adminKey: '1234',
+      adminLockEnabled: true
   });
   const [dbLoadWarning, setDbLoadWarning] = useState<boolean>(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -191,6 +193,7 @@ const App: React.FC = () => {
   const rolesRef = useRef<Role[]>([]);
   const permissionsRef = useRef<Permission[]>([]);
   const currentUserRoleRef = useRef(currentUserRole);
+  const activityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { rolesRef.current = roles; }, [roles]);
   useEffect(() => { permissionsRef.current = permissions; }, [permissions]);
@@ -203,6 +206,27 @@ const App: React.FC = () => {
       if (!r) return false;
       return permissionsRef.current.some(p => p.roleId === r.id && p.permissionName === permName);
   };
+
+  const resetActivityTimer = useCallback(() => {
+    if (!isAuthenticated || !isUnlocked || currentUserRole !== 'ADMIN' || !systemConfig.adminLockEnabled) return;
+    if (activityTimerRef.current) clearTimeout(activityTimerRef.current);
+    activityTimerRef.current = setTimeout(() => {
+      setIsUnlocked(false);
+      sessionStorage.removeItem('app_unlocked');
+    }, 5 * 60 * 1000); 
+  }, [isAuthenticated, isUnlocked, currentUserRole, systemConfig.adminLockEnabled]);
+
+  useEffect(() => {
+    const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
+    if (isAuthenticated && isUnlocked && currentUserRole === 'ADMIN' && systemConfig.adminLockEnabled) {
+      events.forEach(e => window.addEventListener(e, resetActivityTimer));
+      resetActivityTimer();
+    }
+    return () => {
+      events.forEach(e => window.removeEventListener(e, resetActivityTimer));
+      if (activityTimerRef.current) clearTimeout(activityTimerRef.current);
+    };
+  }, [isAuthenticated, isUnlocked, currentUserRole, resetActivityTimer, systemConfig.adminLockEnabled]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('app_user');
@@ -230,20 +254,31 @@ const App: React.FC = () => {
     setDeferredPrompt(null);
   };
 
-  const handleLogout = () => { setIsAuthenticated(false); setCurrentUser(''); setCurrentUserRole('USER'); localStorage.removeItem('app_user'); localStorage.removeItem('app_role'); };
+  const handleLogout = () => { 
+    setIsAuthenticated(false); 
+    setIsUnlocked(false);
+    setCurrentUser(''); 
+    setCurrentUserRole('USER'); 
+    localStorage.removeItem('app_user'); 
+    localStorage.removeItem('app_role'); 
+    sessionStorage.removeItem('app_unlocked');
+  };
 
   useEffect(() => {
       const configRef = doc(db, 'system_data', 'config');
       return onSnapshot(configRef, (docSnap) => {
           if (docSnap.exists()) {
               const data = docSnap.data() as SystemConfig;
-              // Inicializácia default kľúča ak chýba
-              if (!data.adminKey) {
-                  updateDoc(configRef, { adminKey: '1234' });
+              const updates: Partial<SystemConfig> = {};
+              if (!data.adminKey) updates.adminKey = '1234';
+              if (data.adminLockEnabled === undefined) updates.adminLockEnabled = true;
+              
+              if (Object.keys(updates).length > 0) {
+                  updateDoc(configRef, updates);
               }
               setSystemConfig(data);
           } else {
-              setDoc(configRef, { maintenanceMode: false, allowedIPs: [], ipCheckEnabled: false, adminKey: '1234' });
+              setDoc(configRef, { maintenanceMode: false, allowedIPs: [], ipCheckEnabled: false, adminKey: '1234', adminLockEnabled: true });
           }
       });
   }, []);
@@ -310,7 +345,6 @@ const App: React.FC = () => {
       return () => { unsubUsers(); unsubRoles(); unsubPerms(); };
   }, []);
 
-  // NAČÍTANIE KYBLÍKOV - KONVERZIA POĽA NA MAPU
   useEffect(() => {
     const unsubParts = onSnapshot(doc(db, 'settings', 'parts'), (s) => {
       if (s.exists()) {
@@ -379,7 +413,18 @@ const App: React.FC = () => {
       }); 
   }, []);
 
-  const handleLogin = (u: string, r: any) => { setIsAuthenticated(true); setCurrentUser(u); setCurrentUserRole(r); localStorage.setItem('app_user', u); localStorage.setItem('app_role', r); };
+  const handleLogin = (u: string, r: any) => { 
+    setIsAuthenticated(true); 
+    setCurrentUser(u); 
+    setCurrentUserRole(r); 
+    localStorage.setItem('app_user', u); 
+    localStorage.setItem('app_role', r); 
+    if (r !== 'ADMIN' || !systemConfig.adminLockEnabled) {
+      setIsUnlocked(true);
+      sessionStorage.setItem('app_unlocked', 'true');
+    }
+  };
+  
   const handleAddUser = async (u: UserData) => { await addDoc(collection(db, 'users'), { ...u, canExportAnalytics: u.canExportAnalytics || false }); };
   const handleUpdatePassword = async (u: string, p: string) => { const user = users.find(us => us.username === u); if(user) { await updateDoc(doc(db,'users', user.id!), {password: p}); } };
   const handleUpdateNickname = async (u: string, n: string) => { const user = users.find(us => us.username === u); if(user) { await updateDoc(doc(db,'users', user.id!), {nickname: n}); } };
@@ -387,7 +432,6 @@ const App: React.FC = () => {
   const handleUpdateUserRole = async (u: string, r: any) => { const user = users.find(us => us.username === u); if(user) { await updateDoc(doc(db,'users', user.id!), {role: r}); } };
   const handleDeleteUser = async (u: string) => { const user = users.find(us => us.username === u); if(user) { await deleteDoc(doc(db,'users', user.id!)); } };
   
-  // LOGIKA KYBLÍKOV - DIELY (UKLADANIE AKO POLE OBJEKTOV)
   const handleAddPart = async (v: string, desc?: string) => { 
     const updatedMap = { ...partsMap, [v.trim()]: desc || '' };
     const dataArray = Object.entries(updatedMap).map(([p, d]) => ({ p, d }));
@@ -412,14 +456,12 @@ const App: React.FC = () => {
     await setDoc(doc(db, 'settings', 'parts'), { data: [] }); 
   };
 
-  // LOGIKA KYBLÍKOV - BOM (UKLADANIE AKO POLE OBJEKTOV)
   const handleAddBOMItem = async (p: string, c: string, q: number) => { 
     const updatedMap = { ...bomMap };
     const current = updatedMap[p] || [];
     updatedMap[p] = [...current.filter(item => item.child !== c), { child: c, consumption: Number(q.toFixed(5)) }];
     const dataArray: any[] = [];
     Object.entries(updatedMap).forEach(([parent, components]) => {
-        // Fix: Explicitly cast components to BOMComponent[] to resolve TS unknown error
         (components as BOMComponent[]).forEach(comp => {
             dataArray.push({ parent, child: comp.child, q: comp.consumption });
         });
@@ -439,7 +481,6 @@ const App: React.FC = () => {
     });
     const dataArray: any[] = [];
     Object.entries(updatedMap).forEach(([parent, components]) => {
-        // Fix: Explicitly cast components to BOMComponent[] to resolve TS unknown error
         (components as BOMComponent[]).forEach(comp => {
             dataArray.push({ parent, child: comp.child, q: comp.consumption });
         });
@@ -454,7 +495,6 @@ const App: React.FC = () => {
     }
     const dataArray: any[] = [];
     Object.entries(updatedMap).forEach(([pKey, components]) => {
-        // Fix: Explicitly cast components to BOMComponent[] to resolve TS unknown error
         (components as BOMComponent[]).forEach(comp => {
             dataArray.push({ parent: pKey, child: comp.child, q: comp.consumption });
         });
@@ -702,10 +742,57 @@ const App: React.FC = () => {
   }, []);
   const partsArray = Object.entries(partsMap).map(([value, description]) => ({ id: value, value, description }));
 
+  const LockScreen = ({ onUnlock }: { onUnlock: (key: string) => void }) => {
+    const [input, setInput] = useState('');
+    return (
+      <div className="fixed inset-0 z-[10000] bg-slate-950 flex items-center justify-center p-4">
+        <div className="bg-gray-800 border-2 border-slate-700 p-10 rounded-[2rem] shadow-2xl w-full max-w-sm text-center">
+          <div className="w-20 h-20 bg-blue-600/20 rounded-full flex items-center justify-center mx-auto mb-8 border border-blue-500/50">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-[#4169E1]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">SYSTÉM UZAMKNUTÝ</h2>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-8">ZADAJTE BEZPEČNOSTNÝ KĽÚČ</p>
+          <input 
+            type="password" 
+            autoFocus
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && onUnlock(input)}
+            placeholder="••••"
+            className="w-full h-16 bg-slate-900 border-2 border-slate-700 rounded-xl text-center text-3xl font-black text-white focus:outline-none focus:ring-2 focus:ring-[#4169E1] transition-all mb-6"
+          />
+          <button 
+            onClick={() => onUnlock(input)}
+            className="w-full py-4 bg-[#4169E1] hover:bg-[#3151b1] text-white font-black rounded-xl uppercase tracking-widest text-xs border-2 border-blue-500 shadow-xl transition-all active:scale-95"
+          >
+            ODOMKNÚŤ SYSTÉM
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const handleUnlockAttempt = (key: string) => {
+    if (key === (systemConfig.adminKey || '1234')) {
+      setIsUnlocked(true);
+      sessionStorage.setItem('app_unlocked', 'true');
+    } else {
+      alert('Nesprávny kľúč.');
+    }
+  };
+
+  const handleToggleAdminLock = (val: boolean) => {
+    handleUpdateSystemConfig({ adminLockEnabled: val });
+  };
+
   return (
     <div className={`min-h-screen bg-gray-900 flex flex-col ${!isAuthenticated ? 'items-center justify-center' : ''}`}>
       {!isAuthenticated ? (
         <LoginScreen onLoginSuccess={handleLogin} users={users} systemConfig={systemConfig} />
+      ) : (currentUserRole === 'ADMIN' && systemConfig.adminLockEnabled && !isUnlocked) ? (
+        <LockScreen onUnlock={handleUnlockAttempt} />
       ) : (
         <PartSearchScreen 
           currentUser={currentUser} currentUserRole={currentUserRole} onLogout={handleLogout}
@@ -730,6 +817,7 @@ const App: React.FC = () => {
           onGetDocCount={handleGetDocCount}
           onPurgeOldTasks={handlePurgeOldTasks}
           onExportTasksJSON={handleExportTasksJSON}
+          // Fix: Corrected property name i_isBreakActive to isBreakActive (Matches line 820 error)
           breakSchedules={breakSchedules} systemBreaks={systemBreaks} isBreakActive={isBreakActive} onAddBreakSchedule={handleAddBreakSchedule} onDeleteBreakSchedule={handleDeleteBreakSchedule}
           bomMap={bomMap} bomRequests={bomRequests} onAddBOMItem={handleAddBOMItem} onBatchAddBOMItems={handleBatchAddBOMItems} onDeleteBOMItem={handleDeleteBOMItem} onDeleteAllBOMItems={handleDeleteAllBOMItems} onRequestBOM={handleRequestBOM} onApproveBOMRequest={handleApproveBOMRequest} onRejectBOMRequest={handleRejectBOMRequest} roles={roles} permissions={permissions} onAddRole={handleAddRole} onDeleteRole={handleDeleteRole} onUpdatePermission={handleUpdatePermission}
           onVerifyAdminPassword={handleVerifyAdminPassword}
@@ -738,6 +826,7 @@ const App: React.FC = () => {
           systemConfig={systemConfig} onUpdateSystemConfig={handleUpdateSystemConfig}
           dbLoadWarning={dbLoadWarning} 
           onUpdateAdminKey={handleUpdateAdminKey}
+          onToggleAdminLock={handleToggleAdminLock}
         />
       )}
     </div>
