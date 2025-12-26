@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Task, SystemBreak } from '../../../App';
 
@@ -23,6 +24,7 @@ const AnalyticsExportPanel: React.FC<AnalyticsExportPanelProps> = ({ canExport, 
   const [archiveExportEnd, setArchiveExportEnd] = useState('');
   const [isExportingArchive, setIsExportingArchive] = useState(false);
   const [exportProgress, setExportProgress] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
 
   const formatDate = (ts?: number) => ts ? new Date(ts).toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
   const formatTime = (ts?: number) => ts ? new Date(ts).toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' }) : '';
@@ -68,7 +70,6 @@ const AnalyticsExportPanel: React.FC<AnalyticsExportPanelProps> = ({ canExport, 
       return;
     }
 
-    // Výpočet indexov pre všetkých pracovníkov v exporte pre zjednotenie dát
     const workerSummary: Record<string, any> = {};
     exportTasks.forEach(task => {
         if (!task.completedBy || !task.isDone) return;
@@ -158,40 +159,71 @@ const AnalyticsExportPanel: React.FC<AnalyticsExportPanelProps> = ({ canExport, 
   if (!canExport) return null;
 
   return (
-    <div className="bg-slate-950/40 border border-slate-800 p-6 rounded-3xl shadow-2xl animate-fade-in mb-8">
-      <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+    <div className="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden animate-fade-in mb-8 flex flex-col">
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between p-6 bg-sky-900/40 hover:bg-sky-900/60 transition-colors border-b border-sky-800/50"
+      >
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-teal-500/10 rounded-xl">
-            <DownloadIcon className="w-6 h-6 text-teal-400" />
+          <div className="p-3 bg-sky-500/10 rounded-xl">
+            <DownloadIcon className="w-6 h-6 text-sky-400" />
           </div>
-          <div>
-            <h3 className="text-sm font-black text-white uppercase tracking-widest">ADMIN EXPORT REPORTU</h3>
-            <p className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">Stiahnuť kompletný archív vrátane INDEX SCORE</p>
+          <div className="text-left">
+            <h3 className="text-sm font-black text-white uppercase tracking-[0.2em]">EXPORT PANEL</h3>
+            <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Kompletný report vo formáte Excel (.xlsx)</p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center bg-slate-900 px-4 py-2 rounded-xl border border-slate-800">
-            <span className="text-[9px] font-black text-slate-500 uppercase mr-3">Od:</span>
-            <input type="date" value={archiveExportStart} onChange={e => setArchiveExportStart(e.target.value)} className="bg-transparent text-xs text-white focus:outline-none uppercase font-mono" />
-          </div>
-          <div className="flex items-center bg-slate-900 px-4 py-2 rounded-xl border border-slate-800">
-            <span className="text-[9px] font-black text-slate-500 uppercase mr-3">Do:</span>
-            <input type="date" value={archiveExportEnd} onChange={e => setArchiveExportEnd(e.target.value)} className="bg-transparent text-xs text-white focus:outline-none uppercase font-mono" />
-          </div>
-          <button 
-            onClick={handleAdminArchiveExport} 
-            disabled={isExportingArchive} 
-            className="bg-teal-600 hover:bg-teal-500 text-white px-8 py-3 rounded-xl font-black uppercase text-xs tracking-widest transition-all shadow-lg active:scale-95 border-2 border-teal-500 disabled:opacity-50"
-          >
-            {isExportingArchive ? '...' : 'STIAHNUŤ (.xlsx)'}
-          </button>
+        <div className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
+          </svg>
         </div>
-      </div>
-      {exportProgress && (
-        <div className="mt-4 text-center">
-          <span className="text-[10px] font-mono font-bold text-amber-500 animate-pulse uppercase tracking-[0.2em]">
-            {exportProgress}
-          </span>
+      </button>
+
+      {isOpen && (
+        <div className="p-8 space-y-8 max-h-[500px] overflow-y-auto custom-scrollbar animate-fade-in">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-3">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block ml-2">Dátum od:</label>
+              <input 
+                type="date" 
+                value={archiveExportStart} 
+                onChange={e => setArchiveExportStart(e.target.value)} 
+                className="w-full h-14 bg-slate-950 border-2 border-slate-800 rounded-2xl px-6 text-lg font-black font-mono text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all uppercase"
+              />
+            </div>
+            <div className="space-y-3">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block ml-2">Dátum do:</label>
+              <input 
+                type="date" 
+                value={archiveExportEnd} 
+                onChange={e => setArchiveExportEnd(e.target.value)} 
+                className="w-full h-14 bg-slate-950 border-2 border-slate-800 rounded-2xl px-6 text-lg font-black font-mono text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all uppercase"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <button 
+              onClick={handleAdminArchiveExport} 
+              disabled={isExportingArchive} 
+              className={`w-full h-16 rounded-2xl font-black uppercase text-sm tracking-[0.25em] transition-all shadow-xl active:scale-[0.98] border-2 disabled:opacity-50 disabled:grayscale ${
+                isExportingArchive 
+                ? 'bg-slate-800 border-slate-700 text-slate-500 animate-pulse' 
+                : 'bg-gradient-to-r from-teal-600 to-blue-700 hover:from-teal-500 hover:to-blue-600 text-white border-white/10 shadow-teal-500/10'
+              }`}
+            >
+              {isExportingArchive ? 'PRIPRAVUJEM EXCEL...' : 'GENEROVAŤ REPORT (.xlsx)'}
+            </button>
+            
+            {exportProgress && (
+              <div className="text-center">
+                <span className="text-[10px] font-mono font-bold text-amber-500 animate-pulse uppercase tracking-[0.2em]">
+                  {exportProgress}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

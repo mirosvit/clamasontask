@@ -1,6 +1,7 @@
+
 import React, { useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Task, SystemBreak } from '../../../App';
+import { Task, SystemBreak, MapSector, DBItem, SystemConfig } from '../../../App';
 import { useLanguage } from '../../LanguageContext';
 
 interface WorkerDetailModalProps {
@@ -9,10 +10,15 @@ interface WorkerDetailModalProps {
   periodLabel: string;
   systemBreaks: SystemBreak[];
   onClose: () => void;
+  mapSectors: MapSector[];
+  workplaces: DBItem[];
+  systemConfig: SystemConfig;
+  logisticsOperations: DBItem[];
 }
 
-const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, periodLabel, systemBreaks, onClose }) => {
+const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, periodLabel, systemBreaks, onClose, mapSectors, workplaces, systemConfig, logisticsOperations }) => {
   const { t, language } = useLanguage();
+  const VZV_SPEED_MPS = (systemConfig.vzvSpeed || 8) / 3.6;
 
   const calculateBlockedTime = (history: any[] | undefined, startTime: number, endTime: number): number => {
     let totalBlocked = 0;
@@ -43,12 +49,17 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
     let reactionCount = 0;
     let durations: number[] = [];
     
+    let totalFullDist = 0;
+    let totalEmptyDist = 0;
+
     const workplacesMap: Record<string, number> = {};
     const partsMap: Record<string, number> = {};
     const missingHistory: Task[] = [];
     const uniqueDaysWorked = new Set<string>();
 
-    tasks.forEach(task => {
+    const sortedTasks = [...tasks].sort((a,b) => (a.completedAt || 0) - (b.completedAt || 0));
+
+    sortedTasks.forEach(task => {
       if (task.completedAt) {
         const dateKey = new Date(task.completedAt).toLocaleDateString('sk-SK');
         uniqueDaysWorked.add(dateKey);
@@ -60,6 +71,39 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
 
       if (task.quantityUnit === 'pallet') palCount += qtyVal;
       else pcsTasks++;
+
+      if (task.isDone && task.completedBy) {
+          let validatedTrips = 0;
+          let oneWayD = 0;
+
+          if (task.isLogistics) {
+              const logOp = logisticsOperations.find(o => o.value === task.workplace);
+              if (logOp && logOp.distancePx) {
+                  oneWayD = logOp.distancePx;
+                  const durationMs = (task.completedAt || 0) - (task.startedAt || task.createdAt || 0);
+                  const possibleTrips = Math.round(( (durationMs / 1000) * VZV_SPEED_MPS ) / (2 * oneWayD));
+                  const maxQty = !isNaN(qtyVal) ? Math.max(1, Math.floor(qtyVal)) : 1;
+                  validatedTrips = Math.min(maxQty, Math.max(1, possibleTrips));
+              }
+          } else if (task.pickedFromSectorId && task.workplace) {
+              const sector = mapSectors.find(s => s.id === task.pickedFromSectorId);
+              const wp = workplaces.find(w => w.value === task.workplace);
+              if (sector && wp) {
+                  const dx = (wp.coordX || 0) - (sector.coordX || 0);
+                  const dy = (wp.coordY || 0) - (sector.coordY || 0);
+                  oneWayD = Math.sqrt(dx*dx + dy*dy) / 10;
+                  const durationMs = (task.completedAt || 0) - (task.startedAt || task.createdAt || 0);
+                  const possibleTrips = Math.round(( (durationMs / 1000) * VZV_SPEED_MPS ) / (2 * oneWayD));
+                  const maxQty = !isNaN(qtyVal) ? Math.max(1, Math.floor(qtyVal)) : 1;
+                  validatedTrips = Math.min(maxQty, Math.max(1, possibleTrips));
+              }
+          }
+
+          if (validatedTrips > 0) {
+              totalFullDist += validatedTrips * oneWayD;
+              totalEmptyDist += validatedTrips * oneWayD;
+          }
+      }
 
       if (task.isMissing) {
         missingReported++;
@@ -93,34 +137,21 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
     const numDays = Math.max(uniqueDaysWorked.size, 1);
     const shiftTotalMinutes = 450; 
     const totalAvailableMinutes = numDays * shiftTotalMinutes;
-    
     const pureWorkMinutes = totalExecMs / 60000;
     const effectiveWorkMinutes = pureWorkMinutes * 1.15; 
     const utilizationPercent = totalAvailableMinutes > 0 ? (effectiveWorkMinutes / totalAvailableMinutes) * 100 : 0;
-    
-    const performanceRatio = (totalStandardMin > 0 && pureWorkMinutes > 0) 
-      ? (totalStandardMin / pureWorkMinutes) * 100 
-      : 0;
-
+    const performanceRatio = (totalStandardMin > 0 && pureWorkMinutes > 0) ? (totalStandardMin / pureWorkMinutes) * 100 : 0;
     const avgReactionSeconds = reactionCount > 0 ? (totalReactionMs / reactionCount) / 1000 : 0;
-
     const confidenceRating = missingReported > 0 ? ((missingReported - realErrors) / missingReported) * 100 : 100;
-    
-    const scoreQuality = (confidenceRating / 100) * 3.5;
-    const scoreUtilization = (Math.min(utilizationPercent, 100) / 100) * 3.0;
-    const scoreStandards = performanceRatio > 0 
-      ? (Math.min(performanceRatio, 120) / 120) * 2.5 
-      : 2.0; 
-    
-    let scoreReaction = 0;
-    if (avgReactionSeconds > 0) {
-      if (avgReactionSeconds < 60) scoreReaction = 1.0;
-      else if (avgReactionSeconds < 180) scoreReaction = 0.5;
-    } else {
-      scoreReaction = 0.5;
-    }
+    const logEfficiency = (totalFullDist + totalEmptyDist) > 0 ? (totalFullDist / (totalFullDist + totalEmptyDist)) * 100 : 50;
 
-    const workerIndex = parseFloat((scoreQuality + scoreUtilization + scoreStandards + scoreReaction).toFixed(1));
+    const scoreQuality = (confidenceRating / 100) * 3.0;
+    const scoreUtilization = (Math.min(utilizationPercent, 100) / 100) * 2.5;
+    const scoreStandards = performanceRatio > 0 ? (Math.min(performanceRatio, 120) / 120) * 2.0 : 1.5; 
+    const scoreReaction = avgReactionSeconds > 0 ? (avgReactionSeconds < 60 ? 1.0 : avgReactionSeconds < 180 ? 0.5 : 0) : 0.5;
+    const scoreLogistics = (logEfficiency / 100) * 1.0;
+
+    const workerIndex = parseFloat((scoreQuality + scoreUtilization + scoreStandards + scoreReaction + scoreLogistics).toFixed(1));
     
     const avgMsPerPoint = durations.length > 0 ? totalExecMs / totalLoad : 0;
     const topWorkplaces = Object.entries(workplacesMap).sort(([,a],[,b]) => b-a).slice(0, 3).map(([name, count]) => ({ name, count }));
@@ -141,9 +172,12 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
       totalAvailableMinutes,
       workerIndex,
       performanceRatio,
-      avgReactionSeconds
+      avgReactionSeconds,
+      totalFullDist,
+      totalEmptyDist,
+      logEfficiency
     };
-  }, [tasks, systemBreaks]);
+  }, [tasks, systemBreaks, mapSectors, workplaces, systemConfig, VZV_SPEED_MPS, logisticsOperations]);
 
   const formatDuration = (ms: number) => {
     if (ms <= 0) return '-';
@@ -189,7 +223,6 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/95 backdrop-blur-xl p-4 animate-fade-in" onClick={onClose}>
       <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-y-auto custom-scrollbar relative" onClick={e => e.stopPropagation()}>
         
-        {/* HEADER */}
         <div className="p-8 sm:p-10 border-b border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-slate-800/30">
           <div className="space-y-1">
             <div className="flex items-center gap-3">
@@ -208,11 +241,10 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
 
         <div className="p-8 sm:p-10 grid grid-cols-1 md:grid-cols-2 gap-8">
           
-          {/* INDEX SCORE CARD */}
           <div className={`col-span-1 md:col-span-2 bg-slate-950/40 border-l-[12px] p-8 rounded-3xl shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-8 ${getIndexBorderColor(stats.workerIndex)}`}>
             <div className="text-center sm:text-left">
               <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.3em] mb-2">CELKOVÝ INDEX SCORE</h3>
-              <p className="text-xs text-slate-600 font-bold uppercase leading-relaxed max-w-sm">Komplexné vyhodnotenie kvality, využitia zmeny, plnenia noriem a rýchlosti reakcie.</p>
+              <p className="text-xs text-slate-600 font-bold uppercase leading-relaxed max-w-sm">Komplexné vyhodnotenie kvality, využitia zmeny, plnenia noriem, logistickej efektivity a rýchlosti reakcie.</p>
             </div>
             <div className="flex items-baseline gap-2">
               <span className={`text-8xl font-black font-mono leading-none tracking-tighter ${getIndexTextColor(stats.workerIndex)}`}>{stats.workerIndex.toFixed(1)}</span>
@@ -220,7 +252,6 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
             </div>
           </div>
 
-          {/* KPI VYUŽITIE ZMENY */}
           <div className={`${cardStyle} ${getUtilColor(stats.utilizationPercent)}`}>
             <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
               <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">{t('shift_utilization')}</h3>
@@ -241,7 +272,7 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
               </div>
 
               <div className="bg-slate-950/40 p-4 rounded-xl border border-white/5 flex justify-between items-center">
-                <span className="text-[10px] font-black text-teal-500 uppercase tracking-widest">Efektívny čas (+15% réžia)::</span>
+                <span className="text-[10px] font-black text-teal-500 uppercase tracking-widest">Efektívny čas (+15% réžia):</span>
                 <span className="text-xl font-black text-white font-mono">{formatMinutes(stats.effectiveWorkMinutes)}</span>
               </div>
 
@@ -263,7 +294,6 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
             </div>
           </div>
 
-          {/* KPI VÝKONOVÉ UKAZOVATELE */}
           <div className={`${cardStyle} border-t-teal-500`}>
             <h3 className="text-xs font-black text-teal-400 uppercase tracking-[0.2em] mb-8 border-b border-white/5 pb-4">VÝKONOVÉ UKAZOVATELE</h3>
             <div className="grid grid-cols-3 gap-6">
@@ -298,7 +328,31 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
             </div>
           </div>
 
-          {/* KPI KVALITA */}
+          <div className={`${cardStyle} border-t-sky-500`}>
+             <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
+               <h3 className="text-xs font-black text-sky-400 uppercase tracking-[0.2em]">LOGISTICKÉ KM</h3>
+               <div className="text-right">
+                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Pomer plných jázd</p>
+                  <p className={`text-2xl font-black font-mono ${stats.logEfficiency > 70 ? 'text-green-400' : 'text-amber-400'}`}>{stats.logEfficiency.toFixed(0)}%</p>
+               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-900/30 p-4 rounded-2xl border border-white/5">
+                  <p className="text-[9px] font-black text-slate-500 uppercase mb-1 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span> REÁLNA LOGISTIKA
+                  </p>
+                  <p className="text-2xl font-black text-white font-mono">{stats.totalFullDist.toFixed(1)} <span className="text-xs font-bold text-slate-500">m</span></p>
+                </div>
+                <div className="bg-slate-900/30 p-4 rounded-2xl border border-white/5">
+                  <p className="text-[9px] font-black text-slate-500 uppercase mb-1 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500/50"></span> JALOVÉ JAZDY
+                  </p>
+                  <p className="text-2xl font-black text-slate-400 font-mono">{stats.totalEmptyDist.toFixed(1)} <span className="text-xs font-bold text-slate-500">m</span></p>
+                </div>
+            </div>
+            <p className="mt-4 text-[9px] text-slate-600 italic leading-tight">* Vzdialenosť validovaná limitom {systemConfig.vzvSpeed || 8} km/h. Počet reálnych otočiek je určený podľa času trvania úlohy a fyzickej vzdialenosti (m).</p>
+          </div>
+
           <div className={`${cardStyle} border-t-red-500`}>
             <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
                <h3 className="text-xs font-black text-red-400 uppercase tracking-[0.2em]">INTEGRITA & KVALITA</h3>
@@ -322,7 +376,6 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
             </div>
           </div>
 
-          {/* ČASOVÁ EFEKTIVITA */}
           <div className={`${cardStyle} border-t-blue-500`}>
             <h3 className="text-xs font-black text-blue-400 uppercase tracking-[0.2em] mb-8 border-b border-white/5 pb-4">ČASOVÁ EFEKTIVITA</h3>
             <div className="space-y-6">
@@ -346,7 +399,6 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
             </div>
           </div>
 
-          {/* GEOGRAFIA SKLADU */}
           <div className={`${cardStyle} border-t-amber-500 col-span-1 md:col-span-2`}>
             <h3 className="text-xs font-black text-amber-400 uppercase tracking-[0.2em] mb-8 border-b border-white/5 pb-4">GEOGRAFIA & MATERIÁL</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -375,28 +427,31 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
             </div>
           </div>
 
-          {/* LEGENDA HODNOTENIA */}
           <div className="col-span-1 md:col-span-2 bg-slate-900/50 border border-slate-800 p-6 rounded-[2rem] shadow-inner animate-fade-in">
             <h3 className="text-xs font-black text-teal-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               {language === 'sk' ? 'LEGENDA HODNOTENIA (INDEX SCORE)' : 'RATING LEGEND (INDEX SCORE)'}
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
               <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">🎯 KVALITA (35%)</p>
-                <p className="text-[10px] text-slate-500 leading-tight">Presnosť nahlásených chýb a výsledky auditov (max 3.5b).</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">🎯 KVALITA (30%)</p>
+                <p className="text-[10px] text-slate-500 leading-tight">Presnosť hlásení a výsledky auditov (max 3.0b).</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">⏱️ VYUŽITIE (30%)</p>
-                <p className="text-[10px] text-slate-500 leading-tight">Čas strávený reálnou prácou z fondu 450 min (max 3.0b).</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">⏱️ VYUŽITIE (25%)</p>
+                <p className="text-[10px] text-slate-500 leading-tight">Čas strávený prácou z fondu 450 min (max 2.5b).</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">🚀 NORMY (25%)</p>
-                <p className="text-[10px] text-slate-500 leading-tight">Rýchlosť plnenia úloh voči technickej norme (max 2.5b).</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">🚀 NORMY (20%)</p>
+                <p className="text-[10px] text-slate-500 leading-tight">Rýchlosť voči technickej norme (max 2.0b).</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">🚚 LOGISTIKA (15%)</p>
+                <p className="text-[10px] text-slate-500 leading-tight">Pomer plných vs. jalových jázd (max 1.5b).</p>
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">📱 REAKCIA (10%)</p>
-                <p className="text-[10px] text-slate-500 leading-tight">Rýchlosť prijatia úlohy po jej zobrazení (max 1.0b).</p>
+                <p className="text-[10px] text-slate-500 leading-tight">Rýchlosť prijatia úlohy (max 1.0b).</p>
               </div>
             </div>
           </div>

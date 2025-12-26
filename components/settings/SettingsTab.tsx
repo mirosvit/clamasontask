@@ -37,8 +37,9 @@ interface SettingsTabProps {
   onAddMissingReason: (val: string) => void;
   onDeleteMissingReason: (id: string) => void;
   logisticsOperations?: DBItem[];
-  onAddLogisticsOperation?: (val: string, time?: number) => void;
-  onUpdateLogisticsOperation?: (id: string, time: number) => void;
+  onAddLogisticsOperation?: (val: string, time?: number, dist?: number) => void;
+  // Fix: updated type to use Partial<DBItem> to fix incompatible parameters error on line 205
+  onUpdateLogisticsOperation?: (id: string, updates: Partial<DBItem>) => void;
   onDeleteLogisticsOperation?: (id: string) => void;
   mapSectors: MapSector[];
   onAddMapSector: (name: string, x: number, y: number) => void;
@@ -206,8 +207,10 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             onDeleteLogisticsOperation={props.onDeleteLogisticsOperation || (() => {})}
             mapSectors={props.mapSectors}
             onAddMapSector={props.onAddMapSector}
-            onDeleteMapSector={props.onDeleteMapSector}
+            onDeleteMapSector={id => props.onDeleteMapSector(id)}
             onUpdateMapSector={props.onUpdateMapSector}
+            systemConfig={props.systemConfig}
+            onUpdateSystemConfig={props.onUpdateSystemConfig}
           />
         )}
         {activeSubTab === 'bom' && (

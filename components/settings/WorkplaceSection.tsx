@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, memo } from 'react';
-import { DBItem, MapSector } from '../../App';
+import { DBItem, MapSector, SystemConfig } from '../../App';
 import { useLanguage } from '../LanguageContext';
 
 interface WorkplaceSectionProps {
@@ -11,13 +11,15 @@ interface WorkplaceSectionProps {
   onBatchAddWorkplaces: (vals: string[]) => void;
   onDeleteWorkplace: (id: string) => void;
   onDeleteAllWorkplaces: () => void;
-  onAddLogisticsOperation: (val: string, time?: number) => void;
-  onUpdateLogisticsOperation: (id: string, newTime: number) => void;
+  onAddLogisticsOperation: (val: string, time?: number, dist?: number) => void;
+  onUpdateLogisticsOperation: (id: string, updates: Partial<DBItem>) => void;
   onDeleteLogisticsOperation: (id: string) => void;
   mapSectors: MapSector[];
   onAddMapSector: (name: string, x: number, y: number, color?: string) => void;
   onDeleteMapSector: (id: string) => void;
   onUpdateMapSector: (id: string, updates: Partial<MapSector>) => void;
+  systemConfig: SystemConfig;
+  onUpdateSystemConfig: (config: Partial<SystemConfig>) => void;
 }
 
 const colorOptions = [
@@ -32,7 +34,7 @@ const colorOptions = [
 
 const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({ 
   workplaces, logisticsOperations, onAddWorkplace, onUpdateWorkplace, onBatchAddWorkplaces, onDeleteWorkplace, onDeleteAllWorkplaces, onAddLogisticsOperation, onUpdateLogisticsOperation, onDeleteLogisticsOperation,
-  mapSectors, onAddMapSector, onDeleteMapSector, onUpdateMapSector
+  mapSectors, onAddMapSector, onDeleteMapSector, onUpdateMapSector, systemConfig, onUpdateSystemConfig
 }) => {
   const { t, language } = useLanguage();
   const [newWorkplace, setNewWorkplace] = useState('');
@@ -43,6 +45,7 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({
   const [bulkWorkplaces, setBulkWorkplaces] = useState('');
   const [newLogOp, setNewLogOp] = useState('');
   const [newLogOpTime, setNewLogOpTime] = useState('');
+  const [newLogOpDist, setNewLogOpDist] = useState('');
 
   // Sektory State
   const [newSectorName, setNewSectorName] = useState('');
@@ -130,20 +133,50 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({
         </div>
       </div>
 
+      {/* KONFIGURÁCIA LOGISTIKY */}
+      <div className={cardClass}>
+        <div className="space-y-4">
+          <h3 className="text-lg font-black text-white uppercase tracking-tighter">KONFIGURÁCIA LOGISTIKY</h3>
+          <div className="max-w-xs">
+            <h4 className={labelClass}>PRIEMERNÁ RÝCHLOSŤ VZV (KM/H)</h4>
+            <input 
+              type="number" 
+              value={systemConfig.vzvSpeed || 8} 
+              onChange={e => onUpdateSystemConfig({ vzvSpeed: parseFloat(e.target.value) || 1 })}
+              className={inputClass}
+            />
+          </div>
+          <p className="text-slate-500 text-[10px] uppercase font-bold mt-2">
+            * Všetky prejazdy sú validované normovanou rýchlosťou {systemConfig.vzvSpeed || 8} km/h.
+          </p>
+        </div>
+      </div>
+
       <div className={cardClass}>
         <div className="space-y-8">
           <h3 className="text-2xl font-black text-white uppercase tracking-tighter">LOGISTICKÉ OPERÁCIE</h3>
           <div className="flex-1 overflow-y-auto max-h-80 bg-slate-950/40 rounded-3xl p-6 space-y-3 border border-white/5 shadow-inner">
             {logisticsOperations.map(op => (
-              <div key={op.id} className="flex justify-between items-center bg-slate-800/50 h-12 px-5 rounded-xl border border-white/5 group transition-colors hover:bg-slate-700/50">
+              <div key={op.id} className="flex justify-between items-center bg-slate-800/50 h-16 px-5 rounded-xl border border-white/5 group transition-colors hover:bg-slate-700/50">
                 <span className="text-sm font-bold text-slate-300 uppercase tracking-widest truncate max-w-[200px]">{op.value}</span>
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1">
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] text-slate-600 font-bold uppercase">Time:</span>
                     <input 
                       type="number" 
                       value={op.standardTime || 0} 
-                      onChange={(e) => onUpdateLogisticsOperation(op.id, parseInt(e.target.value) || 0)}
+                      onChange={(e) => onUpdateLogisticsOperation(op.id, { standardTime: parseInt(e.target.value) || 0 })}
                       className={inlineInputClass}
+                    />
+                    <span className="text-slate-600 text-[10px]">m</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] text-slate-600 font-bold uppercase">Dist:</span>
+                    <input 
+                      type="number" 
+                      value={op.distancePx || 0} 
+                      onChange={(e) => onUpdateLogisticsOperation(op.id, { distancePx: parseInt(e.target.value) || 0 })}
+                      className={inlineInputClass.replace('w-12', 'w-16')}
                     />
                     <span className="text-slate-600 text-[10px]">m</span>
                   </div>
@@ -154,10 +187,11 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({
           </div>
           <div className="pt-6">
             <h4 className={labelClass}>PRIDAŤ OPERÁCIU</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <input value={newLogOp} onChange={e=>setNewLogOp(e.target.value)} placeholder="Operácia" className={inputClass} />
               <input type="number" value={newLogOpTime} onChange={e=>setNewLogOpTime(e.target.value)} placeholder="min" className={inputClass} />
-              <button onClick={() => { if(newLogOp) { onAddLogisticsOperation(newLogOp, parseInt(newLogOpTime)); setNewLogOp(''); setNewLogOpTime(''); } }} className="h-12 bg-teal-600 hover:bg-teal-500 text-white font-black px-6 rounded-xl uppercase tracking-widest text-xs transition-all border-2 border-teal-500 shadow-lg">PRIDAŤ</button>
+              <input type="number" value={newLogOpDist} onChange={e=>setNewLogOpDist(e.target.value)} placeholder="Vzdialenosť m" className={inputClass} />
+              <button onClick={() => { if(newLogOp) { onAddLogisticsOperation(newLogOp, parseInt(newLogOpTime), parseInt(newLogOpDist)); setNewLogOp(''); setNewLogOpTime(''); setNewLogOpDist(''); } }} className="h-12 bg-teal-600 hover:bg-teal-500 text-white font-black px-6 rounded-xl uppercase tracking-widest text-xs transition-all border-2 border-teal-500 shadow-lg">PRIDAŤ</button>
             </div>
           </div>
         </div>

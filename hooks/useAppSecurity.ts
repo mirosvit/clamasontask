@@ -13,7 +13,8 @@ export const useAppSecurity = (currentUserRole: string, isAuthenticated: boolean
       adminKey: '1234',
       adminLockEnabled: true,
       mapOriginX: 0,
-      mapOriginY: 0
+      mapOriginY: 0,
+      vzvSpeed: 8
   });
 
   const activityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -50,13 +51,14 @@ export const useAppSecurity = (currentUserRole: string, isAuthenticated: boolean
               if (data.adminLockEnabled === undefined) { updates.adminLockEnabled = true; needed = true; }
               if (data.mapOriginX === undefined) { updates.mapOriginX = 0; needed = true; }
               if (data.mapOriginY === undefined) { updates.mapOriginY = 0; needed = true; }
+              if (data.vzvSpeed === undefined) { updates.vzvSpeed = 8; needed = true; }
               
               if (needed) {
                   updateDoc(configRef, updates);
               }
               setSystemConfig(data);
           } else {
-              setDoc(configRef, { maintenanceMode: false, allowedIPs: [], ipCheckEnabled: false, adminKey: '1234', adminLockEnabled: true, mapOriginX: 0, mapOriginY: 0 });
+              setDoc(configRef, { maintenanceMode: false, allowedIPs: [], ipCheckEnabled: false, adminKey: '1234', adminLockEnabled: true, mapOriginX: 0, mapOriginY: 0, vzvSpeed: 8 });
           }
       });
   }, []);

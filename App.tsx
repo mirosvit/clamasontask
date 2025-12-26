@@ -40,6 +40,7 @@ export interface DBItem {
   description?: string;
   coordX?: number;
   coordY?: number;
+  distancePx?: number;
 }
 
 export interface MapSector {
@@ -169,6 +170,7 @@ export interface SystemConfig {
     adminLockEnabled?: boolean;
     mapOriginX?: number;
     mapOriginY?: number;
+    vzvSpeed?: number;
 }
 
 const colorMap: Record<string, string> = {
@@ -378,10 +380,10 @@ const App: React.FC = () => {
           if (s.empty && !s.metadata.fromCache) {
                const defaults = ['VYKLÁDKA', 'NAKLÁDKA', 'ZASKLADNENIE', 'INTERNÝ PRESUN'];
                const batch = writeBatch(db);
-               defaults.forEach(op => batch.set(doc(collection(db, 'logistics_operations')), { value: op, standardTime: 0 }));
+               defaults.forEach(op => batch.set(doc(collection(db, 'logistics_operations')), { value: op, standardTime: 0, distancePx: 0 }));
                await batch.commit();
           } else {
-              const ops = s.docs.map(d => ({id:d.id, value:d.data().value, standardTime: d.data().standardTime} as DBItem));
+              const ops = s.docs.map(d => ({id:d.id, ...d.data()} as DBItem));
               setLogisticsOperations(ops);
           }
       }); 
@@ -514,8 +516,8 @@ const App: React.FC = () => {
   const handleDeleteAllWorkplaces = async () => { const s=await getDocs(collection(db,'workplaces')); const b=writeBatch(db); s.forEach(d=>b.delete(d.ref)); await b.commit(); };
   const handleAddMissingReason = async (v: string) => { await addDoc(collection(db,'missing_reasons'), {value:v}); };
   const handleDeleteMissingReason = async (id: string) => { await deleteDoc(doc(db,'missing_reasons',id)); };
-  const handleAddLogisticsOperation = async (v: string, t?: number) => { await addDoc(collection(db,'logistics_operations'), {value:v}); };
-  const handleUpdateLogisticsOperation = async (id: string, t: number) => { await updateDoc(doc(db, 'logistics_operations', id), { standardTime: t }); };
+  const handleAddLogisticsOperation = async (v: string, t?: number, d?: number) => { await addDoc(collection(db,'logistics_operations'), {value:v, standardTime: t || 0, distancePx: d || 0 }); };
+  const handleUpdateLogisticsOperation = async (id: string, updates: Partial<DBItem>) => { await updateDoc(doc(db, 'logistics_operations', id), updates); };
   const handleDeleteLogisticsOperation = async (id: string) => { await deleteDoc(doc(db,'logistics_operations',id)); };
   
   const handleAddMapSector = async (name: string, x: number, y: number, color?: string) => { await addDoc(collection(db, 'map_sectors'), { name, coordX: x, coordY: y, color: color || 'slate' }); };
@@ -579,7 +581,24 @@ const App: React.FC = () => {
     const t = tasks.find(x => x.id === id);
     if(t) {
         if (!t.isDone) {
-            // Ak ideme dokončiť, otvoríme modal výberu sektora (Fáza 1)
+            // AUTOMATIZÁCIA LOGISTIKY: Ak je úloha logistická, vynechaj modal
+            if (t.isLogistics) {
+                await updateDoc(doc(db, 'tasks', id), { 
+                    isDone: true, 
+                    status: 'completed', 
+                    completionTime: new Date().toLocaleTimeString('sk-SK'), 
+                    completedBy: currentUser, 
+                    completedAt: Date.now(), 
+                    isInProgress: false, 
+                    inProgressBy: null, 
+                    isBlocked: false, 
+                    isManualBlocked: false, 
+                    isAuditInProgress: false, 
+                    auditBy: null
+                });
+                return;
+            }
+            // Inak otvor modal výberu sektora (Fáza 1)
             setFinishingTaskId(id);
             setShowSectorModal(true);
             return;
@@ -771,7 +790,7 @@ const App: React.FC = () => {
     const [input, setInput] = useState('');
     return (
       <div className="fixed inset-0 z-[10000] bg-slate-950 flex items-center justify-center p-4">
-        <div className="bg-gray-800 border-2 border-slate-700 p-10 rounded-[2rem] shadow-2xl w-full max-w-sm text-center">
+        <div className="bg-gray-800 border-2 border-slate-700 p-10 rounded-[2rem] shadow-2xl w-full max-sm text-center">
           <div className="w-20 h-20 bg-blue-600/20 rounded-full flex items-center justify-center mx-auto mb-8 border border-blue-500/50">
             <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-[#4169E1]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
