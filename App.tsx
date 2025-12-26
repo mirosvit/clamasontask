@@ -47,6 +47,7 @@ export interface MapSector {
   name: string;
   coordX: number;
   coordY: number;
+  color?: string;
 }
 
 export type PriorityLevel = 'LOW' | 'NORMAL' | 'URGENT';
@@ -95,6 +96,7 @@ export interface Task {
   expireAt?: number;
   searchExhausted?: boolean;
   searchedBy?: string | null;
+  pickedFromSectorId?: string;
 }
 
 export interface Notification {
@@ -169,6 +171,16 @@ export interface SystemConfig {
     mapOriginY?: number;
 }
 
+const colorMap: Record<string, string> = {
+  blue: 'bg-blue-600 border-blue-500 hover:bg-blue-500',
+  green: 'bg-green-600 border-green-500 hover:bg-green-500',
+  orange: 'bg-orange-600 border-orange-500 hover:bg-orange-500',
+  teal: 'bg-teal-600 border-teal-500 hover:bg-teal-500',
+  pink: 'bg-pink-600 border-pink-500 hover:bg-pink-500',
+  red: 'bg-red-600 border-red-500 hover:bg-red-500',
+  slate: 'bg-slate-900 border-slate-700 hover:bg-slate-800'
+};
+
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<string>('');
@@ -205,6 +217,10 @@ const App: React.FC = () => {
   
   const [dbLoadWarning, setDbLoadWarning] = useState<boolean>(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  // Stavy pre modálne okno výberu sektora
+  const [showSectorModal, setShowSectorModal] = useState(false);
+  const [finishingTaskId, setFinishingTaskId] = useState<string | null>(null);
   
   const isFirstLoad = useRef(true);
   const rolesRef = useRef<Role[]>([]);
@@ -502,9 +518,9 @@ const App: React.FC = () => {
   const handleUpdateLogisticsOperation = async (id: string, t: number) => { await updateDoc(doc(db, 'logistics_operations', id), { standardTime: t }); };
   const handleDeleteLogisticsOperation = async (id: string) => { await deleteDoc(doc(db,'logistics_operations',id)); };
   
-  const handleAddMapSector = async (name: string, x: number, y: number) => { await addDoc(collection(db, 'map_sectors'), { name, coordX: x, coordY: y }); };
+  const handleAddMapSector = async (name: string, x: number, y: number, color?: string) => { await addDoc(collection(db, 'map_sectors'), { name, coordX: x, coordY: y, color: color || 'slate' }); };
   const handleDeleteMapSector = async (id: string) => { await deleteDoc(doc(db, 'map_sectors', id)); };
-  const handleUpdateMapSector = async (id: string, x: number, y: number) => { await updateDoc(doc(db, 'map_sectors', id), { coordX: x, coordY: y }); };
+  const handleUpdateMapSector = async (id: string, updates: Partial<MapSector>) => { await updateDoc(doc(db, 'map_sectors', id), updates); };
 
   const handleDeleteMissingItem = (id: string) => deleteDoc(doc(db,'tasks',id));
   const handleAddBreakSchedule = async (s:string, e:string) => { await addDoc(collection(db,'break_schedules'), {start:s, end:e}); };
@@ -558,13 +574,43 @@ const App: React.FC = () => {
   };
 
   const handleUpdateTask = async (id: string, updates: Partial<Task>) => { await updateDoc(doc(db, 'tasks', id), updates); };
+  
   const handleToggleTask = async (id: string) => {
     const t = tasks.find(x => x.id === id);
     if(t) {
+        if (!t.isDone) {
+            // Ak ideme dokončiť, otvoríme modal výberu sektora (Fáza 1)
+            setFinishingTaskId(id);
+            setShowSectorModal(true);
+            return;
+        }
+        // Undo logika (ak sa úloha "odškrtáva")
         const newState = !t.isDone;
-        await updateDoc(doc(db,'tasks',id), { isDone:newState, status:newState?'completed':null, completionTime:newState?new Date().toLocaleTimeString('sk-SK'):null, completedBy:newState?currentUser:null, completedAt:newState?Date.now():null, isInProgress:false, inProgressBy:null, isBlocked:false, isManualBlocked: false, isAuditInProgress: false, auditBy: null });
+        await updateDoc(doc(db,'tasks',id), { isDone:newState, status:newState?'completed':null, completionTime:newState?new Date().toLocaleTimeString('sk-SK'):null, completedBy:newState?currentUser:null, completedAt:newState?Date.now():null, isInProgress:false, inProgressBy:null, isBlocked:false, isManualBlocked: false, isAuditInProgress: false, auditBy: null, pickedFromSectorId: deleteField() });
     }
   };
+
+  const confirmTaskCompletion = async (sectorId: string) => {
+    if (!finishingTaskId) return;
+    const id = finishingTaskId;
+    await updateDoc(doc(db, 'tasks', id), { 
+        isDone: true, 
+        status: 'completed', 
+        completionTime: new Date().toLocaleTimeString('sk-SK'), 
+        completedBy: currentUser, 
+        completedAt: Date.now(), 
+        isInProgress: false, 
+        inProgressBy: null, 
+        isBlocked: false, 
+        isManualBlocked: false, 
+        isAuditInProgress: false, 
+        auditBy: null,
+        pickedFromSectorId: sectorId
+    });
+    setShowSectorModal(false);
+    setFinishingTaskId(null);
+  };
+
   const handleMarkAsIncorrect = async (id: string) => updateDoc(doc(db,'tasks',id), { isDone:true, status:'incorrectly_entered', completionTime:new Date().toLocaleTimeString('sk-SK'), completedBy:currentUser, completedAt:Date.now(), isInProgress:false, inProgressBy:null, isBlocked:false, isManualBlocked: false, isAuditInProgress: false, auditBy: null });
   const handleSetInProgress = async (id: string) => { const t = tasks.find(x=>x.id===id); if(t) updateDoc(doc(db,'tasks',id), { isInProgress:!t.isInProgress, inProgressBy:!t.isInProgress?currentUser:null, startedAt:(!t.isInProgress && !t.startedAt)?Date.now():t.startedAt }); };
   const handleAddNote = (id:string, n:string) => updateDoc(doc(db,'tasks',id), {note:n});
@@ -798,6 +844,34 @@ const App: React.FC = () => {
           onUpdateAdminKey={handleUpdateAdminKey}
           onToggleAdminLock={handleToggleAdminLock}
         />
+      )}
+
+      {/* MODAL PRE VÝBER ZDROJA (FÁZA 1) */}
+      {showSectorModal && (
+        <div className="fixed inset-0 z-[11000] bg-black/90 backdrop-blur-lg flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-gray-800 border-2 border-teal-500 p-8 rounded-[2rem] shadow-2xl w-[95%] md:max-w-4xl text-center ring-4 ring-teal-500/10">
+            <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-10 leading-tight">ODKIAL SI BRAL TOVAR?<br/><span className="text-teal-400 text-sm tracking-widest">(VYBER MIESTO)</span></h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              {mapSectors.length > 0 ? mapSectors.map(s => (
+                <button 
+                  key={s.id} 
+                  onClick={() => confirmTaskCompletion(s.id)}
+                  className={`py-8 border-2 text-white font-black rounded-2xl uppercase tracking-normal text-2xl transition-all active:scale-95 shadow-xl ${s.color ? colorMap[s.color] : colorMap.slate}`}
+                >
+                  {s.name}
+                </button>
+              )) : (
+                <div className="col-span-2 py-4 text-slate-500 italic text-lg">Žiadne sektory nie sú definované v nastaveniach.</div>
+              )}
+            </div>
+            <button 
+              onClick={() => { setShowSectorModal(false); setFinishingTaskId(null); }}
+              className="mt-6 text-slate-500 font-black uppercase tracking-widest text-sm hover:text-slate-300 transition-colors"
+            >
+              SPÄŤ NA ZOZNAM
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

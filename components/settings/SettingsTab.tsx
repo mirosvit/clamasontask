@@ -43,7 +43,8 @@ interface SettingsTabProps {
   mapSectors: MapSector[];
   onAddMapSector: (name: string, x: number, y: number) => void;
   onDeleteMapSector: (id: string) => void;
-  onUpdateMapSector: (id: string, x: number, y: number) => void;
+  // Fix: updated signature to use Partial<MapSector> instead of individual coordinates
+  onUpdateMapSector: (id: string, updates: Partial<MapSector>) => void;
   partRequests: PartRequest[];
   onApprovePartRequest: (req: PartRequest) => void;
   onRejectPartRequest: (id: string) => void;

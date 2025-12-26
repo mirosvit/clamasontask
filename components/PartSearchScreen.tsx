@@ -36,6 +36,7 @@ interface PartSearchScreenProps {
   onExhaustSearch: (id: string) => void;
   onAddNote: (id: string, note: string) => void;
   onDeleteMissingItem: (id: string) => void;
+  onDeleteMissingReason: (id: string) => void;
   onReleaseTask: (id: string) => void;
   onArchiveTasks: () => Promise<{ success: boolean; count?: number; error?: string; message?: string }>;
   onDailyClosing: () => Promise<{ success: boolean; count: number }>;
@@ -68,7 +69,6 @@ interface PartSearchScreenProps {
   onDeleteAllAllWorkplaces?: () => void; // Unused but in props interface
   onDeleteAllWorkplaces: () => void;
   onAddMissingReason: (val: string) => void;
-  onDeleteMissingReason: (id: string) => void;
   logisticsOperations: DBItem[];
   onAddLogisticsOperation: (val: string, time?: number) => void; 
   onUpdateLogisticsOperation: (id: string, time: number) => void;
@@ -76,7 +76,8 @@ interface PartSearchScreenProps {
   mapSectors: MapSector[];
   onAddMapSector: (name: string, x: number, y: number) => void;
   onDeleteMapSector: (id: string) => void;
-  onUpdateMapSector: (id: string, x: number, y: number) => void;
+  // Fix: changed signature from (id: string, x: number, y: number) to use Partial<MapSector>
+  onUpdateMapSector: (id: string, updates: Partial<MapSector>) => void;
   partRequests: PartRequest[];
   onRequestPart: (part: string) => Promise<boolean>;
   onApprovePartRequest: (req: PartRequest) => void;

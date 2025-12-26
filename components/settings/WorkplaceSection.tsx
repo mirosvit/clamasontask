@@ -15,10 +15,20 @@ interface WorkplaceSectionProps {
   onUpdateLogisticsOperation: (id: string, newTime: number) => void;
   onDeleteLogisticsOperation: (id: string) => void;
   mapSectors: MapSector[];
-  onAddMapSector: (name: string, x: number, y: number) => void;
+  onAddMapSector: (name: string, x: number, y: number, color?: string) => void;
   onDeleteMapSector: (id: string) => void;
-  onUpdateMapSector: (id: string, x: number, y: number) => void;
+  onUpdateMapSector: (id: string, updates: Partial<MapSector>) => void;
 }
+
+const colorOptions = [
+  { id: 'blue', label: 'Modrá', class: 'bg-blue-600' },
+  { id: 'green', label: 'Zelená', class: 'bg-green-600' },
+  { id: 'orange', label: 'Oranžová', class: 'bg-orange-600' },
+  { id: 'teal', label: 'Teal', class: 'bg-teal-600' },
+  { id: 'pink', label: 'Ružová', class: 'bg-pink-600' },
+  { id: 'red', label: 'Červená', class: 'bg-red-600' },
+  { id: 'slate', label: 'Šedá', class: 'bg-slate-700' }
+];
 
 const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({ 
   workplaces, logisticsOperations, onAddWorkplace, onUpdateWorkplace, onBatchAddWorkplaces, onDeleteWorkplace, onDeleteAllWorkplaces, onAddLogisticsOperation, onUpdateLogisticsOperation, onDeleteLogisticsOperation,
@@ -38,6 +48,7 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({
   const [newSectorName, setNewSectorName] = useState('');
   const [newSectorX, setNewSectorX] = useState('');
   const [newSectorY, setNewSectorY] = useState('');
+  const [newSectorColor, setNewSectorColor] = useState('slate');
 
   const filteredWPs = useMemo(() => {
       const q = wpSearch.toLowerCase();
@@ -159,14 +170,26 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({
           <div className="flex-1 overflow-y-auto max-h-80 bg-slate-950/40 rounded-3xl p-6 space-y-3 border border-white/5 shadow-inner">
             {mapSectors.map(s => (
               <div key={s.id} className="flex flex-col sm:row justify-between items-center bg-slate-800/50 p-4 rounded-xl border border-white/5 group hover:bg-slate-700/50 transition-colors gap-4">
-                <span className="text-sm font-black text-slate-300 uppercase tracking-[0.2em] flex-1">{s.name}</span>
+                <div className="flex items-center gap-3 flex-1">
+                  <div className={`w-4 h-4 rounded-full ${s.color ? colorOptions.find(c => c.id === s.color)?.class : 'bg-slate-700'}`}></div>
+                  <span className="text-sm font-black text-slate-300 uppercase tracking-[0.2em]">{s.name}</span>
+                </div>
                 <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                        <select 
+                          value={s.color || 'slate'} 
+                          onChange={(e) => onUpdateMapSector(s.id, { color: e.target.value })}
+                          className={`${inlineInputClass} w-24 text-[10px] uppercase font-black`}
+                        >
+                          {colorOptions.map(c => <option key={c.id} value={c.id} className="bg-slate-900 text-white">{c.label}</option>)}
+                        </select>
+                    </div>
                     <div className="flex items-center gap-2">
                         <span className="text-[10px] font-black text-slate-500 uppercase">X:</span>
                         <input 
                             type="number" 
                             value={s.coordX} 
-                            onChange={(e) => onUpdateMapSector(s.id, parseInt(e.target.value) || 0, s.coordY)}
+                            onChange={(e) => onUpdateMapSector(s.id, { coordX: parseInt(e.target.value) || 0 })}
                             className={inlineInputClass.replace('w-12', 'w-16')}
                         />
                     </div>
@@ -175,7 +198,7 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({
                         <input 
                             type="number" 
                             value={s.coordY} 
-                            onChange={(e) => onUpdateMapSector(s.id, s.coordX, parseInt(e.target.value) || 0)}
+                            onChange={(e) => onUpdateMapSector(s.id, { coordY: parseInt(e.target.value) || 0 })}
                             className={inlineInputClass.replace('w-12', 'w-16')}
                         />
                     </div>
@@ -189,15 +212,22 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({
           </div>
           <div className="pt-6 border-t border-slate-800">
             <h4 className={labelClass}>PRIDAŤ NOVÝ SEKTOR</h4>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <input value={newSectorName} onChange={e=>setNewSectorName(e.target.value)} placeholder="NÁZOV (napr. SKLAD A)" className={inputClass} />
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <input value={newSectorName} onChange={e=>setNewSectorName(e.target.value)} placeholder="NÁZOV" className={inputClass} />
               <input type="number" value={newSectorX} onChange={e=>setNewSectorX(e.target.value)} placeholder="X súradnica" className={inputClass} />
               <input type="number" value={newSectorY} onChange={e=>setNewSectorY(e.target.value)} placeholder="Y súradnica" className={inputClass} />
+              <select 
+                value={newSectorColor} 
+                onChange={e => setNewSectorColor(e.target.value)} 
+                className={inputClass}
+              >
+                {colorOptions.map(c => <option key={c.id} value={c.id}>{c.label.toUpperCase()}</option>)}
+              </select>
               <button 
                 onClick={() => { 
                     if(newSectorName && newSectorX && newSectorY) { 
-                        onAddMapSector(newSectorName.toUpperCase(), parseInt(newSectorX), parseInt(newSectorY)); 
-                        setNewSectorName(''); setNewSectorX(''); setNewSectorY(''); 
+                        onAddMapSector(newSectorName.toUpperCase(), parseInt(newSectorX), parseInt(newSectorY), newSectorColor); 
+                        setNewSectorName(''); setNewSectorX(''); setNewSectorY(''); setNewSectorColor('slate');
                     } 
                 }} 
                 className="h-12 bg-sky-600 hover:bg-sky-500 text-white font-black px-6 rounded-xl uppercase tracking-widest text-xs transition-all border-2 border-sky-500 shadow-lg"
