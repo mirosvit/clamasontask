@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { DBItem, BreakSchedule } from '../../App';
 import { useLanguage } from '../LanguageContext';
@@ -9,6 +10,7 @@ interface SystemSectionProps {
   onDeleteMissingReason: (id: string) => void;
   onAddBreakSchedule: (start: string, end: string) => void;
   onDeleteBreakSchedule: (id: string) => void;
+  onUpdateAdminKey: (oldK: string, newK: string) => Promise<void>;
 }
 
 const Icons = {
@@ -16,9 +18,9 @@ const Icons = {
 };
 
 const SystemSection: React.FC<SystemSectionProps> = ({ 
-  missingReasons, breakSchedules, onAddMissingReason, onDeleteMissingReason, onAddBreakSchedule, onDeleteBreakSchedule 
+  missingReasons, breakSchedules, onAddMissingReason, onDeleteMissingReason, onAddBreakSchedule, onDeleteBreakSchedule, onUpdateAdminKey 
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [newMissingReason, setNewMissingReason] = useState('');
   const [newBreakStart, setNewBreakStart] = useState('');
   const [newBreakEnd, setNewBreakEnd] = useState('');
@@ -27,6 +29,30 @@ const SystemSection: React.FC<SystemSectionProps> = ({
   const [oldKey, setOldKey] = useState('');
   const [newKey, setNewKey] = useState('');
   const [confirmKey, setConfirmKey] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const handleUpdateKey = async () => {
+    if (!oldKey || !newKey || !confirmKey) {
+        alert(language === 'sk' ? 'Prosím, vyplňte všetky polia.' : 'Please fill all fields.');
+        return;
+    }
+    if (newKey !== confirmKey) {
+        alert(language === 'sk' ? 'Nové kľúče sa nezhodujú.' : 'New keys do not match.');
+        return;
+    }
+
+    setIsUpdating(true);
+    try {
+        await onUpdateAdminKey(oldKey, newKey);
+        setOldKey('');
+        setNewKey('');
+        setConfirmKey('');
+    } catch (e) {
+        // Error handling is inside App.tsx (alert)
+    } finally {
+        setIsUpdating(false);
+    }
+  };
 
   const cardClass = "bg-gray-800/40 border border-slate-700/50 rounded-2xl p-6 shadow-2xl backdrop-blur-sm";
   const inputClass = "w-full h-12 bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono";
@@ -115,8 +141,12 @@ const SystemSection: React.FC<SystemSectionProps> = ({
                 />
               </div>
             </div>
-            <button className="w-full py-4 bg-blue-700 hover:bg-blue-600 text-white font-black rounded-xl uppercase tracking-widest text-xs transition-all border-2 border-blue-500 shadow-lg">
-              AKTUALIZOVAŤ BEZPEČNOSTNÝ KĽÚČ
+            <button 
+                onClick={handleUpdateKey}
+                disabled={isUpdating}
+                className={`w-full py-4 bg-blue-700 hover:bg-blue-600 text-white font-black rounded-xl uppercase tracking-widest text-xs transition-all border-2 border-blue-500 shadow-lg ${isUpdating ? 'opacity-50 cursor-wait' : ''}`}
+            >
+              {isUpdating ? 'AKTUALIZUJEM...' : 'AKTUALIZOVAŤ BEZPEČNOSTNÝ KĽÚČ'}
             </button>
           </div>
         </div>

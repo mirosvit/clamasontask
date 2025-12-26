@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import LoginScreen from './components/LoginScreen';
 import PartSearchScreen from './components/PartSearchScreen';
@@ -20,7 +19,8 @@ import {
   setDoc,
   deleteField,
   increment,
-  getCountFromServer
+  getCountFromServer,
+  getDoc
 } from 'firebase/firestore';
 
 export interface UserData {
@@ -153,6 +153,7 @@ export interface SystemConfig {
     maintenanceEnd?: string;
     allowedIPs: string[];
     ipCheckEnabled: boolean;
+    adminKey?: string;
 }
 
 const App: React.FC = () => {
@@ -180,7 +181,8 @@ const App: React.FC = () => {
   const [systemConfig, setSystemConfig] = useState<SystemConfig>({
       maintenanceMode: false,
       allowedIPs: [],
-      ipCheckEnabled: false
+      ipCheckEnabled: false,
+      adminKey: '1234'
   });
   const [dbLoadWarning, setDbLoadWarning] = useState<boolean>(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -234,9 +236,14 @@ const App: React.FC = () => {
       const configRef = doc(db, 'system_data', 'config');
       return onSnapshot(configRef, (docSnap) => {
           if (docSnap.exists()) {
-              setSystemConfig(docSnap.data() as SystemConfig);
+              const data = docSnap.data() as SystemConfig;
+              // Inicializácia default kľúča ak chýba
+              if (!data.adminKey) {
+                  updateDoc(configRef, { adminKey: '1234' });
+              }
+              setSystemConfig(data);
           } else {
-              setDoc(configRef, { maintenanceMode: false, allowedIPs: [], ipCheckEnabled: false });
+              setDoc(configRef, { maintenanceMode: false, allowedIPs: [], ipCheckEnabled: false, adminKey: '1234' });
           }
       });
   }, []);
@@ -482,6 +489,18 @@ const App: React.FC = () => {
   const handleApprovePartRequest = (req: PartRequest) => { handleAddPart(req.partNumber); deleteDoc(doc(db,'part_requests',req.id)); };
   const handleRejectPartRequest = (id: string) => deleteDoc(doc(db,'part_requests',id));
 
+  const handleUpdateAdminKey = async (oldKey: string, newKey: string) => {
+    const configRef = doc(db, 'system_data', 'config');
+    const snap = await getDoc(configRef);
+    if (snap.exists() && snap.data().adminKey === oldKey) {
+        await updateDoc(configRef, { adminKey: newKey });
+        alert('Bezpečnostný kľúč bol úspešne zmenený.');
+    } else {
+        alert('Pôvodný kľúč je nesprávny.');
+        throw new Error('Incorrect old key');
+    }
+  };
+
   const handleAddTask = async (pn: string, wp: string | null, qty: string | null, unit: string | null, prio: PriorityLevel, isLogistics: boolean = false, note?: string) => {
     let finalUnit = unit;
     const description = partsMap[pn];
@@ -718,6 +737,7 @@ const App: React.FC = () => {
           installPrompt={deferredPrompt} onInstallApp={handleInstallApp}
           systemConfig={systemConfig} onUpdateSystemConfig={handleUpdateSystemConfig}
           dbLoadWarning={dbLoadWarning} 
+          onUpdateAdminKey={handleUpdateAdminKey}
         />
       )}
     </div>

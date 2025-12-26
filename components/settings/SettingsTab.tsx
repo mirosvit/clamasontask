@@ -71,6 +71,7 @@ interface SettingsTabProps {
   dbLoadWarning?: boolean;
   hasPermission: (perm: string) => boolean;
   resolveName: (username?: string | null) => string;
+  onUpdateAdminKey: (oldK: string, newK: string) => Promise<void>;
 }
 
 const Icons = {
@@ -215,6 +216,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             onDeleteMissingReason={props.onDeleteMissingReason} 
             onAddBreakSchedule={props.onAddBreakSchedule} 
             onDeleteBreakSchedule={props.onDeleteBreakSchedule} 
+            onUpdateAdminKey={props.onUpdateAdminKey}
           />
         )}
         {activeSubTab === 'maint' && (
