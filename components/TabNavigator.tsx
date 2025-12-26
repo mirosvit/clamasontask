@@ -60,6 +60,17 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
             </button>
           )}
 
+          {hasPermission('perm_tab_catalog') && (
+            <button
+              onClick={() => setActiveTab('catalog')}
+              className={`relative whitespace-nowrap py-3 px-1 border-b-4 font-bold text-sm transition-colors ${
+                activeTab === 'catalog' ? 'border-teal-500 text-teal-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'
+              }`}
+            >
+              {t('tab_catalog')}
+            </button>
+          )}
+
           {hasPermission('perm_tab_missing') && (
             <button
               onClick={() => setActiveTab('missing')}

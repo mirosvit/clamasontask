@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import LoginScreen from './components/LoginScreen';
 import PartSearchScreen from './components/PartSearchScreen';
@@ -411,7 +412,8 @@ const App: React.FC = () => {
     updatedMap[p] = [...current.filter(item => item.child !== c), { child: c, consumption: Number(q.toFixed(5)) }];
     const dataArray: any[] = [];
     Object.entries(updatedMap).forEach(([parent, components]) => {
-        components.forEach(comp => {
+        // Fix: Explicitly cast components to BOMComponent[] to resolve TS unknown error
+        (components as BOMComponent[]).forEach(comp => {
             dataArray.push({ parent, child: comp.child, q: comp.consumption });
         });
     });
@@ -430,7 +432,8 @@ const App: React.FC = () => {
     });
     const dataArray: any[] = [];
     Object.entries(updatedMap).forEach(([parent, components]) => {
-        components.forEach(comp => {
+        // Fix: Explicitly cast components to BOMComponent[] to resolve TS unknown error
+        (components as BOMComponent[]).forEach(comp => {
             dataArray.push({ parent, child: comp.child, q: comp.consumption });
         });
     });
@@ -444,7 +447,8 @@ const App: React.FC = () => {
     }
     const dataArray: any[] = [];
     Object.entries(updatedMap).forEach(([pKey, components]) => {
-        components.forEach(comp => {
+        // Fix: Explicitly cast components to BOMComponent[] to resolve TS unknown error
+        (components as BOMComponent[]).forEach(comp => {
             dataArray.push({ parent: pKey, child: comp.child, q: comp.consumption });
         });
     });

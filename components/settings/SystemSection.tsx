@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { DBItem, BreakSchedule } from '../../App';
 import { useLanguage } from '../LanguageContext';
@@ -23,6 +22,11 @@ const SystemSection: React.FC<SystemSectionProps> = ({
   const [newMissingReason, setNewMissingReason] = useState('');
   const [newBreakStart, setNewBreakStart] = useState('');
   const [newBreakEnd, setNewBreakEnd] = useState('');
+
+  // States for Admin Security
+  const [oldKey, setOldKey] = useState('');
+  const [newKey, setNewKey] = useState('');
+  const [confirmKey, setConfirmKey] = useState('');
 
   const cardClass = "bg-gray-800/40 border border-slate-700/50 rounded-2xl p-6 shadow-2xl backdrop-blur-sm";
   const inputClass = "w-full h-12 bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono";
@@ -70,6 +74,50 @@ const SystemSection: React.FC<SystemSectionProps> = ({
               <input type="time" value={newBreakEnd} onChange={e=>setNewBreakEnd(e.target.value)} className={inputClass} />
               <button onClick={() => { if(newBreakStart && newBreakEnd) { onAddBreakSchedule(newBreakStart, newBreakEnd); setNewBreakStart(''); setNewBreakEnd(''); } }} className="bg-teal-600 hover:bg-teal-500 text-white font-black py-4 px-8 rounded-xl uppercase tracking-widest text-xs transition-all border-2 border-teal-500 shadow-lg">PRIDAŤ</button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ADMIN SECURITY SECTION */}
+      <div className={cardClass}>
+        <div className="space-y-8">
+          <h3 className="text-2xl font-black text-white uppercase tracking-tighter">ADMIN BEZPEČNOSŤ</h3>
+          <div className="space-y-6">
+            <div>
+              <h4 className={labelClass}>STARÝ KĽÚČ</h4>
+              <input 
+                type="password" 
+                value={oldKey} 
+                onChange={e => setOldKey(e.target.value)} 
+                placeholder="••••••••" 
+                className={inputClass} 
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <h4 className={labelClass}>NOVÝ KĽÚČ</h4>
+                <input 
+                  type="password" 
+                  value={newKey} 
+                  onChange={e => setNewKey(e.target.value)} 
+                  placeholder="••••••••" 
+                  className={inputClass} 
+                />
+              </div>
+              <div>
+                <h4 className={labelClass}>POTVRDIŤ NOVÝ KĽÚČ</h4>
+                <input 
+                  type="password" 
+                  value={confirmKey} 
+                  onChange={e => setConfirmKey(e.target.value)} 
+                  placeholder="••••••••" 
+                  className={inputClass} 
+                />
+              </div>
+            </div>
+            <button className="w-full py-4 bg-blue-700 hover:bg-blue-600 text-white font-black rounded-xl uppercase tracking-widest text-xs transition-all border-2 border-blue-500 shadow-lg">
+              AKTUALIZOVAŤ BEZPEČNOSTNÝ KĽÚČ
+            </button>
           </div>
         </div>
       </div>

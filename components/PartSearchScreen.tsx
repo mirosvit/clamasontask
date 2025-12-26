@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import TaskList from './tabs/TaskList';
@@ -10,6 +9,7 @@ import InventoryTab from './tabs/InventoryTab';
 import PermissionsTab from './tabs/PermissionsTab';
 import BOMScreen from './tabs/BOMScreen';
 import ProductionEntry from './tabs/ProductionEntry';
+import PartCatalogTab from './tabs/PartCatalogTab';
 import AppHeader from './AppHeader';
 import TabNavigator from './TabNavigator';
 import { UserData, DBItem, PartRequest, BreakSchedule, SystemBreak, BOMComponent, BOMRequest, Role, Permission, Task, Notification as AppNotification, PriorityLevel, SystemConfig } from '../App';
@@ -63,6 +63,7 @@ interface PartSearchScreenProps {
   onUpdateWorkplace: (id: string, time: number) => void;
   onBatchAddWorkplaces: (vals: string[]) => void;
   onDeleteWorkplace: (id: string) => void;
+  onDeleteAllAllWorkplaces?: () => void; // Unused but in props interface
   onDeleteAllWorkplaces: () => void;
   onAddMissingReason: (val: string) => void;
   onDeleteMissingReason: (id: string) => void;
@@ -137,7 +138,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   const [quantityUnit, setQuantityUnit] = useState<'pcs' | 'boxes' | 'pallet'>('pcs');
   const [priority, setPriority] = useState<PriorityLevel>('NORMAL');
   const [taskSearchQuery, setTaskSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'entry' | 'tasks' | 'settings' | 'analytics' | 'bom' | 'missing' | 'logistics' | 'permissions' | 'inventory'>('entry');
+  const [activeTab, setActiveTab] = useState<'entry' | 'tasks' | 'settings' | 'analytics' | 'bom' | 'missing' | 'logistics' | 'permissions' | 'inventory' | 'catalog'>('entry');
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -344,7 +345,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
         <div className="fixed top-24 right-6 bg-green-600 text-white px-6 py-4 rounded-xl shadow-2xl z-50 animate-bounce font-black tracking-widest">✓ {t('sent_msg')}</div>
       )}
 
-      {/* Fix: use installPrompt and onInstallApp instead of deferredPrompt and handleInstallApp */}
       <AppHeader currentUser={currentUser} currentUserRole={currentUserRole} users={users} onLogout={onLogout} language={language} setLanguage={setLanguage} t={t} isFullscreen={isFullscreen} onToggleFullscreen={handleToggleFullscreen} installPrompt={installPrompt} onInstallApp={onInstallApp} hasPermission={hasPermission} resolveName={resolveName} />
       
       {isDataLoading && activeTab === 'entry' ? (
@@ -390,6 +390,15 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                         handleAdd={handleSendToTasks} 
                         onRequestPart={props.onRequestPart}
                         isUnitLocked={!!unitLock} 
+                    />
+                )}
+                {activeTab === 'catalog' && hasPermission('perm_tab_catalog') && (
+                    <PartCatalogTab 
+                        parts={props.parts} 
+                        onSelectPart={(p) => {
+                          setSelectedPart(p);
+                          setActiveTab('entry');
+                        }} 
                     />
                 )}
                 {activeTab === 'tasks' && hasPermission('perm_tab_tasks') && (

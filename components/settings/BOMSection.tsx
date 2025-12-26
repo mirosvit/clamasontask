@@ -22,7 +22,8 @@ const BOMSection: React.FC<BOMSectionProps> = memo(({ bomMap, onAddBOMItem, onBa
   const flattenedItems = useMemo(() => {
     const items: { parent: string; child: string; consumption: number }[] = [];
     Object.entries(bomMap).forEach(([parent, components]) => {
-      components.forEach(comp => {
+      // Fix: Explicitly cast components to BOMComponent[] to resolve TS unknown error
+      (components as BOMComponent[]).forEach(comp => {
         items.push({ parent, child: comp.child, consumption: comp.consumption });
       });
     });

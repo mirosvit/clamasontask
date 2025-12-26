@@ -1,9 +1,10 @@
-
 import React, { useState, useEffect, useRef, useMemo, memo } from 'react';
 import { useLanguage } from './LanguageContext';
+import { DBItem } from '../App';
 
 interface PartNumberInputProps {
   parts: string[];
+  partsFull?: DBItem[];
   onPartSelect: (part: string | null) => void;
   onInputChange?: (value: string) => void;
   placeholder?: string;
@@ -138,15 +139,16 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
       </div>
 
       {isDropdownVisible && filteredParts.length > 0 && (
-        <div className="absolute z-10 w-full mt-2 bg-gray-700 border border-gray-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-          <ul className="py-1">
+        <div className="absolute z-10 w-full mt-2 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl max-h-72 overflow-y-auto">
+          <ul className="divide-y divide-gray-700">
             {filteredParts.map((part, index) => (
             <li
                 key={index}
                 onClick={() => handleSelectPart(part)}
-                className="px-4 py-3 text-gray-300 hover:bg-teal-600 hover:text-white cursor-pointer transition-colors duration-150 font-mono text-base"
+                className="px-4 py-4 text-gray-300 hover:bg-teal-600 hover:text-white cursor-pointer transition-colors duration-150 flex flex-col"
             >
-                {part}
+                <span className="font-mono text-base font-black tracking-wide">{part}</span>
+                {/* Note: Descr is hard to fetch without passing full objects, but for performance we keep PN only here or fetch from a map if available in parent */}
             </li>
             ))}
           </ul>
