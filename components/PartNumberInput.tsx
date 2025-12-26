@@ -1,10 +1,9 @@
+
 import React, { useState, useEffect, useRef, useMemo, memo } from 'react';
 import { useLanguage } from './LanguageContext';
-import { DBItem } from '../App';
 
 interface PartNumberInputProps {
   parts: string[];
-  partsFull?: DBItem[];
   onPartSelect: (part: string | null) => void;
   onInputChange?: (value: string) => void;
   placeholder?: string;
@@ -42,22 +41,15 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
     const trimmedQuery = query.trim();
     if (trimmedQuery === '') return parts.slice(0, 50);
 
-    let results: string[] = [];
-    if (trimmedQuery.includes('*')) {
-      try {
-        const escapeRegex = (str: string) => str.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
-        const pattern = trimmedQuery.split('*').map(escapeRegex).join('.*');
-        const regex = new RegExp(`^${pattern}$`, 'i');
-        results = parts.filter(part => regex.test(part));
-      } catch (e) {
-        results = [];
-      }
-    } else {
-      const q = trimmedQuery.toLowerCase();
-      results = parts.filter(part => part.toLowerCase().includes(q));
+    const q = trimmedQuery.toLowerCase();
+    // Wildcard search support
+    if (q.includes('*')) {
+      const regexStr = q.replace(/\*/g, '.*');
+      const regex = new RegExp(`^${regexStr}`, 'i');
+      return parts.filter(p => regex.test(p)).slice(0, 50);
     }
-
-    return results.slice(0, 50);
+    
+    return parts.filter(p => p.toLowerCase().includes(q)).slice(0, 50);
   }, [query, parts]);
 
   useEffect(() => {
@@ -139,17 +131,16 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
       </div>
 
       {isDropdownVisible && filteredParts.length > 0 && (
-        <div className="absolute z-10 w-full mt-2 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl max-h-72 overflow-y-auto">
+        <div className="absolute z-[999] w-full mt-2 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl max-h-60 overflow-y-auto">
           <ul className="divide-y divide-gray-700">
             {filteredParts.map((part, index) => (
-            <li
+              <li
                 key={index}
                 onClick={() => handleSelectPart(part)}
-                className="px-4 py-4 text-gray-300 hover:bg-teal-600 hover:text-white cursor-pointer transition-colors duration-150 flex flex-col"
-            >
-                <span className="font-mono text-base font-black tracking-wide">{part}</span>
-                {/* Note: Descr is hard to fetch without passing full objects, but for performance we keep PN only here or fetch from a map if available in parent */}
-            </li>
+                className="px-4 py-3 text-gray-300 hover:bg-teal-600 hover:text-white cursor-pointer transition-colors duration-150 font-mono text-base font-bold"
+              >
+                {part}
+              </li>
             ))}
           </ul>
         </div>

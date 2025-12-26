@@ -132,6 +132,7 @@ const BOMScreen: React.FC<BOMScreenProps> = ({
                                 <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">{t('bom_parent')}</label>
                                 <PartNumberInput 
                                     parts={parts.map(p => p.value)} 
+                                    /* Fix: Removed partsFull as it is not a defined prop in PartNumberInputProps (TS2322) */
                                     value={bomParentQuery} 
                                     onInputChange={(val) => setBomParentQuery(val)} 
                                     onPartSelect={(val) => { if (val) setBomParentQuery(val); }} 

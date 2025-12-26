@@ -92,7 +92,7 @@ const SystemSection: React.FC<SystemSectionProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-64 overflow-y-auto custom-scrollbar">
             {breakSchedules.map(b => (
               <div key={b.id} className="bg-slate-950/40 p-5 rounded-2xl border border-white/5 flex justify-between items-center group shadow-md hover:bg-slate-900 transition-colors">
-                <span className="text-xl font-mono font-black text-slate-200">{b.start} — {b.end}</span>
+                <span className="text-xl font-mono font-black text-slate-200">{b.startTime} — {b.endTime}</span>
                 <button onClick={() => onDeleteBreakSchedule(b.id)} className="text-slate-600 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100 p-2"><Icons.Trash /></button>
               </div>
             ))}

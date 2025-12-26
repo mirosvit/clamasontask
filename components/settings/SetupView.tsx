@@ -44,18 +44,18 @@ const SetupView: React.FC<SetupViewProps> = (props) => {
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className={labelClass}>Maintenance:</span>
-            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${props.systemConfig.maintenanceMode ? 'bg-red-500/20 text-red-500 border border-red-500/30' : 'bg-green-500/20 text-green-500 border border-green-500/30'}`}>
-              {props.systemConfig.maintenanceMode ? 'ACTIVE' : 'READY'}
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${props.systemConfig?.maintenanceMode ? 'bg-red-500/20 text-red-500 border border-red-500/30' : 'bg-green-500/20 text-green-500 border border-green-500/30'}`}>
+              {props.systemConfig?.maintenanceMode ? 'ACTIVE' : 'READY'}
             </span>
           </div>
           <div className={dividerClass}></div>
           <div className="flex justify-between items-center">
             <span className={labelClass}>IP Check:</span>
-            <span className={valueClass}>{props.systemConfig.ipCheckEnabled ? 'ENABLED' : 'OFF'}</span>
+            <span className={valueClass}>{props.systemConfig?.ipCheckEnabled ? 'ENABLED' : 'OFF'}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className={labelClass}>IP Whitelist:</span>
-            <span className={valueClass}>{(props.systemConfig.allowedIPs || []).length} items</span>
+            <span className={valueClass}>{(props.systemConfig?.allowedIPs || []).length} items</span>
           </div>
         </div>
       </div>
@@ -67,7 +67,7 @@ const SetupView: React.FC<SetupViewProps> = (props) => {
           <h4 className="text-sm font-black text-white uppercase tracking-tight">{language === 'sk' ? 'UŽÍVATELIA' : 'DIRECTORY'}</h4>
         </div>
         <div className="max-h-40 overflow-y-auto custom-scrollbar space-y-2 pr-2">
-          {props.users.map(u => (
+          {(props.users || []).map(u => (
             <div key={u.username} className="flex justify-between items-center bg-slate-950/30 px-3 py-2 rounded-lg border border-white/5">
               <span className="text-xs font-bold text-slate-300 font-mono truncate max-w-[120px]">{u.nickname || u.username}</span>
               <span className={`text-[9px] font-black px-1.5 py-0.5 rounded flex-shrink-0 ${u.role === 'ADMIN' ? 'text-red-400' : u.role === 'LEADER' ? 'text-sky-400' : 'text-teal-500'}`}>
@@ -85,11 +85,11 @@ const SetupView: React.FC<SetupViewProps> = (props) => {
           <h4 className="text-sm font-black text-white uppercase tracking-tight">{language === 'sk' ? 'PRESTÁVKY' : 'BREAKS'}</h4>
         </div>
         <div className="space-y-2">
-          {props.breakSchedules.length > 0 ? (
-            props.breakSchedules.sort((a,b) => a.start.localeCompare(b.start)).map((b, idx) => (
+          {props.breakSchedules && props.breakSchedules.length > 0 ? (
+            [...props.breakSchedules].sort((a,b) => a.startTime.localeCompare(b.startTime)).map((b, idx) => (
               <div key={b.id} className="flex items-center gap-4 text-xs font-mono font-bold text-amber-500/80 bg-amber-500/5 px-3 py-2 rounded-lg border border-amber-500/10">
                 <span className="text-[9px] text-slate-600">P{idx+1}</span>
-                <span>{b.start} — {b.end}</span>
+                <span>{b.startTime} — {b.endTime}</span>
               </div>
             ))
           ) : (
@@ -105,7 +105,7 @@ const SetupView: React.FC<SetupViewProps> = (props) => {
           <h4 className="text-sm font-black text-white uppercase tracking-tight">{language === 'sk' ? 'PRACOVISKÁ' : 'SITES'}</h4>
         </div>
         <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto custom-scrollbar">
-          {props.workplaces.map(w => (
+          {(props.workplaces || []).map(w => (
             <div key={w.id} className="bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg">
               <span className="text-[11px] font-black text-slate-400 uppercase tracking-tight">{w.value}</span>
               {w.standardTime ? <span className="text-[9px] text-slate-600 ml-2">({w.standardTime}m)</span> : null}
@@ -123,22 +123,22 @@ const SetupView: React.FC<SetupViewProps> = (props) => {
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-slate-950/40 p-3 rounded-xl border border-white/5">
             <p className={labelClass}>{language === 'sk' ? 'DIELY' : 'PARTS'}</p>
-            <p className="text-2xl font-black text-rose-500">{props.parts.length}</p>
+            <p className="text-2xl font-black text-rose-500">{(props.parts || []).length}</p>
           </div>
           <div className="bg-slate-950/40 p-3 rounded-xl border border-white/5">
             <p className={labelClass}>BOM LINKS</p>
             <p className="text-2xl font-black text-teal-400">
-              {/* Fix: Calculating BOM links length from the flattened bomMap values */}
-              {Object.values(props.bomMap).flat().length}
+              {/* Fix: Calculating BOM links length with guard */}
+              {Object.values(props.bomMap || {}).flat().length}
             </p>
           </div>
           <div className="bg-slate-950/40 p-3 rounded-xl border border-white/5">
             <p className={labelClass}>LOG OPS</p>
-            <p className="text-2xl font-black text-sky-400">{props.logisticsOperations.length}</p>
+            <p className="text-2xl font-black text-sky-400">{(props.logisticsOperations || []).length}</p>
           </div>
           <div className="bg-slate-950/40 p-3 rounded-xl border border-white/5">
             <p className={labelClass}>REASONS</p>
-            <p className="text-2xl font-black text-emerald-400">{props.missingReasons.length}</p>
+            <p className="text-2xl font-black text-emerald-400">{(props.missingReasons || []).length}</p>
           </div>
         </div>
       </div>
@@ -150,7 +150,7 @@ const SetupView: React.FC<SetupViewProps> = (props) => {
           <h4 className="text-sm font-black text-white uppercase tracking-tight">{language === 'sk' ? 'DÔVODY PRESTOJOV' : 'REASONS'}</h4>
         </div>
         <ul className="space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar pr-2">
-          {props.missingReasons.map(r => (
+          {(props.missingReasons || []).map(r => (
             <li key={r.id} className="flex items-center gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-tighter">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/40"></span>
               {r.value}

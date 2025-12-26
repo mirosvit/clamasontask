@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { Task, PriorityLevel, DBItem } from '../../App';
+import { Task, PriorityLevel, DBItem } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 import TaskCard from './tasklist/TaskCard';
 import TaskModals from './tasklist/TaskModals';
@@ -90,7 +89,6 @@ const TaskList: React.FC<TaskListProps> = (props) => {
     }).catch(err => console.error('Copy failed', err));
   };
 
-  /* Fix: Added saveNote implementation which was missing in line 143 of TaskModals usage */
   const saveNote = (id: string) => {
     props.onAddNote(id, noteVal);
     setNoteId(null);

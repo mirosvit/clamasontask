@@ -64,7 +64,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
         if (savedScans) {
             try {
                 const scans = JSON.parse(savedScans);
-                if (scans.length > 0) {
+                // OPRAVA: Kontrola scans na null/undefined pred length
+                if (scans && scans.length > 0) {
                     const confirmMsg = language === 'sk' 
                       ? `Pozor! V Inventúre máte ${scans.length} neexportovaných položiek. Po odhlásení zostanú v pamäti tohto tabletu, ale odporúčame ich najskôr exportovať. Naozaj sa chcete odhlásiť?`
                       : `Warning! You have ${scans.length} unexported items in Inventory. They will remain in this tablet's memory, but we recommend exporting them first. Do you really want to log out?`;

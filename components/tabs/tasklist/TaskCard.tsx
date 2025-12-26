@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Task, PriorityLevel, DBItem } from '../../../App';
+import { Task, PriorityLevel, DBItem } from '../../../types/appTypes';
 import { useLanguage } from '../../LanguageContext';
 import TaskBadges from './TaskBadges';
 import TaskActions from './TaskActions';
@@ -15,7 +14,6 @@ interface TaskCardProps {
   onToggleTask: (id: string) => void;
   onToggleBlock: (id: string) => void;
   onToggleManualBlock: (id: string) => void;
-  /* Fix: Added missing onExhaustSearch prop to TaskCardProps */
   onExhaustSearch: (id: string) => void;
   onMarkAsIncorrect: (id: string) => void;
   handleMissingClick: (task: Task, e: React.MouseEvent) => void;
@@ -185,7 +183,6 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
           onToggleTask={props.onToggleTask} 
           onToggleBlock={props.onToggleBlock} 
           onToggleManualBlock={props.onToggleManualBlock} 
-          /* Fix: Passing onExhaustSearch from props to TaskActions */
           onExhaustSearch={props.onExhaustSearch}
           onMarkAsIncorrect={props.onMarkAsIncorrect} 
           handleMissingClick={props.handleMissingClick} 

@@ -67,7 +67,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
     });
 
     const activeInventoryTask = useMemo(() => {
-        return tasks.find(t => 
+        return (tasks || []).find(t => 
             t.partNumber === "Počítanie zásob" && 
             !t.isDone && 
             t.inProgressBy === currentUser
@@ -79,8 +79,11 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
-                setScannedItems(parsed);
-                if (parsed.length > 0) setLastSaved(parsed[0].timestamp);
+                // OPRAVA: Kontrola, či je parsed pole a nie je null
+                if (parsed && Array.isArray(parsed)) {
+                    setScannedItems(parsed);
+                    if (parsed.length > 0) setLastSaved(parsed[0].timestamp);
+                }
             } catch (e) {
                 console.error("Failed to parse inventory scans", e);
             }
@@ -88,7 +91,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
     }, []);
 
     useEffect(() => {
-        if (scannedItems.length > 0) {
+        if (scannedItems && scannedItems.length > 0) {
             localStorage.setItem('inventory_scans', JSON.stringify(scannedItems));
             setLastSaved(Date.now());
         }
@@ -205,7 +208,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
     };
 
     const handleExportAndFinish = () => {
-        if (scannedItems.length === 0) {
+        if (!scannedItems || scannedItems.length === 0) {
             alert(language === 'sk' ? "Zoznam je prázdny." : "List is empty.");
             return;
         }
@@ -233,7 +236,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
     };
 
     const handleExport = () => {
-        if (scannedItems.length === 0) return;
+        if (!scannedItems || scannedItems.length === 0) return;
         if (typeof XLSX === 'undefined') { alert("Library Error"); return; }
         const data = scannedItems.map(item => ({
             "Dátum inventúry": new Date(item.timestamp).toLocaleDateString('sk-SK'),
@@ -250,7 +253,6 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
         XLSX.writeFile(wb, `Inventura_${new Date().toISOString().slice(0, 10)}.xlsx`);
     };
 
-    // Corrected the reference to 'newItem' to 'newState' to fix the compilation error
     const toggleBatchMissing = () => {
         const newState = !isBatchMissing;
         setIsBatchMissing(newState);
@@ -292,7 +294,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                                 <div className="flex gap-6 items-center mt-3">
                                     <span className="bg-[#4169E1]/20 text-[#4169E1] text-xs font-black px-3 py-1 rounded-md border border-[#4169E1]/40 animate-pulse uppercase">Aktívna relácia</span>
                                     <p className="text-xs text-gray-500 uppercase font-mono">
-                                        Položiek: <span className="text-white font-bold">{scannedItems.length}</span>
+                                        Položiek: <span className="text-white font-bold">{(scannedItems || []).length}</span>
                                     </p>
                                 </div>
                             </div>
@@ -387,7 +389,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                                 {language === 'sk' ? 'SÚPIS POLOŽIEK' : 'ITEM INVENTORY'}
                             </h3>
                             <span className="bg-[#4169E1]/20 text-white border-2 border-[#4169E1] text-2xl px-5 py-2 rounded-xl font-black font-mono leading-none shadow-lg">
-                                {scannedItems.length}
+                                {(scannedItems || []).length}
                             </span>
                         </div>
                         <div className="flex flex-wrap w-full sm:w-auto gap-4">
@@ -422,7 +424,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-700/50">
-                                {scannedItems.length > 0 ? (
+                                {scannedItems && scannedItems.length > 0 ? (
                                     scannedItems.map(item => (
                                         <tr key={item.id} className="text-gray-300 hover:bg-gray-700/30 transition-colors group">
                                             <td className="py-5 px-6 text-xs text-gray-500 font-mono whitespace-nowrap">{new Date(item.timestamp).toLocaleTimeString('sk-SK')}</td>

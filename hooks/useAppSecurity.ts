@@ -1,8 +1,7 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { db } from '../firebase';
 import { doc, onSnapshot, updateDoc, setDoc, getDoc } from 'firebase/firestore';
-import { SystemConfig } from '../App';
+import { SystemConfig } from '../types/appTypes';
 
 export const useAppSecurity = (currentUserRole: string, isAuthenticated: boolean) => {
   const [isUnlocked, setIsUnlocked] = useState<boolean>(() => sessionStorage.getItem('app_unlocked') === 'true');

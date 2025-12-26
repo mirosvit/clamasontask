@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Task, PriorityLevel } from '../../../App';
+import { Task, PriorityLevel } from '../../../types/appTypes';
 import { useLanguage } from '../../LanguageContext';
 
 interface TaskActionsProps {

@@ -1,13 +1,13 @@
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import PartNumberInput from '../PartNumberInput';
 import { DBItem, PriorityLevel } from '../../App';
 
 interface ProductionEntryProps {
   mode: 'production' | 'logistics';
   setMode: (mode: 'production' | 'logistics') => void;
-  selectedPart: DBItem | null;
-  setSelectedPart: (part: DBItem | null) => void;
+  selectedPart: string | null;
+  setSelectedPart: (part: string | null) => void;
   selectedWorkplace: string | null;
   setSelectedWorkplace: (val: string | null) => void;
   logisticsRef: string;
@@ -22,7 +22,7 @@ interface ProductionEntryProps {
   setQuantityUnit: (val: 'pcs' | 'boxes' | 'pallet') => void;
   priority: PriorityLevel;
   setPriority: (val: PriorityLevel) => void;
-  parts: DBItem[];
+  parts: string[];
   workplaces: DBItem[];
   logisticsOperationsList: DBItem[];
   t: (key: any, params?: any) => string;
@@ -47,12 +47,10 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
 }) => {
   const inputBaseClass = "w-full h-12 bg-gray-700 border border-gray-600 rounded-lg px-4 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase text-base";
 
-  const partNumbers = useMemo(() => parts.map(p => p.value), [parts]);
-
   return (
     <div className="h-full flex flex-col items-center animate-fade-in pb-20">
       <div className="w-full max-w-2xl">
-        <div className="bg-gray-800 p-5 sm:p-8 rounded-xl shadow-lg border border-gray-700 relative overflow-hidden">
+        <div className="bg-gray-800 p-5 sm:p-8 rounded-xl shadow-lg border border-gray-700 relative">
           {hasPermission('perm_logistics_mode') && (
             <div className="flex justify-center mb-8 z-10 relative">
               <div className="bg-gray-900 p-1.5 rounded-xl flex border border-gray-600 shadow-inner h-14">
@@ -83,10 +81,10 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
                     {t('part_number')} <span className="text-teal-500">*</span>
                   </label>
                   <PartNumberInput 
-                    parts={partNumbers} 
-                    onPartSelect={(p) => setSelectedPart(p ? (parts.find(i => i.value === p) || null) : null)} 
+                    parts={parts} 
+                    onPartSelect={setSelectedPart} 
                     placeholder={t('part_placeholder')} 
-                    value={selectedPart ? selectedPart.value : ''} 
+                    value={selectedPart} 
                     onRequestPart={onRequestPart} 
                   />
                 </div>
