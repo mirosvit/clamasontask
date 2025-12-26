@@ -47,11 +47,15 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({
   const [newLogOpTime, setNewLogOpTime] = useState('');
   const [newLogOpDist, setNewLogOpDist] = useState('');
 
-  // Sektory State
+  // Sektory Editácia
   const [newSectorName, setNewSectorName] = useState('');
   const [newSectorX, setNewSectorX] = useState('');
   const [newSectorY, setNewSectorY] = useState('');
   const [newSectorColor, setNewSectorColor] = useState('slate');
+  
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editOrder, setEditOrder] = useState(0);
 
   const filteredWPs = useMemo(() => {
       const q = wpSearch.toLowerCase();
@@ -63,6 +67,16 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({
   const inputClass = "w-full h-12 bg-slate-800/80 border border-slate-700 rounded-xl px-4 text-white text-base focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono placeholder-gray-500 uppercase";
   const labelClass = "block text-xs font-black text-slate-500 uppercase tracking-[0.2em] mb-3";
   const inlineInputClass = "bg-transparent border-b border-slate-700 w-12 text-center text-teal-400 focus:border-teal-500 outline-none font-mono text-sm";
+  const amberInputClass = "bg-slate-900 border-2 border-amber-600/30 text-amber-500 rounded-lg px-2 py-1 outline-none focus:border-amber-500 transition-all font-black uppercase text-sm";
+
+  const handleSaveSector = (id: string) => {
+    onUpdateMapSector(id, { name: editName.toUpperCase(), order: editOrder });
+    setEditingId(null);
+  };
+
+  const sortedSectors = useMemo(() => {
+    return [...mapSectors].sort((a, b) => (a.order || 0) - (b.order || 0) || (a.name || '').localeCompare(b.name || ''));
+  }, [mapSectors]);
 
   return (
     <div className="space-y-8">
@@ -133,7 +147,6 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({
         </div>
       </div>
 
-      {/* KONFIGURÁCIA LOGISTIKY */}
       <div className={cardClass}>
         <div className="space-y-4">
           <h3 className="text-lg font-black text-white uppercase tracking-tighter">KONFIGURÁCIA LOGISTIKY</h3>
@@ -146,9 +159,6 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({
               className={inputClass}
             />
           </div>
-          <p className="text-slate-500 text-[10px] uppercase font-bold mt-2">
-            * Všetky prejazdy sú validované normovanou rýchlosťou {systemConfig.vzvSpeed || 8} km/h.
-          </p>
         </div>
       </div>
 
@@ -197,56 +207,107 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({
         </div>
       </div>
 
-      {/* LOGISTICKÉ SEKTORY (MAPA) */}
       <div className={cardClass}>
         <div className="space-y-8">
-          <h3 className="text-2xl font-black text-white uppercase tracking-tighter">LOGISTICKÉ SEKTORY (MAPA)</h3>
-          <div className="flex-1 overflow-y-auto max-h-80 bg-slate-950/40 rounded-3xl p-6 space-y-3 border border-white/5 shadow-inner">
-            {mapSectors.map(s => (
-              <div key={s.id} className="flex flex-col sm:row justify-between items-center bg-slate-800/50 p-4 rounded-xl border border-white/5 group hover:bg-slate-700/50 transition-colors gap-4">
-                <div className="flex items-center gap-3 flex-1">
-                  <div className={`w-4 h-4 rounded-full ${s.color ? colorOptions.find(c => c.id === s.color)?.class : 'bg-slate-700'}`}></div>
-                  <span className="text-sm font-black text-slate-300 uppercase tracking-[0.2em]">{s.name}</span>
-                </div>
-                <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2">
-                        <select 
-                          value={s.color || 'slate'} 
-                          onChange={(e) => onUpdateMapSector(s.id, { color: e.target.value })}
-                          className={`${inlineInputClass} w-24 text-[10px] uppercase font-black`}
-                        >
-                          {colorOptions.map(c => <option key={c.id} value={c.id} className="bg-slate-900 text-white">{c.label}</option>)}
-                        </select>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black text-slate-500 uppercase">X:</span>
+          <h3 className="text-2xl font-black text-white uppercase tracking-tighter">LOGISTICKÉ SEKTORY (KYBLÍK)</h3>
+          <div className="flex-1 overflow-y-auto max-h-[600px] bg-slate-950/40 rounded-3xl p-6 space-y-3 border border-white/5 shadow-inner">
+            {sortedSectors.map(s => {
+              const isEditing = editingId === s.id;
+              return (
+                <div key={s.id} className={`flex flex-col sm:flex-row justify-between items-center p-4 rounded-xl border transition-all gap-4 ${isEditing ? 'bg-amber-600/10 border-amber-600/50 shadow-lg scale-[1.01]' : 'bg-slate-800/50 border-white/5 group hover:bg-slate-700/50'}`}>
+                  <div className="flex items-center gap-3 flex-1 w-full">
+                    <div className={`w-5 h-5 rounded-full flex-shrink-0 ${s.color ? colorOptions.find(c => c.id === s.color)?.class : 'bg-slate-700'}`}></div>
+                    
+                    {isEditing ? (
+                      <div className="flex flex-1 items-center gap-2">
                         <input 
-                            type="number" 
-                            value={s.coordX} 
-                            onChange={(e) => onUpdateMapSector(s.id, { coordX: parseInt(e.target.value) || 0 })}
-                            className={inlineInputClass.replace('w-12', 'w-16')}
+                          type="number" 
+                          value={editOrder} 
+                          onChange={(e) => setEditOrder(parseInt(e.target.value) || 0)}
+                          className={`${amberInputClass} w-16 text-center`}
+                          placeholder="Order"
                         />
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black text-slate-500 uppercase">Y:</span>
                         <input 
-                            type="number" 
-                            value={s.coordY} 
-                            onChange={(e) => onUpdateMapSector(s.id, { coordY: parseInt(e.target.value) || 0 })}
-                            className={inlineInputClass.replace('w-12', 'w-16')}
+                          type="text" 
+                          value={editName} 
+                          onChange={(e) => setEditName(e.target.value.toUpperCase())}
+                          className={`${amberInputClass} flex-1`}
+                          autoFocus
                         />
-                    </div>
-                    <button onClick={() => { if(window.confirm('Zmazať sektor?')) onDeleteMapSector(s.id); }} className="text-slate-600 hover:text-red-500 transition-all font-black px-2 text-xl ml-2">×</button>
+                      </div>
+                    ) : (
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-xs font-black text-amber-500 font-mono w-6">{s.order || 0}.</span>
+                        <span className="text-base font-black text-slate-200 uppercase tracking-wider">{s.name}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center gap-4 justify-end w-full sm:w-auto">
+                      {!isEditing && (
+                          <div className="hidden md:flex items-center gap-4 opacity-40 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-1.5 text-xs">
+                                <span className="font-bold text-slate-600">X:</span>
+                                <span className="font-mono text-slate-400">{s.coordX}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-xs">
+                                <span className="font-bold text-slate-600">Y:</span>
+                                <span className="font-mono text-slate-400">{s.coordY}</span>
+                            </div>
+                          </div>
+                      )}
+
+                      <div className="flex items-center gap-2">
+                        {isEditing ? (
+                          <>
+                            <button 
+                              onClick={() => handleSaveSector(s.id)}
+                              className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest shadow-md transition-all"
+                            >
+                              ULOŽIŤ
+                            </button>
+                            <button 
+                              onClick={() => setEditingId(null)}
+                              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-400 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all"
+                            >
+                              ZRUŠIŤ
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button 
+                              onClick={() => {
+                                setEditingId(s.id);
+                                setEditName(s.name);
+                                setEditOrder(s.order || 0);
+                              }}
+                              className="p-2.5 rounded-lg text-slate-500 hover:text-amber-500 hover:bg-amber-500/10 transition-all"
+                              title="Upraviť"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
+                            </button>
+                            <button 
+                              onClick={() => { if(window.confirm('Zmazať sektor?')) onDeleteMapSector(s.id); }} 
+                              className="p-2.5 text-slate-600 hover:text-red-500 transition-all font-black text-xl"
+                            >
+                              ×
+                            </button>
+                          </>
+                        )}
+                      </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {mapSectors.length === 0 && (
                 <p className="text-center py-6 text-slate-600 italic text-xs uppercase tracking-widest font-bold">Žiadne sektory nie sú definované</p>
             )}
           </div>
           <div className="pt-6 border-t border-slate-800">
             <h4 className={labelClass}>PRIDAŤ NOVÝ SEKTOR</h4>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4">
               <input value={newSectorName} onChange={e=>setNewSectorName(e.target.value)} placeholder="NÁZOV" className={inputClass} />
               <input type="number" value={newSectorX} onChange={e=>setNewSectorX(e.target.value)} placeholder="X súradnica" className={inputClass} />
               <input type="number" value={newSectorY} onChange={e=>setNewSectorY(e.target.value)} placeholder="Y súradnica" className={inputClass} />
@@ -264,7 +325,7 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({
                         setNewSectorName(''); setNewSectorX(''); setNewSectorY(''); setNewSectorColor('slate');
                     } 
                 }} 
-                className="h-12 bg-sky-600 hover:bg-sky-500 text-white font-black px-6 rounded-xl uppercase tracking-widest text-xs transition-all border-2 border-sky-500 shadow-lg"
+                className="lg:col-span-2 h-12 bg-sky-600 hover:bg-sky-500 text-white font-black px-6 rounded-xl uppercase tracking-widest text-xs transition-all border-2 border-sky-500 shadow-lg"
               >
                 PRIDAŤ SEKTOR
               </button>

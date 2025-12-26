@@ -29,7 +29,6 @@ interface SettingsTabProps {
   onDeletePart: (id: string) => void;
   onDeleteAllParts: () => void;
   onAddWorkplace: (val: string, time?: number) => void;
-  // Fix: changed from (id: string, time: number) => void to (id: string, updates: Partial<DBItem>) => void
   onUpdateWorkplace: (id: string, updates: Partial<DBItem>) => void;
   onBatchAddWorkplaces: (vals: string[]) => void;
   onDeleteWorkplace: (id: string) => void;
@@ -38,13 +37,11 @@ interface SettingsTabProps {
   onDeleteMissingReason: (id: string) => void;
   logisticsOperations?: DBItem[];
   onAddLogisticsOperation?: (val: string, time?: number, dist?: number) => void;
-  // Fix: updated type to use Partial<DBItem> to fix incompatible parameters error on line 205
   onUpdateLogisticsOperation?: (id: string, updates: Partial<DBItem>) => void;
   onDeleteLogisticsOperation?: (id: string) => void;
   mapSectors: MapSector[];
   onAddMapSector: (name: string, x: number, y: number) => void;
   onDeleteMapSector: (id: string) => void;
-  // Fix: updated signature to use Partial<MapSector> instead of individual coordinates
   onUpdateMapSector: (id: string, updates: Partial<MapSector>) => void;
   partRequests: PartRequest[];
   onApprovePartRequest: (req: PartRequest) => void;
@@ -94,7 +91,7 @@ const Icons = {
 };
 
 const SettingsTab: React.FC<SettingsTabProps> = (props) => {
-  const { hasPermission, resolveName } = props;
+  const { hasPermission, resolveName, mapSectors } = props;
   const { t, language } = useLanguage();
   
   const navTiles = useMemo(() => {
@@ -205,7 +202,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             onAddLogisticsOperation={props.onAddLogisticsOperation || (() => {})}
             onUpdateLogisticsOperation={props.onUpdateLogisticsOperation || (() => {})}
             onDeleteLogisticsOperation={props.onDeleteLogisticsOperation || (() => {})}
-            mapSectors={props.mapSectors}
+            mapSectors={mapSectors}
             onAddMapSector={props.onAddMapSector}
             onDeleteMapSector={id => props.onDeleteMapSector(id)}
             onUpdateMapSector={props.onUpdateMapSector}

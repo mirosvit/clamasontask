@@ -50,6 +50,7 @@ export interface MapSector {
   coordX: number;
   coordY: number;
   color?: string;
+  order?: number;
 }
 
 export type PriorityLevel = 'LOW' | 'NORMAL' | 'URGENT';
@@ -393,10 +394,12 @@ const App: React.FC = () => {
       }); 
   }, []);
 
-  useEffect(() => { 
-      return onSnapshot(query(collection(db, 'map_sectors'), orderBy('name')), (s) => {
-          setMapSectors(s.docs.map(d => ({ id: d.id, ...d.data() } as MapSector)));
-      }); 
+  // Single source of truth pre logistické sektory (Collection model)
+  useEffect(() => {
+    return onSnapshot(collection(db, 'map_sectors'), (snapshot) => {
+      const sectors = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MapSector));
+      setMapSectors(sectors.sort((a, b) => (a.order || 0) - (b.order || 0) || (a.name || '').localeCompare(b.name || '')));
+    });
   }, []);
 
   useEffect(() => { const q = query(collection(db, 'part_requests')); return onSnapshot(q, s => setPartRequests(s.docs.map(d => ({id:d.id, ...d.data()} as PartRequest)))); }, []);
@@ -524,9 +527,21 @@ const App: React.FC = () => {
   const handleUpdateLogisticsOperation = async (id: string, updates: Partial<DBItem>) => { await updateDoc(doc(db, 'logistics_operations', id), updates); };
   const handleDeleteLogisticsOperation = async (id: string) => { await deleteDoc(doc(db,'logistics_operations',id)); };
   
-  const handleAddMapSector = async (name: string, x: number, y: number, color?: string) => { await addDoc(collection(db, 'map_sectors'), { name, coordX: x, coordY: y, color: color || 'slate' }); };
-  const handleDeleteMapSector = async (id: string) => { await deleteDoc(doc(db, 'map_sectors', id)); };
-  const handleUpdateMapSector = async (id: string, updates: Partial<MapSector>) => { await updateDoc(doc(db, 'map_sectors', id), updates); };
+  const handleAddMapSector = async (name: string, x: number, y: number, color?: string) => { 
+    await addDoc(collection(db, 'map_sectors'), { 
+      name: name.toUpperCase(), 
+      coordX: x, 
+      coordY: y, 
+      color: color || 'slate', 
+      order: mapSectors.length 
+    });
+  };
+  const handleDeleteMapSector = async (id: string) => { 
+    await deleteDoc(doc(db, 'map_sectors', id));
+  };
+  const handleUpdateMapSector = async (id: string, updates: Partial<MapSector>) => { 
+    await updateDoc(doc(db, 'map_sectors', id), updates);
+  };
 
   const handleDeleteMissingItem = (id: string) => deleteDoc(doc(db,'tasks',id));
   const handleAddBreakSchedule = async (s:string, e:string) => { await addDoc(collection(db,'break_schedules'), {start:s, end:e}); };
