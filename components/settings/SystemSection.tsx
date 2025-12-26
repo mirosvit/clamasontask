@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { DBItem, BreakSchedule } from '../../App';
+import { DBItem, BreakSchedule, SystemConfig } from '../../App';
 import { useLanguage } from '../LanguageContext';
 
 interface SystemSectionProps {
@@ -13,6 +13,8 @@ interface SystemSectionProps {
   onUpdateAdminKey: (oldK: string, newK: string) => Promise<void>;
   isAdminLockEnabled: boolean;
   onToggleAdminLock: (val: boolean) => void;
+  systemConfig: SystemConfig;
+  onUpdateSystemConfig: (config: Partial<SystemConfig>) => void;
 }
 
 const Icons = {
@@ -21,7 +23,7 @@ const Icons = {
 
 const SystemSection: React.FC<SystemSectionProps> = ({ 
   missingReasons, breakSchedules, onAddMissingReason, onDeleteMissingReason, onAddBreakSchedule, onDeleteBreakSchedule, onUpdateAdminKey,
-  isAdminLockEnabled, onToggleAdminLock
+  isAdminLockEnabled, onToggleAdminLock, systemConfig, onUpdateSystemConfig
 }) => {
   const { t, language } = useLanguage();
   const [newMissingReason, setNewMissingReason] = useState('');
@@ -107,7 +109,35 @@ const SystemSection: React.FC<SystemSectionProps> = ({
         </div>
       </div>
 
-      {/* ADMIN SECURITY SECTION */}
+      {/* KALIBRÁCIA MAPY */}
+      <div className={cardClass}>
+        <div className="space-y-8">
+          <h3 className="text-2xl font-black text-white uppercase tracking-tighter">KALIBRÁCIA MAPY</h3>
+          <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Definujte východiskový bod (0,0) pre mapové podklady</p>
+          <div className="grid grid-cols-2 gap-4">
+             <div>
+                <h4 className={labelClass}>GLOBÁLNY ORIGIN X</h4>
+                <input 
+                  type="number" 
+                  value={systemConfig.mapOriginX || 0} 
+                  onChange={e => onUpdateSystemConfig({ mapOriginX: parseInt(e.target.value) || 0 })}
+                  className={inputClass}
+                />
+             </div>
+             <div>
+                <h4 className={labelClass}>GLOBÁLNY ORIGIN Y</h4>
+                <input 
+                  type="number" 
+                  value={systemConfig.mapOriginY || 0} 
+                  onChange={e => onUpdateSystemConfig({ mapOriginY: parseInt(e.target.value) || 0 })}
+                  className={inputClass}
+                />
+             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ADMIN BEZPEČNOSŤ SECTION */}
       <div className={cardClass}>
         <div className="space-y-8">
           <div className="flex justify-between items-center">

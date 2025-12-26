@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { UserData, DBItem, PartRequest, BreakSchedule, BOMComponent, BOMRequest, Role, Permission, SystemConfig } from '../../App';
+import { UserData, DBItem, PartRequest, BreakSchedule, BOMComponent, BOMRequest, Role, Permission, SystemConfig, MapSector } from '../../App';
 import { useLanguage } from '../LanguageContext';
 import PartRequestsSection from './PartRequestsSection';
 import UserSection from './UserSection';
@@ -29,7 +29,8 @@ interface SettingsTabProps {
   onDeletePart: (id: string) => void;
   onDeleteAllParts: () => void;
   onAddWorkplace: (val: string, time?: number) => void;
-  onUpdateWorkplace: (id: string, time: number) => void;
+  // Fix: changed from (id: string, time: number) => void to (id: string, updates: Partial<DBItem>) => void
+  onUpdateWorkplace: (id: string, updates: Partial<DBItem>) => void;
   onBatchAddWorkplaces: (vals: string[]) => void;
   onDeleteWorkplace: (id: string) => void;
   onDeleteAllWorkplaces: () => void;
@@ -39,6 +40,10 @@ interface SettingsTabProps {
   onAddLogisticsOperation?: (val: string, time?: number) => void;
   onUpdateLogisticsOperation?: (id: string, time: number) => void;
   onDeleteLogisticsOperation?: (id: string) => void;
+  mapSectors: MapSector[];
+  onAddMapSector: (name: string, x: number, y: number) => void;
+  onDeleteMapSector: (id: string) => void;
+  onUpdateMapSector: (id: string, x: number, y: number) => void;
   partRequests: PartRequest[];
   onApprovePartRequest: (req: PartRequest) => void;
   onRejectPartRequest: (id: string) => void;
@@ -120,7 +125,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
       <PartRequestsSection 
         partRequests={props.partRequests} 
         bomRequests={props.bomRequests}
-        onApprovePartRequest={props.onApprovePartRequest}
+        onApprovePartRequest={props.onAddPart ? (req: PartRequest) => { props.onApprovePartRequest(req); } : props.onApprovePartRequest}
         onRejectPartRequest={props.onRejectPartRequest}
         onApproveBOMRequest={props.onApproveBOMRequest}
         onRejectBOMRequest={props.onRejectBOMRequest}
@@ -198,6 +203,10 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             onAddLogisticsOperation={props.onAddLogisticsOperation || (() => {})}
             onUpdateLogisticsOperation={props.onUpdateLogisticsOperation || (() => {})}
             onDeleteLogisticsOperation={props.onDeleteLogisticsOperation || (() => {})}
+            mapSectors={props.mapSectors}
+            onAddMapSector={props.onAddMapSector}
+            onDeleteMapSector={props.onDeleteMapSector}
+            onUpdateMapSector={props.onUpdateMapSector}
           />
         )}
         {activeSubTab === 'bom' && (
@@ -220,6 +229,9 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             onUpdateAdminKey={props.onUpdateAdminKey}
             isAdminLockEnabled={props.systemConfig.adminLockEnabled || false}
             onToggleAdminLock={props.onToggleAdminLock}
+            // Fix: Added missing required props to SystemSection component
+            systemConfig={props.systemConfig}
+            onUpdateSystemConfig={props.onUpdateSystemConfig}
           />
         )}
         {activeSubTab === 'maint' && (

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import LoginScreen from './components/LoginScreen';
 import PartSearchScreen from './components/PartSearchScreen';
 import { db } from './firebase';
+import { useAppSecurity } from './hooks/useAppSecurity';
 import { 
   collection, 
   onSnapshot, 
@@ -37,6 +38,15 @@ export interface DBItem {
   value: string;
   standardTime?: number;
   description?: string;
+  coordX?: number;
+  coordY?: number;
+}
+
+export interface MapSector {
+  id: string;
+  name: string;
+  coordX: number;
+  coordY: number;
 }
 
 export type PriorityLevel = 'LOW' | 'NORMAL' | 'URGENT';
@@ -155,13 +165,25 @@ export interface SystemConfig {
     ipCheckEnabled: boolean;
     adminKey?: string;
     adminLockEnabled?: boolean;
+    mapOriginX?: number;
+    mapOriginY?: number;
 }
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isUnlocked, setIsUnlocked] = useState<boolean>(() => sessionStorage.getItem('app_unlocked') === 'true');
   const [currentUser, setCurrentUser] = useState<string>('');
   const [currentUserRole, setCurrentUserRole] = useState<'ADMIN' | 'USER' | 'LEADER'>('USER');
+  
+  // Custom Hook pre bezpečnosť a config
+  const { 
+    isUnlocked, 
+    setIsUnlocked, 
+    systemConfig, 
+    handleUnlockAttempt, 
+    handleUpdateAdminKey,
+    handleUpdateSystemConfig
+  } = useAppSecurity(currentUserRole, isAuthenticated);
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
   
@@ -171,6 +193,7 @@ const App: React.FC = () => {
   const [workplaces, setWorkplaces] = useState<DBItem[]>([]);
   const [missingReasons, setMissingReasons] = useState<DBItem[]>([]);
   const [logisticsOperations, setLogisticsOperations] = useState<DBItem[]>([]); 
+  const [mapSectors, setMapSectors] = useState<MapSector[]>([]);
   const [partRequests, setPartRequests] = useState<PartRequest[]>([]);
   const [breakSchedules, setBreakSchedules] = useState<BreakSchedule[]>([]);
   const [systemBreaks, setSystemBreaks] = useState<SystemBreak[]>([]);
@@ -179,13 +202,7 @@ const App: React.FC = () => {
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [systemConfig, setSystemConfig] = useState<SystemConfig>({
-      maintenanceMode: false,
-      allowedIPs: [],
-      ipCheckEnabled: false,
-      adminKey: '1234',
-      adminLockEnabled: true
-  });
+  
   const [dbLoadWarning, setDbLoadWarning] = useState<boolean>(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   
@@ -193,7 +210,6 @@ const App: React.FC = () => {
   const rolesRef = useRef<Role[]>([]);
   const permissionsRef = useRef<Permission[]>([]);
   const currentUserRoleRef = useRef(currentUserRole);
-  const activityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { rolesRef.current = roles; }, [roles]);
   useEffect(() => { permissionsRef.current = permissions; }, [permissions]);
@@ -206,27 +222,6 @@ const App: React.FC = () => {
       if (!r) return false;
       return permissionsRef.current.some(p => p.roleId === r.id && p.permissionName === permName);
   };
-
-  const resetActivityTimer = useCallback(() => {
-    if (!isAuthenticated || !isUnlocked || currentUserRole !== 'ADMIN' || !systemConfig.adminLockEnabled) return;
-    if (activityTimerRef.current) clearTimeout(activityTimerRef.current);
-    activityTimerRef.current = setTimeout(() => {
-      setIsUnlocked(false);
-      sessionStorage.removeItem('app_unlocked');
-    }, 5 * 60 * 1000); 
-  }, [isAuthenticated, isUnlocked, currentUserRole, systemConfig.adminLockEnabled]);
-
-  useEffect(() => {
-    const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
-    if (isAuthenticated && isUnlocked && currentUserRole === 'ADMIN' && systemConfig.adminLockEnabled) {
-      events.forEach(e => window.addEventListener(e, resetActivityTimer));
-      resetActivityTimer();
-    }
-    return () => {
-      events.forEach(e => window.removeEventListener(e, resetActivityTimer));
-      if (activityTimerRef.current) clearTimeout(activityTimerRef.current);
-    };
-  }, [isAuthenticated, isUnlocked, currentUserRole, resetActivityTimer, systemConfig.adminLockEnabled]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('app_user');
@@ -263,25 +258,6 @@ const App: React.FC = () => {
     localStorage.removeItem('app_role'); 
     sessionStorage.removeItem('app_unlocked');
   };
-
-  useEffect(() => {
-      const configRef = doc(db, 'system_data', 'config');
-      return onSnapshot(configRef, (docSnap) => {
-          if (docSnap.exists()) {
-              const data = docSnap.data() as SystemConfig;
-              const updates: Partial<SystemConfig> = {};
-              if (!data.adminKey) updates.adminKey = '1234';
-              if (data.adminLockEnabled === undefined) updates.adminLockEnabled = true;
-              
-              if (Object.keys(updates).length > 0) {
-                  updateDoc(configRef, updates);
-              }
-              setSystemConfig(data);
-          } else {
-              setDoc(configRef, { maintenanceMode: false, allowedIPs: [], ipCheckEnabled: false, adminKey: '1234', adminLockEnabled: true });
-          }
-      });
-  }, []);
 
   useEffect(() => {
       if (isAuthenticated && currentUserRole !== 'ADMIN') {
@@ -377,7 +353,7 @@ const App: React.FC = () => {
     return () => { unsubParts(); unsubBOM(); };
   }, []);
 
-  useEffect(() => { return onSnapshot(query(collection(db, 'workplaces'), orderBy('value')), s => setWorkplaces(s.docs.map(d => ({id:d.id, value:d.data().value, standardTime:d.data().standardTime} as DBItem)))); }, []);
+  useEffect(() => { return onSnapshot(query(collection(db, 'workplaces'), orderBy('value')), s => setWorkplaces(s.docs.map(d => ({id:d.id, ...d.data()} as DBItem)))); }, []);
   useEffect(() => { return onSnapshot(query(collection(db, 'missing_reasons'), orderBy('value')), s => setMissingReasons(s.docs.map(d => ({id:d.id, value:d.data().value} as DBItem)))); }, []);
   useEffect(() => { return onSnapshot(query(collection(db, 'break_schedules')), s => setBreakSchedules(s.docs.map(d => ({id:d.id, ...d.data()} as BreakSchedule)))); }, []);
 
@@ -392,6 +368,12 @@ const App: React.FC = () => {
               const ops = s.docs.map(d => ({id:d.id, value:d.data().value, standardTime: d.data().standardTime} as DBItem));
               setLogisticsOperations(ops);
           }
+      }); 
+  }, []);
+
+  useEffect(() => { 
+      return onSnapshot(query(collection(db, 'map_sectors'), orderBy('name')), (s) => {
+          setMapSectors(s.docs.map(d => ({ id: d.id, ...d.data() } as MapSector)));
       }); 
   }, []);
 
@@ -505,16 +487,25 @@ const App: React.FC = () => {
     await setDoc(doc(db, 'settings', 'bom'), { data: [] }); 
   };
 
-  const handleAddWorkplace = async (v: string, t?: number) => { await addDoc(collection(db, 'workplaces'), {value:v, standardTime:t||0}); };
-  const handleUpdateWorkplace = async (id: string, t: number) => { await updateDoc(doc(db, 'workplaces', id), { standardTime: t }); };
-  const handleBatchAddWorkplaces = async (vs: string[]) => { const b=writeBatch(db); vs.forEach(l=>{const [v,t]=l.split(';'); if(v) b.set(doc(collection(db,'workplaces')), {value:v.trim(), standardTime: parseInt(t)||0})}); await b.commit(); };
+  const handleAddWorkplace = async (v: string, t?: number, x?: number, y?: number) => { 
+    await addDoc(collection(db, 'workplaces'), { value: v, standardTime: t || 0, coordX: x || 0, coordY: y || 0 }); 
+  };
+  const handleUpdateWorkplace = async (id: string, updates: Partial<DBItem>) => { 
+    await updateDoc(doc(db, 'workplaces', id), updates); 
+  };
+  const handleBatchAddWorkplaces = async (vs: string[]) => { const b=writeBatch(db); vs.forEach(l=>{const [v,t]=l.split(';'); if(v) b.set(doc(collection(db,'workplaces')), {value:v.trim(), standardTime: parseInt(t)||0, coordX: 0, coordY: 0})}); await b.commit(); };
   const handleDeleteWorkplace = async (id: string) => { await deleteDoc(doc(db,'workplaces',id)); };
   const handleDeleteAllWorkplaces = async () => { const s=await getDocs(collection(db,'workplaces')); const b=writeBatch(db); s.forEach(d=>b.delete(d.ref)); await b.commit(); };
   const handleAddMissingReason = async (v: string) => { await addDoc(collection(db,'missing_reasons'), {value:v}); };
   const handleDeleteMissingReason = async (id: string) => { await deleteDoc(doc(db,'missing_reasons',id)); };
-  const handleAddLogisticsOperation = async (v: string, t?: number) => { await addDoc(collection(db,'logistics_operations'), {value:v, standardTime: t || 0}); };
+  const handleAddLogisticsOperation = async (v: string, t?: number) => { await addDoc(collection(db,'logistics_operations'), {value:v}); };
   const handleUpdateLogisticsOperation = async (id: string, t: number) => { await updateDoc(doc(db, 'logistics_operations', id), { standardTime: t }); };
   const handleDeleteLogisticsOperation = async (id: string) => { await deleteDoc(doc(db,'logistics_operations',id)); };
+  
+  const handleAddMapSector = async (name: string, x: number, y: number) => { await addDoc(collection(db, 'map_sectors'), { name, coordX: x, coordY: y }); };
+  const handleDeleteMapSector = async (id: string) => { await deleteDoc(doc(db, 'map_sectors', id)); };
+  const handleUpdateMapSector = async (id: string, x: number, y: number) => { await updateDoc(doc(db, 'map_sectors', id), { coordX: x, coordY: y }); };
+
   const handleDeleteMissingItem = (id: string) => deleteDoc(doc(db,'tasks',id));
   const handleAddBreakSchedule = async (s:string, e:string) => { await addDoc(collection(db,'break_schedules'), {start:s, end:e}); };
   const handleDeleteBreakSchedule = async (id: string) => { await deleteDoc(doc(db,'break_schedules',id)); };
@@ -528,18 +519,6 @@ const App: React.FC = () => {
   const handleRequestNewPart = async (p: string) => { await addDoc(collection(db,'part_requests'), {partNumber:p, requestedBy:currentUser, requestedAt:Date.now()}); return true; };
   const handleApprovePartRequest = (req: PartRequest) => { handleAddPart(req.partNumber); deleteDoc(doc(db,'part_requests',req.id)); };
   const handleRejectPartRequest = (id: string) => deleteDoc(doc(db,'part_requests',id));
-
-  const handleUpdateAdminKey = async (oldKey: string, newKey: string) => {
-    const configRef = doc(db, 'system_data', 'config');
-    const snap = await getDoc(configRef);
-    if (snap.exists() && snap.data().adminKey === oldKey) {
-        await updateDoc(configRef, { adminKey: newKey });
-        alert('Bezpečnostný kľúč bol úspešne zmenený.');
-    } else {
-        alert('Pôvodný kľúč je nesprávny.');
-        throw new Error('Incorrect old key');
-    }
-  };
 
   const handleAddTask = async (pn: string, wp: string | null, qty: string | null, unit: string | null, prio: PriorityLevel, isLogistics: boolean = false, note?: string) => {
     let finalUnit = unit;
@@ -715,7 +694,7 @@ const App: React.FC = () => {
   };
   const handleArchiveTasks = async () => { return await handleDailyClosing(); };
   const fetchArchivedTasks = async () => (await getDocs(query(collection(db,'archive_drafts'), limit(500)))).docs.map(d=>({id:d.id, ...d.data()} as Task));
-  const handleUpdateSystemConfig = async (newConfig: Partial<SystemConfig>) => { const configRef = doc(db, 'system_data', 'config'); await setDoc(configRef, newConfig, { merge: true }); };
+  
   const handleGetDocCount = useCallback(async () => {
       const snap = await getCountFromServer(collection(db, 'tasks'));
       return snap.data().count;
@@ -774,15 +753,6 @@ const App: React.FC = () => {
     );
   };
 
-  const handleUnlockAttempt = (key: string) => {
-    if (key === (systemConfig.adminKey || '1234')) {
-      setIsUnlocked(true);
-      sessionStorage.setItem('app_unlocked', 'true');
-    } else {
-      alert('Nesprávny kľúč.');
-    }
-  };
-
   const handleToggleAdminLock = (val: boolean) => {
     handleUpdateSystemConfig({ adminLockEnabled: val });
   };
@@ -804,6 +774,7 @@ const App: React.FC = () => {
           onStartAudit={handleStartAudit} onFinishAudit={handleFinishAudit}
           users={users} onAddUser={handleAddUser} onUpdatePassword={handleUpdatePassword} onUpdateNickname={handleUpdateNickname} onUpdateExportPermission={handleUpdateExportPermission} onUpdateUserRole={handleUpdateUserRole} onDeleteUser={handleDeleteUser}
           parts={partsArray} workplaces={workplaces} missingReasons={missingReasons} logisticsOperations={logisticsOperations}
+          mapSectors={mapSectors} onAddMapSector={handleAddMapSector} onDeleteMapSector={handleDeleteMapSector} onUpdateMapSector={handleUpdateMapSector}
           onAddPart={handleAddPart} onBatchAddParts={handleBatchAddParts} onDeletePart={handleDeletePart} onDeleteAllParts={handleDeleteAllParts}
           onAddWorkplace={handleAddWorkplace} onUpdateWorkplace={handleUpdateWorkplace} onBatchAddWorkplaces={handleBatchAddWorkplaces} onDeleteWorkplace={handleDeleteWorkplace} onDeleteAllWorkplaces={handleDeleteAllWorkplaces}
           onAddMissingReason={handleAddMissingReason} onDeleteMissingReason={handleDeleteMissingReason}
@@ -817,7 +788,6 @@ const App: React.FC = () => {
           onGetDocCount={handleGetDocCount}
           onPurgeOldTasks={handlePurgeOldTasks}
           onExportTasksJSON={handleExportTasksJSON}
-          // Fix: Corrected property name i_isBreakActive to isBreakActive (Matches line 820 error)
           breakSchedules={breakSchedules} systemBreaks={systemBreaks} isBreakActive={isBreakActive} onAddBreakSchedule={handleAddBreakSchedule} onDeleteBreakSchedule={handleDeleteBreakSchedule}
           bomMap={bomMap} bomRequests={bomRequests} onAddBOMItem={handleAddBOMItem} onBatchAddBOMItems={handleBatchAddBOMItems} onDeleteBOMItem={handleDeleteBOMItem} onDeleteAllBOMItems={handleDeleteAllBOMItems} onRequestBOM={handleRequestBOM} onApproveBOMRequest={handleApproveBOMRequest} onRejectBOMRequest={handleRejectBOMRequest} roles={roles} permissions={permissions} onAddRole={handleAddRole} onDeleteRole={handleDeleteRole} onUpdatePermission={handleUpdatePermission}
           onVerifyAdminPassword={handleVerifyAdminPassword}
