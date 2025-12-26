@@ -125,7 +125,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
       <PartRequestsSection 
         partRequests={props.partRequests} 
         bomRequests={props.bomRequests}
-        onApprovePartRequest={props.onAddPart ? (req: PartRequest) => { props.onApprovePartRequest(req); } : props.onApprovePartRequest}
+        onApprovePartRequest={props.onApprovePartRequest}
         onRejectPartRequest={props.onRejectPartRequest}
         onApproveBOMRequest={props.onApproveBOMRequest}
         onRejectBOMRequest={props.onRejectBOMRequest}
@@ -229,7 +229,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             onUpdateAdminKey={props.onUpdateAdminKey}
             isAdminLockEnabled={props.systemConfig.adminLockEnabled || false}
             onToggleAdminLock={props.onToggleAdminLock}
-            // Fix: Added missing required props to SystemSection component
             systemConfig={props.systemConfig}
             onUpdateSystemConfig={props.onUpdateSystemConfig}
           />
