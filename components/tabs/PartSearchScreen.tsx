@@ -1,20 +1,20 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import TaskList from './tabs/TaskList';
-import SettingsTab from './settings/SettingsTab';
-import AnalyticsTab from './tabs/Analytics/AnalyticsTab';
-import MissingItemsTab from './tabs/MissingItemsTab';
-import LogisticsCenterTab from './tabs/LogisticsCenterTab';
-import InventoryTab from './tabs/InventoryTab';
-import PermissionsTab from './tabs/PermissionsTab';
-import BOMScreen from './tabs/BOMScreen';
-import ProductionEntry from './tabs/ProductionEntry';
-import PartCatalogTab from './tabs/PartCatalogTab';
-import AppHeader from './AppHeader';
-import TabNavigator from './TabNavigator';
-import { UserData, DBItem, PartRequest, BreakSchedule, SystemBreak, BOMComponent, BOMRequest, Role, Permission, Task, Notification as AppNotification, PriorityLevel, SystemConfig, MapSector } from '../App';
-import { useLanguage } from './LanguageContext';
+import TaskList from './TaskList';
+import SettingsTab from '../settings/SettingsTab';
+import AnalyticsTab from './Analytics/AnalyticsTab';
+import MissingItemsTab from './MissingItemsTab';
+import LogisticsCenterTab from './LogisticsCenterTab';
+import InventoryTab from './InventoryTab';
+import PermissionsTab from './PermissionsTab';
+import BOMScreen from './BOMScreen';
+import ProductionEntry from './ProductionEntry';
+import PartCatalogTab from './PartCatalogTab';
+import AppHeader from '../AppHeader';
+import TabNavigator from '../TabNavigator';
+import { UserData, DBItem, PartRequest, BreakSchedule, SystemBreak, BOMComponent, BOMRequest, Role, Permission, Task, Notification as AppNotification, PriorityLevel, SystemConfig, MapSector } from '../../App';
+import { useLanguage } from '../LanguageContext';
 
 declare var XLSX: any;
 
@@ -402,7 +402,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                 {activeTab === 'catalog' && hasPermission('perm_tab_catalog') && (
                     <PartCatalogTab 
                         parts={props.parts} 
-                        onSelectPart={(p) => {
+                        onSelectPart={(p: any) => {
                           setSelectedPart(p);
                           setActiveTab('entry');
                         }} 
@@ -436,12 +436,12 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                     </div>
                 )}
                 {activeTab === 'analytics' && hasPermission('perm_tab_analytics') && <AnalyticsTab tasks={tasks} onFetchArchivedTasks={props.onFetchArchivedTasks} systemBreaks={props.systemBreaks} resolveName={resolveName} mapSectors={props.mapSectors} workplaces={props.workplaces} systemConfig={systemConfig} logisticsOperations={logisticsOperationsList} />}
-                {activeTab === 'settings' && hasPermission('perm_tab_settings') && <SettingsTab hasPermission={hasPermission} currentUserRole={currentUserRole} users={users} onAddUser={props.onAddUser} onUpdatePassword={props.onUpdatePassword} onUpdateNickname={props.onUpdateNickname} onUpdateExportPermission={props.onUpdateExportPermission} onUpdateUserRole={props.onUpdateUserRole} onDeleteUser={props.onDeleteUser} parts={parts} workplaces={workplaces} missingReasons={missingReasons} onAddPart={props.onAddPart} onBatchAddParts={props.onBatchAddParts} onDeletePart={props.onDeletePart} onDeleteAllParts={props.onDeleteAllParts} onAddWorkplace={props.onAddWorkplace} onUpdateWorkplace={props.onUpdateWorkplace} onBatchAddWorkplaces={props.onBatchAddWorkplaces} onDeleteWorkplace={props.onDeleteWorkplace} onDeleteAllWorkplaces={props.onDeleteAllWorkplaces} onAddMissingReason={props.onAddMissingReason} onDeleteMissingReason={props.onDeleteMissingReason} logisticsOperations={logisticsOperationsList} onAddLogisticsOperation={props.onAddLogisticsOperation} onUpdateLogisticsOperation={props.onUpdateLogisticsOperation} onDeleteLogisticsOperation={props.onDeleteLogisticsOperation} mapSectors={props.mapSectors} onAddMapSector={props.onAddMapSector} onDeleteMapSector={props.onDeleteMapSector} onUpdateMapSector={props.onUpdateMapSector} partRequests={props.partRequests} onApprovePartRequest={onApprovePartRequest} onRejectPartRequest={id => props.onRejectPartRequest(id)} onArchiveTasks={onArchiveTasks} onDailyClosing={props.onDailyClosing} onWeeklyClosing={props.onWeeklyClosing} breakSchedules={breakSchedules} onAddBreakSchedule={props.onAddBreakSchedule} onDeleteBreakSchedule={props.onDeleteBreakSchedule} bomMap={bomMap} bomRequests={bomRequests} onAddBOMItem={props.onAddBOMItem} onBatchAddBOMItems={props.onBatchAddBOMItems} onDeleteBOMItem={props.onDeleteBOMItem} onDeleteAllBOMItems={props.onDeleteAllBOMItems} onApproveBOMRequest={onApproveBOMRequest} onRejectBOMRequest={id => props.onRejectBOMRequest(id)} roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={onDeleteRole} onUpdatePermission={onUpdatePermission} installPrompt={installPrompt} onInstallApp={onInstallApp} systemConfig={systemConfig} onUpdateSystemConfig={onUpdateSystemConfig} dbLoadWarning={dbLoadWarning} resolveName={resolveName} onGetDocCount={onGetDocCount} onPurgeOldTasks={onPurgeOldTasks} onExportTasksJSON={onExportTasksJSON} onUpdateAdminKey={props.onUpdateAdminKey} onToggleAdminLock={props.onToggleAdminLock} />}
+                {activeTab === 'settings' && hasPermission('perm_tab_settings') && <SettingsTab hasPermission={hasPermission} currentUserRole={currentUserRole} users={users} onAddUser={props.onAddUser} onUpdatePassword={props.onUpdatePassword} onUpdateNickname={props.onUpdateNickname} onUpdateExportPermission={props.onUpdateExportPermission} onUpdateUserRole={props.onUpdateUserRole} onDeleteUser={props.onDeleteUser} parts={parts} workplaces={workplaces} missingReasons={missingReasons} onAddPart={props.onAddPart} onBatchAddParts={props.onBatchAddParts} onDeletePart={props.onDeletePart} onDeleteAllParts={props.onDeleteAllParts} onAddWorkplace={props.onAddWorkplace} onUpdateWorkplace={props.onUpdateWorkplace} onBatchAddWorkplaces={props.onBatchAddWorkplaces} onDeleteWorkplace={props.onDeleteWorkplace} onDeleteAllWorkplaces={props.onDeleteAllWorkplaces} onAddMissingReason={props.onAddMissingReason} onDeleteMissingReason={props.onDeleteMissingReason} logisticsOperations={logisticsOperationsList} onAddLogisticsOperation={props.onAddLogisticsOperation} onUpdateLogisticsOperation={props.onUpdateLogisticsOperation} onDeleteLogisticsOperation={props.onDeleteLogisticsOperation} mapSectors={props.mapSectors} onAddMapSector={props.onAddMapSector} onDeleteMapSector={props.onDeleteMapSector} onUpdateMapSector={props.onUpdateMapSector} partRequests={props.partRequests} onApprovePartRequest={onApprovePartRequest} onRejectPartRequest={(id: any) => props.onRejectPartRequest(id)} onArchiveTasks={onArchiveTasks} onDailyClosing={props.onDailyClosing} onWeeklyClosing={props.onWeeklyClosing} breakSchedules={breakSchedules} onAddBreakSchedule={props.onAddBreakSchedule} onDeleteBreakSchedule={props.onDeleteBreakSchedule} bomMap={bomMap} bomRequests={bomRequests} onAddBOMItem={props.onAddBOMItem} onBatchAddBOMItems={props.onBatchAddBOMItems} onDeleteBOMItem={props.onDeleteBOMItem} onDeleteAllBOMItems={props.onDeleteAllBOMItems} onApproveBOMRequest={onApproveBOMRequest} onRejectBOMRequest={(id: any) => props.onRejectBOMRequest(id)} roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={onDeleteRole} onUpdatePermission={onUpdatePermission} installPrompt={installPrompt} onInstallApp={onInstallApp} systemConfig={systemConfig} onUpdateSystemConfig={onUpdateSystemConfig} dbLoadWarning={dbLoadWarning} resolveName={resolveName} onGetDocCount={onGetDocCount} onPurgeOldTasks={onPurgeOldTasks} onExportTasksJSON={onExportTasksJSON} onUpdateAdminKey={props.onUpdateAdminKey} onToggleAdminLock={props.onToggleAdminLock} />}
                 {activeTab === 'bom' && hasPermission('perm_tab_bom') && <BOMScreen parts={parts} workplaces={workplaces} bomMap={bomMap} onAddTask={onAddTask} onRequestBOM={props.onRequestBOM} t={t} language={language} />}
                 {activeTab === 'missing' && hasPermission('perm_tab_missing') && <MissingItemsTab tasks={tasks} onDeleteMissingItem={props.onDeleteMissingItem} hasPermission={hasPermission} resolveName={resolveName} />}
                 {activeTab === 'inventory' && hasPermission('perm_tab_inventory') && <InventoryTab currentUser={currentUser} tasks={tasks} onAddTask={onAddTask} onUpdateTask={onUpdateTask} onToggleTask={onToggleTask} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} parts={partNumbersList} onRequestPart={props.onRequestPart} resolveName={resolveName} />}
                 {activeTab === 'logistics' && hasPermission('perm_tab_logistics_center') && <LogisticsCenterTab tasks={tasks} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} resolveName={resolveName} />}
-                {activeTab === 'permissions' && hasPermission('perm_tab_permissions') && <PermissionsTab roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={id => props.onDeleteRole(id)} onUpdatePermission={onUpdatePermission} onVerifyAdminPassword={onVerifyAdminPassword} />}
+                {activeTab === 'permissions' && hasPermission('perm_tab_permissions') && <PermissionsTab roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={(id: any) => props.onDeleteRole(id)} onUpdatePermission={onUpdatePermission} onVerifyAdminPassword={onVerifyAdminPassword} />}
                 </div>
             </div>
           </>
