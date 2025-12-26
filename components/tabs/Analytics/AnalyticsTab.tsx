@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { db } from '../../../firebase';
-import { collection, getDocs, query, where, limit } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { Task, SystemBreak, MapSector, DBItem, SystemConfig } from '../../../App';
 import { useLanguage } from '../../LanguageContext';
 import AnalyticsExportPanel from './AnalyticsExportPanel';
@@ -28,7 +28,7 @@ type FilterMode = 'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH' | 'CUSTOM';
 type ShiftFilter = 'ALL' | 'MORNING' | 'AFTERNOON';
 type SourceFilter = 'ALL' | 'PRODUCTION' | 'LOGISTICS';
 
-const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchArchivedTasks, systemBreaks, resolveName, mapSectors, workplaces, systemConfig, logisticsOperations }) => {
+const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: _liveTasks, onFetchArchivedTasks, systemBreaks, resolveName, mapSectors, workplaces, systemConfig, logisticsOperations }) => {
   const [filterMode, setFilterMode] = useState<FilterMode>('TODAY');
   const [shiftFilter, setShiftFilter] = useState<ShiftFilter>('ALL');
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('ALL');
@@ -37,13 +37,11 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
   const [isLoadingArchive, setIsLoadingArchive] = useState(false);
-  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
   const [canExport, setCanExport] = useState(false);
   const [selectedWorkerData, setSelectedWorkerData] = useState<{ name: string; tasks: Task[] } | null>(null);
   const { t, language } = useLanguage();
 
   const VZV_SPEED_MPS = (systemConfig.vzvSpeed || 8) / 3.6;
-
   const now = new Date();
   const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
   const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
@@ -53,10 +51,10 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
       const storedUser = localStorage.getItem('app_user');
       if (!storedUser) return;
       try {
-        const q = query(collection(db, 'users'), where('username', '==', storedUser));
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-          const userData = querySnapshot.docs[0].data();
+        const docRef = doc(db, 'users', storedUser);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const userData = docSnap.data();
           setCanExport(userData.canExportAnalytics === true);
         }
       } catch (error) { console.error("Error checking analytics permission:", error); }
@@ -64,25 +62,53 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
     checkExportPermission();
   }, []);
 
-  const tasks = useMemo(() => [...liveTasks, ...archivedTasks], [liveTasks, archivedTasks]);
+  const tasks = useMemo(() => archivedTasks, [archivedTasks]);
 
   useEffect(() => {
-    const FIVE_MINUTES = 5 * 60 * 1000;
-    if (archivedTasks.length === 0 || (Date.now() - lastFetchTime > FIVE_MINUTES)) {
-      const load = async () => {
-        setIsLoadingArchive(true);
-        try {
-          const results: Task[] = [];
-          const draftsSnap = await getDocs(query(collection(db, 'archive_drafts'), limit(500)));
-          draftsSnap.forEach(d => results.push({ ...(d.data() as Task), id: d.id }));
-          setArchivedTasks(results);
-          setLastFetchTime(Date.now());
-        } catch (err) {}
-        finally { setIsLoadingArchive(false); }
-      };
-      load();
-    }
-  }, [lastFetchTime, archivedTasks.length]);
+    const load = async () => {
+      if (isLoadingArchive) return;
+      setIsLoadingArchive(true);
+      try {
+        const results: Task[] = [];
+        const startOfMonthTs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+        
+        // 1. Načítanie Draftu (aktuálny týždeň)
+        const draftSnap = await getDoc(doc(db, 'settings', 'draft'));
+        if (draftSnap.exists()) {
+            const draftData = draftSnap.data().data || [];
+            draftData.forEach((t: any) => {
+                if (t.completedAt >= startOfMonthTs) results.push(t);
+            });
+        }
+        
+        // 2. Načítanie relevantných šanónov (aktuálny a predchádzajúci týždeň pre pokrytie mesiaca)
+        const currentYear = now.getFullYear();
+        const firstDayOfYear = new Date(currentYear, 0, 1);
+        const pastDaysOfYear = (now.getTime() - firstDayOfYear.getTime()) / 86400000;
+        const currentWeekNum = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+        
+        const weeksToCheck = [currentWeekNum, currentWeekNum - 1, currentWeekNum - 2, currentWeekNum - 3, currentWeekNum - 4];
+        const sanonPromises = weeksToCheck.filter(w => w > 0).map(w => getDoc(doc(db, 'sanony', `${currentYear}_${w}`)));
+        const sanonSnaps = await Promise.all(sanonPromises);
+        
+        sanonSnaps.forEach(snap => {
+            if (snap.exists()) {
+                const tasksInSanon = snap.data().tasks || [];
+                tasksInSanon.forEach((t: any) => {
+                    if (t.completedAt >= startOfMonthTs) results.push(t);
+                });
+            }
+        });
+        
+        setArchivedTasks(results);
+      } catch (err) {
+        console.error("Archive fetch error:", err);
+      } finally {
+        setIsLoadingArchive(false);
+      }
+    };
+    load();
+  }, [filterMode]);
 
   const filteredTasks = useMemo(() => {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -127,7 +153,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
   }, [tasks, filterMode, shiftFilter, sourceFilter, customStart, customEnd]);
 
   const stats = useMemo(() => {
-    const highRunnersMap: Record<string, { load: number, pal: number, taskRequests: number, totalTasks: number }> = {};
     const workplacesMap: Record<string, { load: number, pal: number, taskRequests: number, totalTasks: number }> = {};
     const hourlyStatsMap: Record<number, { production: number, logistics: number }> = {};
     const missingPartsMap: Record<string, number> = {};
@@ -236,7 +261,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ tasks: liveTasks, onFetchAr
 
       <AnalyticsExportPanel canExport={canExport} tasks={tasks} systemBreaks={systemBreaks} resolveName={resolveName} t={t} language={language} />
 
-      {/* FILTER PANEL */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden animate-fade-in flex flex-col">
         <button 
           onClick={() => setIsFilterOpen(!isFilterOpen)}

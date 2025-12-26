@@ -1,9 +1,14 @@
+
 import React, { useState } from 'react';
 import { db } from '../../firebase';
 import { 
   collection, 
   getDocs, 
-  writeBatch 
+  writeBatch,
+  doc,
+  getDoc,
+  updateDoc,
+  deleteDoc
 } from 'firebase/firestore';
 import { useLanguage } from '../LanguageContext';
 
@@ -20,7 +25,6 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName }) => {
   const [hasExported, setHasExported] = useState(false);
   const [progress, setProgress] = useState('');
 
-  // Helpery pre formátovanie podľa požiadavky (DD.MM.YYYY a HH:mm)
   const formatDate = (ts?: number) => {
     if (!ts) return '';
     const d = new Date(ts);
@@ -45,20 +49,31 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName }) => {
     const allTasks: any[] = [];
     const currentYear = new Date().getFullYear();
     
-    const collectionsToFetch = ['tasks', 'archive_drafts'];
-    // Pridáme šanóny pre aktuálny rok
-    for (let i = 1; i <= 53; i++) {
-      collectionsToFetch.push(`sanon_${currentYear}_${i}`);
-    }
-
     try {
-      for (const colName of collectionsToFetch) {
-        setProgress(`${language === 'sk' ? 'Sťahujem' : 'Fetching'} ${colName}...`);
-        const snap = await getDocs(collection(db, colName));
-        snap.forEach(d => {
-          allTasks.push({ id: d.id, ...d.data() });
-        });
+      // 1. Sťahujeme živé úlohy z kolekcie
+      setProgress(language === 'sk' ? 'Sťahujem živé úlohy...' : 'Fetching live tasks...');
+      const snapTasks = await getDocs(collection(db, 'tasks'));
+      snapTasks.forEach(d => allTasks.push({ id: d.id, ...d.data() }));
+
+      // 2. Sťahujeme Draft bucket
+      setProgress(language === 'sk' ? 'Sťahujem denný archív...' : 'Fetching daily draft...');
+      const draftSnap = await getDoc(doc(db, 'settings', 'draft'));
+      if (draftSnap.exists()) {
+          (draftSnap.data().data || []).forEach((t: any) => allTasks.push(t));
       }
+
+      // 3. Sťahujeme všetky šanóny (týždne) - Single-Doc bucket prístup
+      setProgress(language === 'sk' ? 'Sťahujem týždenné šanóny...' : 'Fetching weekly buckets...');
+      const promises = [];
+      for (let i = 1; i <= 53; i++) {
+          promises.push(getDoc(doc(db, 'sanony', `${currentYear}_${i}`)));
+      }
+      const snaps = await Promise.all(promises);
+      snaps.forEach(s => {
+          if (s.exists()) {
+              (s.data().tasks || []).forEach((t: any) => allTasks.push(t));
+          }
+      });
 
       if (allTasks.length === 0) {
         alert(language === 'sk' ? 'Nenašli sa žiadne dáta pre aktuálny rok.' : 'No data found for current year.');
@@ -66,9 +81,7 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName }) => {
         return;
       }
 
-      // Mapovanie na fixných 22 stĺpcov podľa presného poradia v zadaní
       const excelData = allTasks.map(item => {
-        // Logika pre Výsledok hľadania (Áno/Nie)
         let searchResult = '';
         if (item.searchedBy) {
           if (item.searchExhausted || item.auditResult) {
@@ -80,7 +93,6 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName }) => {
           }
         }
 
-        // Logika pre Status
         let statusText = 'Otvorené';
         if (item.status === 'incorrectly_entered') {
             statusText = 'Chybne zadané';
@@ -112,19 +124,18 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName }) => {
           'Audit (Výsledok)': item.auditResult || '',
           'Poznámka k auditu': item.auditNote || '',
           'Audit vykonal': resolveName(item.auditedBy) || item.auditBy || '',
-          'Dátum a čas auditu': formatDateTime(item.auditedAt ?? undefined)
+          'Dátum a čas auditu': formatDateTime(item.auditedAt ?? undefined),
+          'Sektor (Odkiaľ)': item.pickedFromSectorId || '-'
         };
       });
 
       const ws = XLSX.utils.json_to_sheet(excelData);
-      
-      // Nastavenie šírok stĺpcov pre 22 stĺpcov
       const wscols = [
         {wch: 15}, {wch: 12}, {wch: 20}, {wch: 20}, {wch: 25}, 
         {wch: 20}, {wch: 10}, {wch: 10}, {wch: 25}, {wch: 20}, 
         {wch: 15}, {wch: 12}, {wch: 18}, {wch: 20}, {wch: 25}, 
         {wch: 15}, {wch: 20}, {wch: 18}, {wch: 15}, {wch: 35},
-        {wch: 20}, {wch: 20}
+        {wch: 20}, {wch: 20}, {wch: 15}
       ];
       ws['!cols'] = wscols;
 
@@ -162,29 +173,32 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName }) => {
     setProgress(language === 'sk' ? 'Premazávam databázu...' : 'Cleaning database...');
 
     try {
-      const collectionsToDelete = ['tasks', 'archive_drafts'];
+      // 1. Vymazanie Draft bucketu
+      await updateDoc(doc(db, 'settings', 'draft'), { data: [] });
+      
+      // 2. Vymazanie všetkých šanónov
       for (let i = 1; i <= 53; i++) {
-        collectionsToDelete.push(`sanon_${currentYear}_${i}`);
-      }
-
-      for (const colName of collectionsToDelete) {
-        setProgress(`${language === 'sk' ? 'Mažem' : 'Deleting'} ${colName}...`);
-        const snap = await getDocs(collection(db, colName));
-        
-        let batch = writeBatch(db);
-        let count = 0;
-
-        for (const d of snap.docs) {
-          batch.delete(d.ref);
-          count++;
-          if (count === 500) {
-            await batch.commit();
-            batch = writeBatch(db);
-            count = 0;
-          }
+        const sanonRef = doc(db, 'sanony', `${currentYear}_${i}`);
+        const s = await getDoc(sanonRef);
+        if (s.exists()) {
+            await deleteDoc(sanonRef);
         }
-        if (count > 0) await batch.commit();
       }
+
+      // 3. Vymazanie živých úloh (tasks)
+      const snapTasks = await getDocs(collection(db, 'tasks'));
+      let batch = writeBatch(db);
+      let count = 0;
+      for (const d of snapTasks.docs) {
+        batch.delete(d.ref);
+        count++;
+        if (count === 500) {
+          await batch.commit();
+          batch = writeBatch(db);
+          count = 0;
+        }
+      }
+      if (count > 0) await batch.commit();
 
       alert(language === 'sk' ? 'Systém bol úspešne zresetovaný.' : 'System successfully reset.');
       window.location.reload();
@@ -214,7 +228,7 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName }) => {
         <div className="bg-slate-950/40 p-6 rounded-2xl border border-white/5 space-y-4">
           <h4 className="text-sm font-black text-teal-400 uppercase tracking-widest">1. KROK: EXPORT DÁT</h4>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Stiahne všetky záznamy z aktuálnych úloh aj týždenných šanónov do jedného Excel súboru s 22 stĺpcami.
+            Stiahne všetky záznamy z aktuálnych úloh aj týždenných šanónov do jedného Excel súboru s 23 stĺpcami (vrátane sektorov).
           </p>
           <button 
             onClick={fetchYearlyData}

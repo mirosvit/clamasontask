@@ -21,7 +21,8 @@ import {
   deleteField,
   increment,
   getCountFromServer,
-  getDoc
+  getDoc,
+  arrayUnion
 } from 'firebase/firestore';
 
 export interface UserData {
@@ -293,7 +294,10 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    const q = query(collection(db, 'tasks'), limit(500)); 
+    // Optimalizácia: Načítavame len úlohy vytvorené v posledných 3 dňoch.
+    const threshold = Date.now() - (3 * 24 * 60 * 60 * 1000);
+    const q = query(collection(db, 'tasks'), where('createdAt', '>=', threshold), limit(300)); 
+    
     return onSnapshot(q, (snapshot) => {
       const newTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
       if (!isFirstLoad.current) {
@@ -581,7 +585,6 @@ const App: React.FC = () => {
     const t = tasks.find(x => x.id === id);
     if(t) {
         if (!t.isDone) {
-            // AUTOMATIZÁCIA LOGISTIKY: Ak je úloha logistická, vynechaj modal
             if (t.isLogistics) {
                 await updateDoc(doc(db, 'tasks', id), { 
                     isDone: true, 
@@ -598,12 +601,10 @@ const App: React.FC = () => {
                 });
                 return;
             }
-            // Inak otvor modal výberu sektora (Fáza 1)
             setFinishingTaskId(id);
             setShowSectorModal(true);
             return;
         }
-        // Undo logika (ak sa úloha "odškrtáva")
         const newState = !t.isDone;
         await updateDoc(doc(db,'tasks',id), { isDone:newState, status:newState?'completed':null, completionTime:newState?new Date().toLocaleTimeString('sk-SK'):null, completedBy:newState?currentUser:null, completedAt:newState?Date.now():null, isInProgress:false, inProgressBy:null, isBlocked:false, isManualBlocked: false, isAuditInProgress: false, auditBy: null, pickedFromSectorId: deleteField() });
     }
@@ -633,6 +634,7 @@ const App: React.FC = () => {
   const handleMarkAsIncorrect = async (id: string) => updateDoc(doc(db,'tasks',id), { isDone:true, status:'incorrectly_entered', completionTime:new Date().toLocaleTimeString('sk-SK'), completedBy:currentUser, completedAt:Date.now(), isInProgress:false, inProgressBy:null, isBlocked:false, isManualBlocked: false, isAuditInProgress: false, auditBy: null });
   const handleSetInProgress = async (id: string) => { const t = tasks.find(x=>x.id===id); if(t) updateDoc(doc(db,'tasks',id), { isInProgress:!t.isInProgress, inProgressBy:!t.isInProgress?currentUser:null, startedAt:(!t.isInProgress && !t.startedAt)?Date.now():t.startedAt }); };
   const handleAddNote = (id:string, n:string) => updateDoc(doc(db,'tasks',id), {note:n});
+  const handleAddLogisticsNote = (id:string, n:string) => updateDoc(doc(db,'tasks',id), {note:n});
   const handleReleaseTask = (id:string) => updateDoc(doc(db,'tasks',id), {isInProgress:false, inProgressBy:null});
   const handleEditTask = (id:string, txt:string, prio?:PriorityLevel) => updateDoc(doc(db,'tasks',id), {text:txt, priority:prio});
   const handleDeleteTask = (id:string) => deleteDoc(doc(db,'tasks',id));
@@ -728,37 +730,64 @@ const App: React.FC = () => {
           await addDoc(collection(db, 'notifications'), { partNumber: t.partNumber || 'N/A', reason: `AUDIT DOKONČENÝ (${statusLabel}): ${note}`, reportedBy: currentUser, targetUser: t.createdBy, timestamp: Date.now() });
       }
   };
+
   const handleDailyClosing = async () => {
       const q = query(collection(db, 'tasks'), where('isDone', '==', true));
       const s = await getDocs(q);
       if (s.empty) return { success: true, count: 0 };
+      
+      // KOMPLETNÝ PRENOS VŠETKÝCH PARAMETROV (FULL SPREAD)
+      const doneTasks = s.docs.map(d => ({ 
+          ...d.data(), 
+          id: d.id, 
+          archivedAt: Date.now() 
+      }));
+      
+      const draftRef = doc(db, 'settings', 'draft');
+      const draftSnap = await getDoc(draftRef);
+      if (!draftSnap.exists()) {
+          await setDoc(draftRef, { data: doneTasks });
+      } else {
+          await updateDoc(draftRef, { data: arrayUnion(...doneTasks) });
+      }
+
       const batch = writeBatch(db);
-      s.docs.forEach(d => {
-          batch.set(doc(collection(db, 'archive_drafts')), { ...d.data(), archivedAt: Date.now() });
-          batch.delete(d.ref);
-      });
+      s.docs.forEach(d => batch.delete(d.ref));
       await batch.commit();
       return { success: true, count: s.size };
   };
+
   const handleWeeklyClosing = async () => {
-      const s = await getDocs(collection(db, 'archive_drafts'));
-      if (s.empty) return { success: true, count: 0 };
+      const draftRef = doc(db, 'settings', 'draft');
+      const draftSnap = await getDoc(draftRef);
+      if (!draftSnap.exists() || !draftSnap.data().data?.length) return { success: true, count: 0 };
+      
+      // KOMPLETNÝ PRENOS VŠETKÝCH PARAMETROV Z DRAFTU DO ŠANÓNU
+      const tasksToSanon = draftSnap.data().data;
       const now = new Date();
       const year = now.getFullYear();
       const firstDayOfYear = new Date(year, 0, 1);
       const pastDaysOfYear = (now.getTime() - firstDayOfYear.getTime()) / 86400000;
       const weekNum = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
-      const sanonName = `sanon_${year}_${weekNum}`;
-      const batch = writeBatch(db);
-      s.docs.forEach(d => {
-          batch.set(doc(collection(db, sanonName)), d.data());
-          batch.delete(d.ref);
+      const sanonId = `${year}_${weekNum}`;
+      
+      await setDoc(doc(db, 'sanony', sanonId), { 
+          tasks: tasksToSanon, 
+          archivedAt: Date.now(),
+          year: year,
+          week: weekNum
       });
-      await batch.commit();
-      return { success: true, count: s.size, sanon: sanonName };
+      
+      await updateDoc(draftRef, { data: [] });
+      
+      return { success: true, count: tasksToSanon.length, sanon: sanonId };
   };
+
   const handleArchiveTasks = async () => { return await handleDailyClosing(); };
-  const fetchArchivedTasks = async () => (await getDocs(query(collection(db,'archive_drafts'), limit(500)))).docs.map(d=>({id:d.id, ...d.data()} as Task));
+  const fetchArchivedTasks = async () => {
+      const snap = await getDoc(doc(db, 'settings', 'draft'));
+      return (snap.exists() ? snap.data().data : []) as Task[];
+  };
   
   const handleGetDocCount = useCallback(async () => {
       const snap = await getCountFromServer(collection(db, 'tasks'));
@@ -865,7 +894,6 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* MODAL PRE VÝBER ZDROJA (FÁZA 1) */}
       {showSectorModal && (
         <div className="fixed inset-0 z-[11000] bg-black/90 backdrop-blur-lg flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-gray-800 border-2 border-teal-500 p-8 rounded-[2rem] shadow-2xl w-[95%] md:max-w-4xl text-center ring-4 ring-teal-500/10">
