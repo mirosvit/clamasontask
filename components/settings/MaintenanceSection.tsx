@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { SystemConfig } from '../../App';
+import { SystemConfig } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 
 interface MaintenanceSectionProps {
@@ -153,8 +154,8 @@ const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, o
             <div className="space-y-8">
               <div className={`p-8 rounded-3xl border transition-all ${systemConfig.maintenanceMode ? 'bg-red-900/10 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.2)]' : 'bg-slate-950/40 border-white/5'}`}>
                 <div className="flex justify-between items-center mb-6">
-                  <h4 className="text-base font-black text-white uppercase tracking-widest">MAINTENANCE MODE</h4>
-                  <span className={`px-3 py-1.5 rounded-full text-[10px] font-black ${systemConfig.maintenanceMode ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-800 text-slate-500'}`}>{systemConfig.maintenanceMode ? 'ACTIVE' : 'INACTIVE'}</span>
+                  <h4 className="text-base font-black text-white uppercase tracking-widest">SERVISNÝ MÓD</h4>
+                  <span className={`px-3 py-1.5 rounded-full text-[10px] font-black ${systemConfig.maintenanceMode ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-800 text-slate-500'}`}>{systemConfig.maintenanceMode ? 'AKTÍVNY' : 'NEAKTÍVNY'}</span>
                 </div>
                 <p className="text-xs text-slate-500 mb-8 leading-relaxed font-medium">Keď je aktívny, bežní užívatelia sú automaticky odhlásení a nemôžu sa prihlásiť.</p>
                 <button onClick={() => onUpdateSystemConfig({maintenanceMode: !systemConfig.maintenanceMode})} className={`w-full py-5 rounded-xl font-black uppercase text-xs tracking-[0.2em] transition-all border-2 ${systemConfig.maintenanceMode ? 'bg-white text-red-600 border-white shadow-xl' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
@@ -173,7 +174,7 @@ const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, o
                   rel="noopener noreferrer"
                   className="w-full h-12 flex items-center justify-center gap-3 bg-slate-900 px-5 rounded-xl border border-white/5 text-xs font-mono font-bold text-orange-400 hover:bg-slate-800 transition-all shadow-md group"
                 >
-                  <span>OPEN FIRESTORE DB</span>
+                  <span>OTVORIŤ FIRESTORE DB</span>
                   <Icons.External />
                 </a>
               </div>
@@ -181,7 +182,7 @@ const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, o
             <div className="bg-slate-950/40 p-8 rounded-3xl border border-white/5 space-y-8 shadow-inner flex flex-col">
               <div className="flex justify-between items-center">
                 <div>
-                  <h4 className="text-base font-black text-white uppercase tracking-widest">IP WHITELIST</h4>
+                  <h4 className="text-base font-black text-white uppercase tracking-widest">ZOZNAM POVOLENÝCH IP</h4>
                   <p className="text-[10px] font-mono text-teal-500/80 tracking-wider mt-1">
                     VAŠA AKTUÁLNA IP: {currentUserIp || 'zisťujem...'}
                   </p>
@@ -200,7 +201,7 @@ const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, o
                   {isActivating ? '...' : (
                     <>
                       {(!systemConfig.ipCheckEnabled && isListEmpty) && <span className="mr-2">⚠️</span>}
-                      {systemConfig.ipCheckEnabled ? 'ENABLED' : 'DISABLED'}
+                      {systemConfig.ipCheckEnabled ? 'ZAPNUTÉ' : 'VYPNUTÉ'}
                     </>
                   )}
                 </button>
@@ -281,10 +282,10 @@ const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, o
             </div>
             <div className="grid grid-cols-2 gap-4 w-full px-4 mb-4">
                 <button onClick={onExportTasksJSON} className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-black py-3 rounded-xl uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 border border-slate-600 transition-all active:scale-95">
-                    <Icons.Export /> BACKUP
+                    <Icons.Export /> ZÁLOHA
                 </button>
                 <button onClick={handlePurge} disabled={isPurging} className="bg-rose-900/20 hover:bg-rose-600 text-rose-500 hover:text-white font-black py-3 rounded-xl uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 border border-rose-900/50 transition-all active:scale-95">
-                    <Icons.Trash /> {isPurging ? '...' : 'PURGE'}
+                    <Icons.Trash /> {isPurging ? '...' : 'PREMAZAŤ'}
                 </button>
             </div>
           </div>

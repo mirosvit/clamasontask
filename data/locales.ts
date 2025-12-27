@@ -1,5 +1,17 @@
 export const translations = {
   sk: {
+    // ... existujúce preklady
+    db_sync_title: "Prepojenie s Master DB",
+    db_sync_pass_label: "Heslo pre prístup k databáze",
+    db_sync_btn_connect: "Pripojiť a načítať",
+    db_sync_connecting: "Pripájam sa k serveru...",
+    db_sync_success: "Dáta úspešne synchronizované!",
+    db_sync_error_pass: "Nesprávne heslo pre Master DB.",
+    db_sync_error_fetch: "Nepodarilo sa nadviazať spojenie.",
+    db_sync_preview: "Nájdených {count} nových dielov. Importovať?",
+    db_sync_import_btn: "Spustiť import",
+    db_sync_tab_label: "Master Sync",
+    // ... zvyšok translations.sk
     shift_utilization: "Efektívne využitie zmeny",
     status_blocked: "ZABLOKOVANÉ",
     miss_tab_title: "Prehľad chýbajúceho tovaru",
@@ -275,7 +287,7 @@ export const translations = {
     modal_confirm_title: "Potvrdenie akcie",
     btn_confirm_delete: "Áno, Vymazať",
     msg_delete_user: "Naozaj chcete vymazať užívateľa: {name}?",
-    msg_delete_part: "Naozaj chcete vymazať diel: {name}?",
+    msg_delete_part: "Naozaj chcete vymať diel: {name}?",
     msg_delete_wp: "Naozaj chcete vymazať pracovisko: {name}?",
     msg_delete_reason: "Naozaj chcete vymazať dôvod: {name}?",
     msg_delete_log_op: "Naozaj chcete vymazať operáciu: {name}?",
@@ -429,6 +441,17 @@ export const translations = {
     false_alarms: "Nájdené (Falošné)",
   },
   en: {
+    db_sync_title: "Master DB Link",
+    db_sync_pass_label: "Database access password",
+    db_sync_btn_connect: "Connect and fetch",
+    db_sync_connecting: "Connecting to server...",
+    db_sync_success: "Data synchronized successfully!",
+    db_sync_error_pass: "Incorrect Master DB password.",
+    db_sync_error_fetch: "Failed to establish connection.",
+    db_sync_preview: "Found {count} new parts. Import?",
+    db_sync_import_btn: "Start Import",
+    db_sync_tab_label: "Master Sync",
+    // ... existujúce preklady pre en
     shift_utilization: "Shift Utilization",
     status_blocked: "BLOCKED",
     miss_tab_title: "Missing Items Report",
@@ -742,7 +765,7 @@ export const translations = {
     perm_push_notification: "Feature: Push Notifications",
     perm_view_passwords: "Feature: View Passwords",
     perm_install_pwa: "Feature: Install PWA",
-    perm_manage_users: "Manage: Users (pw/role)",
+    manage_users: "Manage: Users (pw/role)",
     perm_delete_users: "Manage: Delete Users",
     perm_manage_db: "Manage: Database (parts/wp)",
     perm_manage_logistics_ops: "Manage: Logistics Ops",

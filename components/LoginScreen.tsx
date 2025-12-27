@@ -131,7 +131,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, users, system
         )}
 
         <div className="text-center">
-          <h2 className="text-3xl font-extrabold text-teal-400 mb-2">
+          <h2 className="text-3xl font-extrabold text-[#97bc1e] mb-2">
             {t('login_title')}
           </h2>
           <p className="mt-2 text-sm text-gray-400">
@@ -149,7 +149,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, users, system
                 autoComplete="username"
                 required
                 autoFocus
-                className={`appearance-none rounded-none rounded-t-md relative block w-full px-3 py-3 border placeholder-gray-500 text-white bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-pink-500 focus:z-10 text-base sm:text-sm ${error ? 'border-red-500' : 'border-gray-600'}`}
+                className={`appearance-none rounded-none rounded-t-md relative block w-full px-3 py-3 border placeholder-gray-500 text-white bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-teal-500 focus:z-10 text-base sm:text-sm ${error ? 'border-red-500' : 'border-gray-600'}`}
                 placeholder={t('username')}
                 value={username}
                 onChange={(e) => {
@@ -166,7 +166,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, users, system
                 type="password"
                 autoComplete="current-password"
                 required
-                className={`appearance-none rounded-none rounded-b-md relative block w-full px-3 py-3 border placeholder-gray-500 text-white bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-pink-500 focus:z-10 text-base sm:text-sm ${error ? 'border-red-500' : 'border-gray-600'}`}
+                className={`appearance-none rounded-none rounded-b-md relative block w-full px-3 py-3 border placeholder-gray-500 text-white bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-teal-500 focus:z-10 text-base sm:text-sm ${error ? 'border-red-500' : 'border-gray-600'}`}
                 placeholder={t('password')}
                 value={password}
                 onChange={(e) => {
@@ -183,10 +183,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, users, system
             <button
               type="submit"
               disabled={systemConfig.ipCheckEnabled && !isIpAllowed}
-              className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-pink-500 
+              className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-teal-500 
                   ${systemConfig.ipCheckEnabled && !isIpAllowed 
                     ? 'bg-gray-600 cursor-not-allowed opacity-50' 
-                    : 'bg-pink-600 hover:bg-pink-700 shadow-[0_0_15px_rgba(219,39,119,0.4)]'
+                    : 'bg-teal-700 hover:bg-teal-600 shadow-[0_0_15px_rgba(15,118,110,0.4)]'
                   }`}
             >
               {t('login_btn')}

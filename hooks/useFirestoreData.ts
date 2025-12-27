@@ -7,9 +7,13 @@ import {
   orderBy,
   where,
   limit,
-  doc
+  doc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  serverTimestamp
 } from 'firebase/firestore';
-import { Task, UserData, DBItem, MapSector, PartRequest, BOMRequest, BreakSchedule, SystemBreak, Role, Permission, Notification } from '../types/appTypes';
+import { Task, UserData, DBItem, MapSector, PartRequest, BOMRequest, BreakSchedule, SystemBreak, Role, Permission, Notification, PriorityLevel } from '../types/appTypes';
 import { PRIORITY_ORDER } from '../constants/uiConstants';
 
 export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: string) => {
@@ -121,9 +125,12 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
       const unsubBomReq = onSnapshot(collection(db, 'bom_requests'), s => setBomRequests(s.docs.map(d => ({id:d.id, ...d.data()} as BOMRequest))));
       const unsubSysBreaks = onSnapshot(collection(db, 'system_breaks'), s => setSystemBreaks(s.docs.map(d => ({id:d.id, ...d.data()} as SystemBreak))));
       
+      const unsubNotifications = onSnapshot(collection(db, 'notifications'), s => setNotifications(s.docs.map(d => ({id:d.id, ...d.data()} as Notification))));
+
       return () => { 
         unsubUsers(); unsubRoles(); unsubPerms(); unsubWp(); unsubReasons(); 
         unsubSectors(); unsubLogOps(); unsubPartReq(); unsubBomReq(); unsubSysBreaks();
+        unsubNotifications();
       };
   }, []);
 
@@ -155,9 +162,215 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
     return () => { unsubParts(); unsubBOM(); unsubBreaks(); };
   }, []);
 
+  // --- WRITE OPERATIONS ---
+
+  const onAddTask = async (
+    partNumber: string,
+    workplace: string | null,
+    quantity: string | null,
+    quantityUnit: string | null,
+    priority: PriorityLevel,
+    isLogistics: boolean = false,
+    note: string = '',
+    isProduction: boolean = false
+  ) => {
+    const createdBy = localStorage.getItem('app_user') || 'Unknown';
+    const newTask = {
+        text: partNumber, 
+        partNumber,
+        workplace: workplace || '',
+        quantity: quantity || '0',
+        quantityUnit: quantityUnit || 'pcs',
+        priority,
+        isLogistics,
+        isProduction,
+        note,
+        isDone: false,
+        isMissing: false,
+        createdAt: Date.now(),
+        createdBy,
+        status: 'open'
+    };
+
+    try {
+        await addDoc(collection(db, 'tasks'), newTask);
+    } catch (e) {
+        console.error("Error adding task", e);
+    }
+  };
+
+  const onUpdateTask = async (id: string, updates: Partial<Task>) => {
+    try {
+        const docRef = doc(db, 'tasks', id);
+        await updateDoc(docRef, updates);
+    } catch(e) {
+        console.error("Error updating task", e);
+    }
+  };
+
+  const onDeleteTask = async (id: string) => {
+    try {
+        await deleteDoc(doc(db, 'tasks', id));
+    } catch(e) { console.error(e); }
+  };
+
+  const onToggleTask = async (id: string) => {
+    const task = tasks.find(t => t.id === id);
+    if(!task) return;
+    const currentUser = localStorage.getItem('app_user') || 'Unknown';
+    
+    const updates: any = {
+        isDone: !task.isDone
+    };
+    
+    if (!task.isDone) {
+        updates.completedAt = Date.now();
+        updates.completedBy = currentUser;
+        updates.status = 'completed';
+    } else {
+        updates.completedAt = null;
+        updates.completedBy = null;
+        updates.status = 'open';
+    }
+    
+    await onUpdateTask(id, updates);
+  };
+
+  const onEditTask = async (id: string, newText: string, newPriority?: PriorityLevel) => {
+    const updates: any = { text: newText, partNumber: newText };
+    if (newPriority) updates.priority = newPriority;
+    await onUpdateTask(id, updates);
+  };
+
+  const onToggleMissing = async (id: string, reason?: string) => {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    const user = localStorage.getItem('app_user') || 'Unknown';
+    
+    const updates: any = { isMissing: !task.isMissing };
+    if (!task.isMissing) {
+        updates.missingReason = reason || 'Unknown';
+        updates.missingReportedBy = user;
+    } else {
+        updates.missingReason = null;
+        updates.missingReportedBy = null;
+    }
+    await onUpdateTask(id, updates);
+  };
+
+  const onSetInProgress = async (id: string) => {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    const user = localStorage.getItem('app_user') || 'Unknown';
+
+    if (task.isInProgress) {
+        await onUpdateTask(id, { isInProgress: false, inProgressBy: null });
+    } else {
+        await onUpdateTask(id, { isInProgress: true, inProgressBy: user, startedAt: Date.now() });
+    }
+  };
+
+  const onToggleBlock = async (id: string) => {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    const user = localStorage.getItem('app_user') || 'Unknown';
+    
+    if (task.isBlocked) {
+        await onUpdateTask(id, { isBlocked: false, blockedBy: null });
+    } else {
+        await onUpdateTask(id, { isBlocked: true, blockedBy: user });
+    }
+  };
+
+  const onToggleManualBlock = async (id: string) => {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    await onUpdateTask(id, { isManualBlocked: !task.isManualBlocked });
+  };
+
+  const onExhaustSearch = async (id: string) => {
+    await onUpdateTask(id, { searchExhausted: true });
+  };
+
+  const onMarkAsIncorrect = async (id: string) => {
+    const user = localStorage.getItem('app_user') || 'Unknown';
+    await onUpdateTask(id, { 
+        status: 'incorrectly_entered', 
+        isDone: true, 
+        completedBy: user, 
+        completedAt: Date.now() 
+    });
+  };
+
+  const onAddNote = async (id: string, note: string) => {
+    await onUpdateTask(id, { note });
+  };
+
+  const onReleaseTask = async (id: string) => {
+    await onUpdateTask(id, { 
+        isBlocked: false, 
+        isManualBlocked: false, 
+        isInProgress: false, 
+        inProgressBy: null,
+        blockedBy: null
+    });
+  };
+
+  const onRequestPart = async (part: string) => {
+    try {
+        const user = localStorage.getItem('app_user') || 'Unknown';
+        await addDoc(collection(db, 'part_requests'), {
+            partNumber: part,
+            requestedBy: user,
+            requestedAt: Date.now()
+        });
+        return true;
+    } catch (e) {
+        return false;
+    }
+  };
+
+  const onRequestBOM = async (parent: string) => {
+    try {
+        const user = localStorage.getItem('app_user') || 'Unknown';
+        await addDoc(collection(db, 'bom_requests'), {
+            parentPart: parent,
+            requestedBy: user,
+            requestedAt: Date.now()
+        });
+        return true;
+    } catch (e) {
+        return false;
+    }
+  };
+
+  const onAddNotification = async (notification: Partial<Notification>) => {
+    try {
+        await addDoc(collection(db, 'notifications'), {
+            ...notification,
+            timestamp: Date.now()
+        });
+    } catch (e) {
+        console.error("Error adding notification", e);
+    }
+  };
+
+  const onClearNotification = async (id: string) => {
+    try {
+        await deleteDoc(doc(db, 'notifications', id));
+    } catch (e) {
+        console.error("Error clearing notification", e);
+    }
+  };
+
   return {
     tasks, users, partsMap, bomMap, workplaces, missingReasons, logisticsOperations,
     mapSectors, partRequests, bomRequests, breakSchedules, systemBreaks, isBreakActive,
-    roles, permissions, notifications, setNotifications
+    roles, permissions, notifications, onClearNotification,
+    // Export CRUD
+    onAddTask, onUpdateTask, onDeleteTask, onToggleTask, onEditTask, onToggleMissing,
+    onSetInProgress, onToggleBlock, onToggleManualBlock, onExhaustSearch, 
+    onMarkAsIncorrect, onAddNote, onReleaseTask, onRequestPart, onRequestBOM,
+    onAddNotification
   };
 };

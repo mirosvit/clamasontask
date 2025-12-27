@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, memo } from 'react';
-import { BOMComponent } from '../../App';
+import { BOMComponent } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 
 interface BOMSectionProps {
@@ -53,18 +53,18 @@ const BOMSection: React.FC<BOMSectionProps> = memo(({ bomMap, onAddBOMItem, onBa
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="space-y-6">
             <div className="bg-slate-950/40 p-6 rounded-2xl border border-white/5">
-              <h4 className={labelClass}>ADD RELATION (5 DECIMALS)</h4>
+              <h4 className={labelClass}>PRIDAŤ VÄZBU (5 DES. MIEST)</h4>
               <div className="space-y-4">
-                <input value={bomParent} onChange={e=>setBomParent(e.target.value.toUpperCase())} placeholder="PARENT" className={inputClass} />
-                <input value={bomChild} onChange={e=>setBomChild(e.target.value.toUpperCase())} placeholder="CHILD" className={inputClass} />
+                <input value={bomParent} onChange={e=>setBomParent(e.target.value.toUpperCase())} placeholder="RODIČ" className={inputClass} />
+                <input value={bomChild} onChange={e=>setBomChild(e.target.value.toUpperCase())} placeholder="DIEŤA" className={inputClass} />
                 <input type="number" step="0.00001" value={bomQty} onChange={e=>setBomQty(e.target.value)} placeholder="0.00000" className={inputClass} />
-                <button onClick={() => { if(bomParent && bomChild && bomQty) { onAddBOMItem(bomParent, bomChild, parseFloat(bomQty)); setBomParent(''); setBomChild(''); setBomQty(''); } }} className="h-12 bg-teal-600 hover:bg-teal-500 text-white font-black px-6 rounded-xl uppercase tracking-widest text-xs transition-all w-full mt-2 border-2 border-teal-500 shadow-lg">ADD</button>
+                <button onClick={() => { if(bomParent && bomChild && bomQty) { onAddBOMItem(bomParent, bomChild, parseFloat(bomQty)); setBomParent(''); setBomChild(''); setBomQty(''); } }} className="h-12 bg-teal-600 hover:bg-teal-500 text-white font-black px-6 rounded-xl uppercase tracking-widest text-xs transition-all w-full mt-2 border-2 border-teal-500 shadow-lg">PRIDAŤ</button>
               </div>
             </div>
             <div className="bg-slate-950/40 p-6 rounded-2xl border border-white/5">
-              <h4 className={labelClass}>BULK IMPORT (Parent;Child;Qty)</h4>
+              <h4 className={labelClass}>HROMADNÝ IMPORT (Rodič;Dieťa;Množstvo)</h4>
               <textarea value={bomBulk} onChange={e=>setBomBulk(e.target.value)} placeholder="Parent;Child;0.00000" className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono placeholder-gray-500 h-40 resize-none" />
-              <button onClick={() => { if(bomBulk) { onBatchAddBOMItems(bomBulk.split('\n')); setBomBulk(''); } }} className="h-12 bg-blue-600 hover:bg-blue-500 text-white font-black px-6 rounded-xl uppercase tracking-widest text-xs transition-all w-full mt-2 border-2 border-blue-500 shadow-lg">IMPORT BATCH</button>
+              <button onClick={() => { if(bomBulk) { onBatchAddBOMItems(bomBulk.split('\n')); setBomBulk(''); } }} className="h-12 bg-blue-600 hover:bg-blue-500 text-white font-black px-6 rounded-xl uppercase tracking-widest text-xs transition-all w-full mt-2 border-2 border-blue-500 shadow-lg">IMPORTOVAŤ DÁVKU</button>
             </div>
           </div>
           <div className="lg:col-span-2 space-y-4 flex flex-col">
@@ -72,7 +72,7 @@ const BOMSection: React.FC<BOMSectionProps> = memo(({ bomMap, onAddBOMItem, onBa
             <div className="flex-1 bg-slate-950/40 rounded-2xl border border-white/5 overflow-hidden shadow-inner max-h-[600px] overflow-y-auto">
               <table className="w-full text-left text-xs font-mono">
                 <thead className="bg-slate-950 text-slate-600 uppercase tracking-widest sticky top-0">
-                  <tr><th className="p-4">Parent</th><th className="p-4">Child</th><th className="p-4 text-right">Consumption</th><th className="p-4"></th></tr>
+                  <tr><th className="p-4">Rodič</th><th className="p-4">Dieťa</th><th className="p-4 text-right">Spotreba</th><th className="p-4"></th></tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {filteredBOMs.map((item, idx) => (

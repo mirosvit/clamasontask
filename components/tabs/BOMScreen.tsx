@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import PartNumberInput from '../PartNumberInput';
-import { DBItem, BOMComponent, PriorityLevel } from '../../App';
+import { DBItem, BOMComponent, PriorityLevel } from '../../types/appTypes';
 
 interface BOMScreenProps {
   parts: DBItem[];
@@ -238,7 +238,7 @@ const BOMScreen: React.FC<BOMScreenProps> = ({
                                                 <tr key={res.childPart} className={`transition-colors ${isSent ? 'bg-teal-500/5 opacity-60' : 'hover:bg-gray-700/30'}`}>
                                                     <td className="py-6 px-8">
                                                         <p className={`font-mono font-bold text-base ${isSent ? 'text-gray-500' : 'text-white'}`}>{res.childPart}</p>
-                                                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tight">Standard Component</p>
+                                                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tight">Štandardný Komponent</p>
                                                     </td>
                                                     <td className="py-6 px-8 text-center text-gray-400 font-mono text-sm">
                                                         {res.quantity}

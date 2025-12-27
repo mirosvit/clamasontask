@@ -23,7 +23,7 @@ interface PartSearchScreenProps {
   currentUserRole: 'ADMIN' | 'USER' | 'LEADER';
   onLogout: () => void;
   tasks: Task[];
-  onAddTask: (partNumber: string, workplace: string | null, quantity: string | null, quantityUnit: string | null, priority: PriorityLevel, isLogistics?: boolean, note?: string) => void; 
+  onAddTask: (partNumber: string, workplace: string | null, quantity: string | null, quantityUnit: string | null, priority: PriorityLevel, isLogistics?: boolean, note?: string, isProduction?: boolean) => void; 
   onUpdateTask: (id: string, updates: Partial<Task>) => void;
   onToggleTask: (id: string) => void;
   onMarkAsIncorrect: (id: string) => void;
@@ -159,6 +159,11 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   // STAV PRE SEKTOR PICKER
   const [pickingTask, setPickingTask] = useState<Task | null>(null);
 
+  // Filter notifications specifically for the current user
+  const myNotifications = useMemo(() => {
+    return notifications.filter(n => n.targetUser === currentUser);
+  }, [notifications, currentUser]);
+
   const unitLock = useMemo(() => {
     if (entryMode === 'logistics' || !selectedPart) return null;
     const partData = parts.find(p => p.value === selectedPart);
@@ -240,7 +245,8 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
             alert(t('fill_all_fields')); 
             return;
         }
-        onAddTask(selectedPart, selectedWorkplace, quantity, quantityUnit, priority, false);
+        // Updated to pass isProduction=true (8th argument)
+        onAddTask(selectedPart, selectedWorkplace, quantity, quantityUnit, priority, false, undefined, true);
     } else {
         if (!logisticsRef || !logisticsOp || !quantity) {
             alert(t('fill_all_fields'));
@@ -297,8 +303,10 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
       if (!searchConfirmTask) return;
       if (found) {
           onToggleMissing(searchConfirmTask.id);
+          onToggleBlock(searchConfirmTask.id); // FIX: Unblock if found
       } else {
           onExhaustSearch(searchConfirmTask.id);
+          onToggleBlock(searchConfirmTask.id); // FIX: Unblock if not found (reverts to red)
       }
       setSearchConfirmTask(null);
   };
@@ -320,15 +328,15 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
 
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-white">
-      {notifications.length > 0 && (
+      {myNotifications.length > 0 && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
               <div className="bg-gray-800 rounded-2xl max-w-2xl w-full p-8 shadow-2xl border border-gray-700 animate-fade-in">
                   <div className="flex items-center justify-between mb-6 border-b border-gray-700 pb-4">
                       <h3 className="text-3xl font-black text-teal-400 uppercase tracking-tighter">{t('alert_missing_title')}</h3>
-                      <span className="bg-teal-500/20 text-teal-400 px-3 py-1 rounded-full text-xs font-bold">{notifications.length}</span>
+                      <span className="bg-teal-500/20 text-teal-400 px-3 py-1 rounded-full text-xs font-bold">{myNotifications.length}</span>
                   </div>
                   <div className="space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
-                      {notifications.map(notif => {
+                      {myNotifications.map(notif => {
                           const isAudit = notif.reason.toUpperCase().includes('AUDIT');
                           const itemBgClass = isAudit ? "bg-amber-900/20 border-amber-800/40" : "bg-red-900/20 border-red-800/40";
                           const iconColorClass = isAudit ? "text-amber-400" : "text-red-400";
@@ -354,7 +362,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                       })}
                   </div>
                   <div className="mt-8 flex gap-4">
-                      <button onClick={() => notifications.forEach(n => props.onClearNotification(n.id))} className="flex-1 py-4 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-black text-lg shadow-xl transition-all active:scale-[0.98] uppercase tracking-widest">{t('alert_btn_ok')}</button>
+                      <button onClick={() => myNotifications.forEach(n => props.onClearNotification(n.id))} className="flex-1 py-4 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-black text-lg shadow-xl transition-all active:scale-[0.98] uppercase tracking-widest">{t('alert_btn_ok')}</button>
                   </div>
               </div>
           </div>

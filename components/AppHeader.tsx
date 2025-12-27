@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { UserData } from '../App';
+import { UserData } from '../types/appTypes';
 
 interface AppHeaderProps {
   currentUser: string;
@@ -89,7 +89,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                     <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md border ${isOnline ? 'border-green-500/30 bg-green-500/10' : 'border-red-500/30 bg-red-500/10 animate-pulse'}`}>
                         <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`}></div>
                         <span className={`text-[10px] font-black uppercase tracking-widest ${isOnline ? 'text-green-500' : 'text-red-500'}`}>
-                            {isOnline ? 'ONLINE' : 'OFFLINE MODE'}
+                            {isOnline ? 'ONLINE' : 'OFFLINE REŽIM'}
                         </span>
                     </div>
                 </div>

@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, memo } from 'react';
-import { DBItem, MapSector, SystemConfig } from '../../App';
+import { DBItem, MapSector, SystemConfig } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 
 interface WorkplaceSectionProps {
@@ -96,7 +96,7 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({
                 </div>
                 <div className="flex flex-wrap items-center gap-4 border-t border-white/5 pt-2">
                   <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-slate-600 font-bold uppercase">Time:</span>
+                    <span className="text-[9px] text-slate-600 font-bold uppercase">Čas:</span>
                     <input 
                       type="number" 
                       value={w.standardTime || 0} 
@@ -141,7 +141,7 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({
             <div className="space-y-4">
               <h4 className={labelClass}>HROMADNÝ IMPORT</h4>
               <textarea value={bulkWorkplaces} onChange={e=>setBulkWorkplaces(e.target.value)} placeholder="Wp1;10&#10;Wp2;15" className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono placeholder-gray-500 h-[120px] resize-none" />
-              <button onClick={() => { if(bulkWorkplaces) { onBatchAddWorkplaces(bulkWorkplaces.split('\n')); setBulkWorkplaces(''); } }} className="h-12 bg-blue-600 hover:bg-blue-500 text-white font-black px-6 rounded-xl uppercase tracking-widest text-xs transition-all w-full border-2 border-blue-500 shadow-lg">IMPORT BATCH</button>
+              <button onClick={() => { if(bulkWorkplaces) { onBatchAddWorkplaces(bulkWorkplaces.split('\n')); setBulkWorkplaces(''); } }} className="h-12 bg-blue-600 hover:bg-blue-500 text-white font-black px-6 rounded-xl uppercase tracking-widest text-xs transition-all w-full border-2 border-blue-500 shadow-lg">IMPORTOVAŤ DÁVKU</button>
             </div>
           </div>
         </div>
@@ -171,7 +171,7 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({
                 <span className="text-sm font-bold text-slate-300 uppercase tracking-widest truncate max-w-[200px]">{op.value}</span>
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] text-slate-600 font-bold uppercase">Time:</span>
+                    <span className="text-[9px] text-slate-600 font-bold uppercase">Čas:</span>
                     <input 
                       type="number" 
                       value={op.standardTime || 0} 
@@ -181,7 +181,7 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({
                     <span className="text-slate-600 text-[10px]">m</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] text-slate-600 font-bold uppercase">Dist:</span>
+                    <span className="text-[9px] text-slate-600 font-bold uppercase">Vzd:</span>
                     <input 
                       type="number" 
                       value={op.distancePx || 0} 
@@ -225,7 +225,7 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({
                           value={editOrder} 
                           onChange={(e) => setEditOrder(parseInt(e.target.value) || 0)}
                           className={`${amberInputClass} w-16 text-center`}
-                          placeholder="Order"
+                          placeholder="Poradie"
                         />
                         <input 
                           type="text" 

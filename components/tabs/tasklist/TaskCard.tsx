@@ -132,10 +132,10 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
                     </span>
                 )}
                 </h3>
-                {task.isLogistics && task.note && (
+                {task.isLogistics && (task as any).plate && (
                     <div className="mt-1 flex items-center gap-2">
                         <span className="text-sky-500 font-black text-xs uppercase tracking-widest">ŠPZ/PREPR:</span>
-                        <span className="text-gray-300 font-mono font-bold text-base bg-gray-900/50 px-2 py-0.5 rounded border border-gray-700">{task.note}</span>
+                        <span className="text-gray-300 font-mono font-bold text-base bg-gray-900/50 px-2 py-0.5 rounded border border-gray-700">{(task as any).plate}</span>
                     </div>
                 )}
             </div>
@@ -147,10 +147,10 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
           
           <div className="flex flex-wrap gap-2 items-center mt-2">
             <span className={`text-lg font-bold uppercase tracking-wider ${task.isDone ? 'text-gray-600' : isManualBlocked ? 'text-gray-600' : props.isSystemInventoryTask ? 'text-[#4169E1]' : isAuditInProgress ? 'text-[#926a05]' : 'text-cyan-400'}`}>{task.workplace || "---"}</span>
-            {task.note && !task.isLogistics && <span className="inline-block px-2 py-0.5 rounded bg-[#fef9c3] text-gray-800 text-xs font-bold shadow-sm border border-yellow-200 leading-tight">{task.note}</span>}
+            {task.note && <span className="inline-block px-2 py-0.5 rounded bg-[#fef9c3] text-gray-800 text-xs font-bold shadow-sm border border-yellow-200 leading-tight">{task.note}</span>}
           </div>
 
-          {task.isInProgress && !props.isSystemInventoryTask && (
+          {task.isInProgress && !props.isSystemInventoryTask && !task.isDone && (
             <div className="flex mt-1">
               <span className="text-[#FFD700] text-xs font-bold uppercase tracking-wide border border-[#FFD700]/50 bg-[#FFD700]/10 px-2 py-0.5 rounded animate-pulse truncate max-w-[200px]">
                 {t('status_resolving')} {resolveName(task.inProgressBy)}

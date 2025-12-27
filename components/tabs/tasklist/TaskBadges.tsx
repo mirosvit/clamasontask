@@ -1,5 +1,5 @@
 import React from 'react';
-import { Task } from '../../../App';
+import { Task } from '../../../types/appTypes';
 import { useLanguage } from '../../LanguageContext';
 
 interface TaskBadgesProps {
@@ -29,7 +29,8 @@ const TaskBadges: React.FC<TaskBadgesProps> = ({
 }) => {
   const { t, language } = useLanguage();
 
-  if (task.isDone) return null;
+  // Allow badges if task is not done OR if it is done but marked as incorrectly entered
+  if (task.isDone && task.status !== 'incorrectly_entered') return null;
 
   return (
     <div className="flex flex-wrap gap-1.5 mb-2">
@@ -85,6 +86,16 @@ const TaskBadges: React.FC<TaskBadgesProps> = ({
         <span className="bg-gray-700 text-gray-300 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-gray-600 shadow-sm">
           🕵️ {language === 'sk' ? 'HLADAL' : 'SEARCHED'}: {task.searchedBy}
         </span>
+      )}
+
+      {/* BADGE: INCORRECTLY ENTERED */}
+      {task.status === 'incorrectly_entered' && (
+        <div className="w-fit bg-gray-800/50 text-red-400 border border-red-900/50 text-[10px] font-bold uppercase px-2 py-0.5 rounded-md tracking-widest flex items-center gap-1 shadow-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          CHYBNE ZADANÉ
+        </div>
       )}
     </div>
   );

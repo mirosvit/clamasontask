@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { UserData, DBItem, BreakSchedule, BOMComponent, SystemConfig } from '../../App';
+import { UserData, DBItem, BreakSchedule, BOMComponent, SystemConfig } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 
 interface SetupViewProps {
@@ -39,23 +39,23 @@ const SetupView: React.FC<SetupViewProps> = (props) => {
       <div className={cardClass}>
         <div className="flex items-center gap-3">
           <Icons.Status />
-          <h4 className="text-sm font-black text-white uppercase tracking-tight">{language === 'sk' ? 'STAV SYSTÉMU' : 'SYSTEM STATUS'}</h4>
+          <h4 className="text-sm font-black text-white uppercase tracking-tight">{language === 'sk' ? 'STAV SYSTÉMU' : 'STAV SYSTÉMU'}</h4>
         </div>
         <div className="space-y-3">
           <div className="flex justify-between items-center">
-            <span className={labelClass}>Maintenance:</span>
+            <span className={labelClass}>Údržba:</span>
             <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${props.systemConfig?.maintenanceMode ? 'bg-red-500/20 text-red-500 border border-red-500/30' : 'bg-green-500/20 text-green-500 border border-green-500/30'}`}>
-              {props.systemConfig?.maintenanceMode ? 'ACTIVE' : 'READY'}
+              {props.systemConfig?.maintenanceMode ? 'AKTÍVNY' : 'PRIPRAVENÝ'}
             </span>
           </div>
           <div className={dividerClass}></div>
           <div className="flex justify-between items-center">
-            <span className={labelClass}>IP Check:</span>
-            <span className={valueClass}>{props.systemConfig?.ipCheckEnabled ? 'ENABLED' : 'OFF'}</span>
+            <span className={labelClass}>Kontrola IP:</span>
+            <span className={valueClass}>{props.systemConfig?.ipCheckEnabled ? 'ZAPNUTÉ' : 'VYPNUTÉ'}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className={labelClass}>IP Whitelist:</span>
-            <span className={valueClass}>{(props.systemConfig?.allowedIPs || []).length} items</span>
+            <span className={labelClass}>Povolené IP:</span>
+            <span className={valueClass}>{(props.systemConfig?.allowedIPs || []).length} položiek</span>
           </div>
         </div>
       </div>
@@ -64,7 +64,7 @@ const SetupView: React.FC<SetupViewProps> = (props) => {
       <div className={cardClass}>
         <div className="flex items-center gap-3">
           <Icons.Users />
-          <h4 className="text-sm font-black text-white uppercase tracking-tight">{language === 'sk' ? 'UŽÍVATELIA' : 'DIRECTORY'}</h4>
+          <h4 className="text-sm font-black text-white uppercase tracking-tight">{language === 'sk' ? 'UŽÍVATELIA' : 'ADRESÁR'}</h4>
         </div>
         <div className="max-h-40 overflow-y-auto custom-scrollbar space-y-2 pr-2">
           {(props.users || []).map(u => (
@@ -82,7 +82,7 @@ const SetupView: React.FC<SetupViewProps> = (props) => {
       <div className={cardClass}>
         <div className="flex items-center gap-3">
           <Icons.Time />
-          <h4 className="text-sm font-black text-white uppercase tracking-tight">{language === 'sk' ? 'PRESTÁVKY' : 'BREAKS'}</h4>
+          <h4 className="text-sm font-black text-white uppercase tracking-tight">{language === 'sk' ? 'PRESTÁVKY' : 'PRESTÁVKY'}</h4>
         </div>
         <div className="space-y-2">
           {props.breakSchedules && props.breakSchedules.length > 0 ? (
@@ -93,7 +93,7 @@ const SetupView: React.FC<SetupViewProps> = (props) => {
               </div>
             ))
           ) : (
-            <p className="text-xs italic text-slate-600">No scheduled breaks</p>
+            <p className="text-xs italic text-slate-600">Žiadne naplánované prestávky</p>
           )}
         </div>
       </div>
@@ -102,7 +102,7 @@ const SetupView: React.FC<SetupViewProps> = (props) => {
       <div className={cardClass}>
         <div className="flex items-center gap-3">
           <Icons.Factory />
-          <h4 className="text-sm font-black text-white uppercase tracking-tight">{language === 'sk' ? 'PRACOVISKÁ' : 'SITES'}</h4>
+          <h4 className="text-sm font-black text-white uppercase tracking-tight">{language === 'sk' ? 'PRACOVISKÁ' : 'PRACOVISKÁ'}</h4>
         </div>
         <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto custom-scrollbar">
           {(props.workplaces || []).map(w => (
@@ -118,26 +118,26 @@ const SetupView: React.FC<SetupViewProps> = (props) => {
       <div className={cardClass}>
         <div className="flex items-center gap-3">
           <Icons.Database />
-          <h4 className="text-sm font-black text-white uppercase tracking-tight">{language === 'sk' ? 'DATABÁZA' : 'DB STATS'}</h4>
+          <h4 className="text-sm font-black text-white uppercase tracking-tight">{language === 'sk' ? 'ŠTATISTIKA DB' : 'ŠTATISTIKA DB'}</h4>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-slate-950/40 p-3 rounded-xl border border-white/5">
-            <p className={labelClass}>{language === 'sk' ? 'DIELY' : 'PARTS'}</p>
+            <p className={labelClass}>{language === 'sk' ? 'DIELY' : 'DIELY'}</p>
             <p className="text-2xl font-black text-rose-500">{(props.parts || []).length}</p>
           </div>
           <div className="bg-slate-950/40 p-3 rounded-xl border border-white/5">
-            <p className={labelClass}>BOM LINKS</p>
+            <p className={labelClass}>BOM VÄZBY</p>
             <p className="text-2xl font-black text-teal-400">
               {/* Fix: Calculating BOM links length with guard */}
               {Object.values(props.bomMap || {}).flat().length}
             </p>
           </div>
           <div className="bg-slate-950/40 p-3 rounded-xl border border-white/5">
-            <p className={labelClass}>LOG OPS</p>
+            <p className={labelClass}>LOG OPERÁCIE</p>
             <p className="text-2xl font-black text-sky-400">{(props.logisticsOperations || []).length}</p>
           </div>
           <div className="bg-slate-950/40 p-3 rounded-xl border border-white/5">
-            <p className={labelClass}>REASONS</p>
+            <p className={labelClass}>DÔVODY</p>
             <p className="text-2xl font-black text-emerald-400">{(props.missingReasons || []).length}</p>
           </div>
         </div>
@@ -147,7 +147,7 @@ const SetupView: React.FC<SetupViewProps> = (props) => {
       <div className={cardClass}>
         <div className="flex items-center gap-3">
           <Icons.List />
-          <h4 className="text-sm font-black text-white uppercase tracking-tight">{language === 'sk' ? 'DÔVODY PRESTOJOV' : 'REASONS'}</h4>
+          <h4 className="text-sm font-black text-white uppercase tracking-tight">{language === 'sk' ? 'DÔVODY PRESTOJOV' : 'DÔVODY'}</h4>
         </div>
         <ul className="space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar pr-2">
           {(props.missingReasons || []).map(r => (

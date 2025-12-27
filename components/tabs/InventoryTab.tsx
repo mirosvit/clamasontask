@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useLanguage } from '../LanguageContext';
 import PartNumberInput from '../PartNumberInput';
-import { Task, PriorityLevel } from '../../App';
+import { Task, PriorityLevel } from '../../types/appTypes';
 
 interface ScannedItem {
     id: string;
@@ -386,7 +386,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                     <div className="p-5 sm:p-8 border-b border-gray-700 bg-gray-900/50 flex flex-col sm:row justify-between items-center gap-8">
                         <div className="flex items-center gap-6">
                             <h3 className="text-gray-400 font-black uppercase text-base tracking-[0.2em] leading-none">
-                                {language === 'sk' ? 'SÚPIS POLOŽIEK' : 'ITEM INVENTORY'}
+                                {language === 'sk' ? 'SÚPIS POLOŽIEK' : 'ZOZNAM POLOŽIEK'}
                             </h3>
                             <span className="bg-[#4169E1]/20 text-white border-2 border-[#4169E1] text-2xl px-5 py-2 rounded-xl font-black font-mono leading-none shadow-lg">
                                 {(scannedItems || []).length}

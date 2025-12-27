@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Task } from '../../App';
+import { Task } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 
 declare var XLSX: any;
@@ -173,7 +173,7 @@ const MissingItemsTab: React.FC<MissingItemsTabProps> = ({ tasks, onDeleteMissin
                                                             {item.auditResult}
                                                         </span>
                                                     ) : (
-                                                        <span className="text-[10px] text-slate-600 font-bold uppercase tracking-widest opacity-40 italic">Čaká na audit</span>
+                                                        <span className="text-[10px] text-slate-600 font-bold uppercase tracking-widest opacity-40 italic">ČAKÁ</span>
                                                     )}
                                                 </td>
 
