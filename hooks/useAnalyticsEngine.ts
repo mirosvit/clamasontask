@@ -307,8 +307,8 @@ export const useAnalyticsEngine = (
           production: d.prod, 
           logistics: d.log 
         })).sort((a,b) => a.hour - b.hour),
-        highRunners: Object.entries(highRunnerLoad).map(([k, v]) => ({ partNumber: k, ...v, totalTasks: v.req })).sort((a,b) => b.load - a.load).slice(0, 3),
-        workplaces: Object.entries(workplaceLoad).map(([k, v]) => ({ workplace: k, ...v, totalTasks: v.req })).sort((a,b) => b.load - a.load).slice(0, 3)
+        highRunners: Object.entries(highRunnerLoad).map(([k, v]) => ({ partNumber: k, ...v, totalTasks: v.req, taskRequests: v.req })).sort((a,b) => b.load - a.load).slice(0, 3),
+        workplaces: Object.entries(workplaceLoad).map(([k, v]) => ({ workplace: k, ...v, totalTasks: v.req, taskRequests: v.req })).sort((a,b) => b.load - a.load).slice(0, 3)
       },
       qualityStats: {
         realErrorsCount: globalRealErrors,
