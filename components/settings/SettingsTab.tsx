@@ -177,6 +177,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             onAddUser={props.onAddUser} 
             onUpdatePassword={props.onUpdatePassword} 
             onUpdateNickname={props.onUpdateNickname}
+            onUpdateUserRole={props.onUpdateUserRole}
             onUpdateExportPermission={props.onUpdateExportPermission}
             onDeleteUser={props.onDeleteUser} 
           />
