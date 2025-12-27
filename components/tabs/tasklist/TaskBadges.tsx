@@ -54,7 +54,7 @@ const TaskBadges: React.FC<TaskBadgesProps> = ({
 
       {isAuditInProgress && (
         <span className="bg-[#926a05] text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded animate-pulse border border-[#7a5804] shadow-[0_0_10px_rgba(146,106,5,0.4)]">
-          ⚙️ {t('audit_badge')} • {task.auditBy || resolveName(task.auditBy)}
+          ⚙️ {t('audit_badge')} • {resolveName(task.auditBy)}
         </span>
       )}
 
@@ -84,7 +84,7 @@ const TaskBadges: React.FC<TaskBadgesProps> = ({
 
       {task.searchedBy && (
         <span className="bg-gray-700 text-gray-300 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-gray-600 shadow-sm">
-          🕵️ {language === 'sk' ? 'HLADAL' : 'SEARCHED'}: {task.searchedBy}
+          🕵️ {language === 'sk' ? 'HLADAL' : 'SEARCHED'}: {resolveName(task.searchedBy)}
         </span>
       )}
 

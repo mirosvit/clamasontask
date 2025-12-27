@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Task, SystemBreak } from '../../../types/appTypes';
 
@@ -65,7 +64,12 @@ const AnalyticsExportPanel: React.FC<AnalyticsExportPanelProps> = ({ canExport, 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden mb-8 flex flex-col">
       <button onClick={() => setIsOpen(!isOpen)} className="w-full flex items-center justify-between p-6 bg-sky-900/40 hover:bg-sky-900/60 transition-colors border-b border-sky-800/50">
-        <h3 className="text-sm font-black text-white uppercase tracking-[0.2em]">PANEL EXPORTU</h3>
+        <h3 className="text-sm font-black text-white uppercase tracking-[0.2em] flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          EXPORTOVANIE DÁT
+        </h3>
         <div className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
         </div>

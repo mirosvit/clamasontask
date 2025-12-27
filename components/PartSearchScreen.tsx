@@ -192,7 +192,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
 
   const resolveName = useCallback((username?: string | null) => {
       if (!username) return '-';
-      const u = users.find(x => x.username === username);
+      const u = users.find(x => x.username.toLowerCase() === username.toLowerCase());
       return (u?.nickname || username).toUpperCase();
   }, [users]);
   

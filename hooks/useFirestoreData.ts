@@ -11,7 +11,11 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
-  serverTimestamp
+  setDoc,
+  getDoc,
+  arrayUnion,
+  writeBatch,
+  getDocs
 } from 'firebase/firestore';
 import { Task, UserData, DBItem, MapSector, PartRequest, BOMRequest, BreakSchedule, SystemBreak, Role, Permission, Notification, PriorityLevel } from '../types/appTypes';
 import { PRIORITY_ORDER } from '../constants/uiConstants';
@@ -135,27 +139,37 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
   }, []);
 
   useEffect(() => {
-    const unsubParts = onSnapshot(doc(db, 'settings', 'parts'), (s) => {
-      if (s.exists()) {
-          const raw = s.data().data || [];
-          const cleanMap: Record<string, string> = {};
-          raw.forEach((item: any) => { if (item.p) cleanMap[item.p] = item.d || ''; });
-          setPartsMap(cleanMap);
-      }
+    // REFACTORED: Parts Listener (Single Doc)
+    const unsubParts = onSnapshot(doc(db, 'settings', 'parts'), (docSnap) => {
+        const cleanMap: Record<string, string> = {};
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data.items && Array.isArray(data.items)) {
+                data.items.forEach((item: any) => {
+                    if (item.value) cleanMap[item.value] = item.description || '';
+                });
+            }
+        }
+        setPartsMap(cleanMap);
     });
-    const unsubBOM = onSnapshot(doc(db, 'settings', 'bom'), (s) => {
-      if (s.exists()) {
-          const raw = s.data().data || [];
-          const cleanMap: Record<string, any[]> = {};
-          raw.forEach((item: any) => {
-              if (item.parent && item.child) {
-                  if (!cleanMap[item.parent]) cleanMap[item.parent] = [];
-                  cleanMap[item.parent].push({ child: item.child, consumption: item.q || 0 });
-              }
-          });
-          setBomMap(cleanMap);
-      }
+
+    // REFACTORED: BOM Listener (Single Doc)
+    const unsubBOM = onSnapshot(doc(db, 'settings', 'bom'), (docSnap) => {
+        const cleanMap: Record<string, any[]> = {};
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data.items && Array.isArray(data.items)) {
+                data.items.forEach((item: any) => {
+                    if (item.parent && item.child) {
+                        if (!cleanMap[item.parent]) cleanMap[item.parent] = [];
+                        cleanMap[item.parent].push({ child: item.child, consumption: item.consumption || 0 });
+                    }
+                });
+            }
+        }
+        setBomMap(cleanMap);
     });
+
     const unsubBreaks = onSnapshot(doc(db, 'settings', 'breaks'), (s) => {
       if (s.exists()) setBreakSchedules(s.data().data || []);
     });
@@ -363,14 +377,237 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
     }
   };
 
+  // --- SETTINGS CRUD OPERATIONS (REFACTORED FOR SINGLE DOC) ---
+
+  const onAddPart = async (value: string, description: string = '') => {
+      try {
+          const newItem = {
+              id: `part_${Date.now()}_${Math.random().toString(36).substr(2,9)}`,
+              value: value.toUpperCase(),
+              description,
+              createdAt: Date.now()
+          };
+          await setDoc(doc(db, 'settings', 'parts'), {
+              items: arrayUnion(newItem)
+          }, { merge: true });
+      } catch (e) { console.error(e); }
+  };
+
+  const onBatchAddParts = async (vals: string[]) => {
+    try {
+      const itemsToAdd: any[] = [];
+      vals.forEach((valLine) => {
+        if (!valLine.trim()) return;
+        const [p, d] = valLine.split(';');
+        if(p) {
+            itemsToAdd.push({
+                id: `part_${Date.now()}_${Math.random().toString(36).substr(2,9)}_${itemsToAdd.length}`,
+                value: p.trim().toUpperCase(),
+                description: d ? d.trim() : '',
+                createdAt: Date.now()
+            });
+        }
+      });
+      
+      if (itemsToAdd.length > 0) {
+          await setDoc(doc(db, 'settings', 'parts'), {
+              items: arrayUnion(...itemsToAdd)
+          }, { merge: true });
+      }
+    } catch (error) {
+      console.error("Error batch adding parts:", error);
+      throw error;
+    }
+  };
+
+  const onDeletePart = async (val: string) => {
+      try {
+          const ref = doc(db, 'settings', 'parts');
+          const snap = await getDoc(ref);
+          if (snap.exists()) {
+              const currentItems = snap.data().items || [];
+              // Filter out the item (matching by value since ID is internal)
+              const newItems = currentItems.filter((i: any) => i.value !== val);
+              await updateDoc(ref, { items: newItems });
+          }
+      } catch (e) { console.error("Error deleting part:", e); }
+  };
+
+  const onDeleteAllParts = async () => {
+      try {
+          await setDoc(doc(db, 'settings', 'parts'), { items: [] });
+          console.log("All parts cleared.");
+      } catch (e) { console.error("Error clearing parts:", e); }
+  };
+
+  // Workplaces - Still using Collection based on requirement constraint to ONLY refactor Parts/BOM
+  const onAddWorkplace = async (val: string, time: number = 0, x: number = 0, y: number = 0) => {
+      await addDoc(collection(db, 'workplaces'), { value: val, standardTime: time, coordX: x, coordY: y });
+  };
+  const onUpdateWorkplace = async (id: string, updates: Partial<DBItem>) => {
+      await updateDoc(doc(db, 'workplaces', id), updates);
+  };
+  const onDeleteWorkplace = async (id: string) => {
+      await deleteDoc(doc(db, 'workplaces', id));
+  };
+  const onDeleteAllWorkplaces = async () => {
+      const snap = await getDocs(collection(db, 'workplaces'));
+      const batch = writeBatch(db);
+      snap.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+  };
+  const onBatchAddWorkplaces = async (vals: string[]) => {
+      const batch = writeBatch(db);
+      vals.forEach(line => {
+          if (!line.trim()) return;
+          const [val, time] = line.split(';');
+          const ref = doc(collection(db, 'workplaces'));
+          batch.set(ref, { value: val.trim(), standardTime: parseInt(time) || 0 });
+      });
+      await batch.commit();
+  };
+
+  // Missing Reasons
+  const onAddMissingReason = async (val: string) => {
+      await addDoc(collection(db, 'missing_reasons'), { value: val });
+  };
+  const onDeleteMissingReason = async (id: string) => {
+      await deleteDoc(doc(db, 'missing_reasons', id));
+  };
+
+  // Logistics Operations
+  const onAddLogisticsOperation = async (val: string, time: number = 0, dist: number = 0) => {
+      await addDoc(collection(db, 'logistics_operations'), { value: val, standardTime: time, distancePx: dist });
+  };
+  const onUpdateLogisticsOperation = async (id: string, updates: Partial<DBItem>) => {
+      await updateDoc(doc(db, 'logistics_operations', id), updates);
+  };
+  const onDeleteLogisticsOperation = async (id: string) => {
+      await deleteDoc(doc(db, 'logistics_operations', id));
+  };
+
+  // Users & Roles (Stubbed basic ops)
+  const onAddUser = async (user: UserData) => {
+      await addDoc(collection(db, 'users'), user);
+  };
+  const onUpdatePassword = async (username: string, newPass: string) => {
+      const q = query(collection(db, 'users'), where('username', '==', username));
+      const snap = await getDocs(q);
+      snap.forEach(d => updateDoc(d.ref, { password: newPass }));
+  };
+  const onUpdateNickname = async (username: string, newNick: string) => {
+      const q = query(collection(db, 'users'), where('username', '==', username));
+      const snap = await getDocs(q);
+      snap.forEach(d => updateDoc(d.ref, { nickname: newNick }));
+  };
+  const onUpdateUserRole = async (username: string, newRole: any) => {
+      const q = query(collection(db, 'users'), where('username', '==', username));
+      const snap = await getDocs(q);
+      snap.forEach(d => updateDoc(d.ref, { role: newRole }));
+  };
+  const onUpdateExportPermission = async (username: string, canExport: boolean) => {
+      const q = query(collection(db, 'users'), where('username', '==', username));
+      const snap = await getDocs(q);
+      snap.forEach(d => updateDoc(d.ref, { canExportAnalytics: canExport }));
+  };
+  const onDeleteUser = async (username: string) => {
+      const q = query(collection(db, 'users'), where('username', '==', username));
+      const snap = await getDocs(q);
+      snap.forEach(d => deleteDoc(d.ref));
+  };
+
+  // Map Sectors
+  const onAddMapSector = async (name: string, x: number, y: number, color?: string) => {
+      await addDoc(collection(db, 'map_sectors'), { name, coordX: x, coordY: y, color });
+  };
+  const onUpdateMapSector = async (id: string, updates: Partial<MapSector>) => {
+      await updateDoc(doc(db, 'map_sectors', id), updates);
+  };
+  const onDeleteMapSector = async (id: string) => {
+      await deleteDoc(doc(db, 'map_sectors', id));
+  };
+
+  // --- BOM (Kusovníky) CRUD Functions (REFACTORED FOR SINGLE DOC) ---
+
+  const onAddBOMItem = async (parent: string, child: string, qty: number) => {
+      try {
+          const newItem = {
+              id: `bom_${Date.now()}_${Math.random().toString(36).substr(2,9)}`,
+              parent: parent.toUpperCase(),
+              child: child.toUpperCase(),
+              consumption: qty,
+              createdAt: Date.now()
+          };
+          await setDoc(doc(db, 'settings', 'bom'), {
+              items: arrayUnion(newItem)
+          }, { merge: true });
+      } catch (e) { console.error(e); }
+  };
+
+  const onBatchAddBOMItems = async (vals: string[]) => {
+      try {
+          const itemsToAdd: any[] = [];
+          vals.forEach(line => {
+              if (!line.trim()) return;
+              const [p, c, q] = line.split(';');
+              if (p && c) {
+                  itemsToAdd.push({
+                      id: `bom_${Date.now()}_${Math.random().toString(36).substr(2,9)}_${itemsToAdd.length}`,
+                      parent: p.trim().toUpperCase(),
+                      child: c.trim().toUpperCase(),
+                      consumption: parseFloat(q?.replace(',', '.') || '0'),
+                      createdAt: Date.now()
+                  });
+              }
+          });
+          
+          if (itemsToAdd.length > 0) {
+              await setDoc(doc(db, 'settings', 'bom'), {
+                  items: arrayUnion(...itemsToAdd)
+              }, { merge: true });
+          }
+      } catch (e) { console.error(e); }
+  };
+
+  const onDeleteBOMItem = async (parent: string, child: string) => {
+      try {
+          const ref = doc(db, 'settings', 'bom');
+          const snap = await getDoc(ref);
+          if (snap.exists()) {
+              const currentItems = snap.data().items || [];
+              const newItems = currentItems.filter((i: any) => !(i.parent === parent && i.child === child));
+              await updateDoc(ref, { items: newItems });
+          }
+      } catch (e) { console.error(e); }
+  };
+
+  const onDeleteAllBOMItems = async () => {
+      try {
+          await setDoc(doc(db, 'settings', 'bom'), { items: [] });
+      } catch (e) { console.error(e); }
+  };
+
   return {
     tasks, users, partsMap, bomMap, workplaces, missingReasons, logisticsOperations,
     mapSectors, partRequests, bomRequests, breakSchedules, systemBreaks, isBreakActive,
     roles, permissions, notifications, onClearNotification,
-    // Export CRUD
+    // Task CRUD
     onAddTask, onUpdateTask, onDeleteTask, onToggleTask, onEditTask, onToggleMissing,
     onSetInProgress, onToggleBlock, onToggleManualBlock, onExhaustSearch, 
     onMarkAsIncorrect, onAddNote, onReleaseTask, onRequestPart, onRequestBOM,
-    onAddNotification
+    onAddNotification,
+    // Settings CRUD - Parts
+    onAddPart, onBatchAddParts, onDeletePart, onDeleteAllParts,
+    // Settings CRUD - Workplaces
+    onAddWorkplace, onUpdateWorkplace, onDeleteWorkplace, onDeleteAllWorkplaces, onBatchAddWorkplaces,
+    // Settings CRUD - Reasons & Ops
+    onAddMissingReason, onDeleteMissingReason,
+    onAddLogisticsOperation, onUpdateLogisticsOperation, onDeleteLogisticsOperation,
+    // Settings CRUD - Map Sectors
+    onAddMapSector, onUpdateMapSector, onDeleteMapSector,
+    // Settings CRUD - Users
+    onAddUser, onUpdatePassword, onUpdateNickname, onUpdateUserRole, onUpdateExportPermission, onDeleteUser,
+    // Settings CRUD - BOM
+    onAddBOMItem, onBatchAddBOMItems, onDeleteBOMItem, onDeleteAllBOMItems
   };
 };

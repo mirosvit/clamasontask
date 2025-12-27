@@ -9,6 +9,7 @@ import HourlyChartSection from './HourlyChartSection';
 import QualityAuditSection from './QualityAuditSection';
 import WorkerDetailModal from './WorkerDetailModal';
 import DrivingMetrics from './DrivingMetrics';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 
 interface AnalyticsTabProps {
   tasks: Task[];
@@ -38,7 +39,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   const [shiftFilter, setShiftFilter] = useState<ShiftFilter>('ALL');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
-  const [isFilterOpen, setIsFilterOpen] = useState(true);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
   const [selectedWorkerData, setSelectedWorkerData] = useState<{ name: string; tasks: Task[] } | null>(null);
   const { t, language } = useLanguage();
@@ -120,18 +121,116 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   }, [_liveTasks, archivedTasks, filterMode, customStart, customEnd, sourceFilter, shiftFilter]);
 
   const stats = useMemo(() => {
+    // Basic Counters
+    let total = filteredTasks.length;
+    let done = 0;
+    
+    // Aggregation Containers
+    const workerMap: Record<string, Task[]> = {};
+    const workplaceMap: Record<string, {load: number, pal: number, req: number}> = {};
+    const partMap: Record<string, {load: number, pal: number, req: number}> = {};
+    const hourlyMap: Record<number, {prod: number, log: number}> = {};
+    
+    // Quality & Driving
+    let realErrorsCount = 0;
+    let falseAlarmsCount = 0;
+    let totalAuditedMissing = 0;
+    const missingPartsMap: Record<string, number> = {};
+    let totalFullDist = 0;
+    let totalEmptyDist = 0;
+    let totalRides = 0;
+
+    filteredTasks.forEach(task => {
+        // Status Counts
+        if (task.isDone) done++;
+
+        // Worker Stats
+        if (task.isDone && task.completedBy) {
+            if (!workerMap[task.completedBy]) workerMap[task.completedBy] = [];
+            workerMap[task.completedBy].push(task);
+        }
+
+        // Quality
+        if (task.auditResult) {
+            totalAuditedMissing++;
+            if (task.auditResult === 'NOK') realErrorsCount++;
+            else if (task.auditResult === 'OK') falseAlarmsCount++;
+        }
+        if (task.isMissing && task.partNumber) {
+            missingPartsMap[task.partNumber] = (missingPartsMap[task.partNumber] || 0) + 1;
+        }
+
+        // Hourly Data
+        const time = task.completedAt || task.createdAt || 0;
+        const hour = new Date(time).getHours();
+        if (!hourlyMap[hour]) hourlyMap[hour] = { prod: 0, log: 0 };
+        const load = (task.quantityUnit === 'pallet' ? parseFloat(task.quantity || '0') : 1) || 1;
+        if (task.isLogistics) hourlyMap[hour].log += load;
+        else hourlyMap[hour].prod += load;
+
+        // High Runners & Workplaces
+        if (task.isDone) {
+            const qtyVal = parseFloat((task.quantity || '0').replace(',', '.'));
+            const isPal = task.quantityUnit === 'pallet';
+            const points = isPal ? qtyVal : 1;
+            
+            if (task.workplace) {
+                if (!workplaceMap[task.workplace]) workplaceMap[task.workplace] = { load: 0, pal: 0, req: 0 };
+                workplaceMap[task.workplace].load += points;
+                workplaceMap[task.workplace].req++;
+                if (isPal) workplaceMap[task.workplace].pal += qtyVal;
+            }
+            if (task.partNumber) {
+                if (!partMap[task.partNumber]) partMap[task.partNumber] = { load: 0, pal: 0, req: 0 };
+                partMap[task.partNumber].load += points;
+                partMap[task.partNumber].req++;
+                if (isPal) partMap[task.partNumber].pal += qtyVal;
+            }
+        }
+    });
+
+    // Transform Worker Stats
+    const workerStats = Object.entries(workerMap).map(([uid, tasks]) => ({
+        id: uid,
+        name: resolveName(uid),
+        count: tasks.length,
+        tasks: tasks
+    })).sort((a,b) => b.count - a.count);
+
+    // Transform Hourly Data
+    const hourlyData = Object.entries(hourlyMap).map(([h, d]) => ({
+        hour: parseInt(h),
+        label: `${h}:00`,
+        production: d.prod,
+        logistics: d.log
+    })).sort((a,b) => a.hour - b.hour);
+
+    // Transform High Runners
+    const topWorkplaces = Object.entries(workplaceMap)
+        .map(([k, v]) => ({ workplace: k, load: v.load, pal: v.pal, taskRequests: v.req, totalTasks: v.req }))
+        .sort((a,b) => b.load - a.load).slice(0, 3);
+        
+    const topHighRunners = Object.entries(partMap)
+        .map(([k, v]) => ({ partNumber: k, load: v.load, pal: v.pal, taskRequests: v.req, totalTasks: v.req }))
+        .sort((a,b) => b.load - a.load).slice(0, 3);
+
+    // Transform Missing Parts
+    const topMissingParts = Object.entries(missingPartsMap)
+        .map(([p, c]) => ({ partNumber: p, count: c }))
+        .sort((a,b) => b.count - a.count).slice(0, 3);
+
     return { 
-        total: filteredTasks.length, 
-        done: filteredTasks.filter(t => t.isDone).length, 
+        total, 
+        done, 
         efficiency: 0, 
         totalVolume: 0, 
         grandTotalExecutionTime: 0, 
-        workerStats: [], 
-        topHighRunners: [], 
-        topWorkplaces: [], 
-        hourlyData: [], 
-        quality: { realErrorsCount: 0, falseAlarmsCount: 0, totalAuditedMissing: 0, topMissingParts: [] }, 
-        driving: { totalFullDist: 0, totalEmptyDist: 0, totalRides: 0, logEfficiency: 50 } 
+        workerStats, 
+        topHighRunners, 
+        topWorkplaces, 
+        hourlyData, 
+        quality: { realErrorsCount, falseAlarmsCount, totalAuditedMissing, topMissingParts }, 
+        driving: { totalFullDist, totalEmptyDist, totalRides, logEfficiency: 50 } 
     };
   }, [filteredTasks, resolveName]);
 
@@ -265,6 +364,47 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       <QualityAuditSection data={stats.quality} t={t} />
       <HighRunnerSection topHighRunners={stats.topHighRunners} topWorkplaces={stats.topWorkplaces} t={t} />
       <HourlyChartSection hourlyData={stats.hourlyData} t={t} />
+      
+      {/* WORKER PERFORMANCE CHART */}
+      <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-2xl overflow-hidden">
+          <div className="flex items-center gap-3 mb-6 border-b border-white/5 pb-6">
+              <div className="w-1.5 h-6 bg-purple-500 rounded-full"></div>
+              <h3 className="text-sm font-black text-white uppercase tracking-[0.25em]">{language === 'sk' ? 'VÝKONNOSŤ SKLADNÍKOV' : 'WORKER PERFORMANCE'}</h3>
+          </div>
+          <div className="h-[400px] w-full">
+              {stats.workerStats.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={stats.workerStats} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
+                          <XAxis type="number" stroke="#94a3b8" fontSize={10} fontWeight="bold" />
+                          <YAxis dataKey="name" type="category" stroke="#fff" fontSize={11} fontWeight="bold" width={100} />
+                          <Tooltip 
+                              cursor={{ fill: '#334155', opacity: 0.4 }}
+                              contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '12px', color: '#fff' }}
+                              itemStyle={{ color: '#818cf8', fontWeight: 'bold' }}
+                          />
+                          <Bar 
+                              dataKey="count" 
+                              fill="#8b5cf6" 
+                              radius={[0, 4, 4, 0]} 
+                              barSize={20} 
+                              onClick={(entry) => setSelectedWorkerData({ name: entry.name, tasks: entry.tasks })} 
+                              cursor="pointer"
+                          >
+                              {stats.workerStats.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={index < 3 ? '#a78bfa' : '#6d28d9'} />
+                              ))}
+                          </Bar>
+                      </BarChart>
+                  </ResponsiveContainer>
+              ) : (
+                  <div className="flex h-full items-center justify-center">
+                      <p className="text-slate-600 font-bold uppercase tracking-widest text-xs">{t('no_data')}</p>
+                  </div>
+              )}
+          </div>
+      </div>
+
       <DrivingMetrics totalKm={stats.driving.totalFullDist} emptyKm={stats.driving.totalEmptyDist} rides={stats.driving.totalRides} efficiency={stats.driving.logEfficiency} vzvSpeed={systemConfig.vzvSpeed || 8} />
       
       {selectedWorkerData && (
