@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { db } from '../../../firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -10,6 +11,7 @@ import QualityAuditSection from './QualityAuditSection';
 import WorkerDetailModal from './WorkerDetailModal';
 import DrivingMetrics from './DrivingMetrics';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
+import { useAnalyticsEngine, FilterMode, SourceFilter, ShiftFilter } from '../../../hooks/useAnalyticsEngine';
 
 interface AnalyticsTabProps {
   tasks: Task[];
@@ -25,10 +27,6 @@ interface AnalyticsTabProps {
   currentUserRole: string;
   hasPermission: (permName: string) => boolean;
 }
-
-type FilterMode = 'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH' | 'CUSTOM';
-type SourceFilter = 'ALL' | 'PROD' | 'LOG';
-type ShiftFilter = 'ALL' | 'DAY' | 'NIGHT';
 
 const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ 
   tasks: _liveTasks, systemBreaks, resolveName, mapSectors, workplaces, systemConfig, logisticsOperations,
@@ -68,171 +66,49 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     load();
   }, [filterMode, customStart, customEnd]);
 
-  const filteredTasks = useMemo(() => {
-    const combined = [..._liveTasks, ...archivedTasks];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayTs = today.getTime();
+  // INTEGRÁCIA ANALYTICKÉHO ENGINU
+  const engine = useAnalyticsEngine(
+    _liveTasks,
+    archivedTasks,
+    systemBreaks,
+    mapSectors,
+    workplaces,
+    logisticsOperations,
+    systemConfig,
+    {
+      mode: filterMode,
+      source: sourceFilter,
+      shift: shiftFilter,
+      customStart,
+      customEnd
+    },
+    resolveName
+  );
 
-    return combined.filter(task => {
-        const referenceTime = task.completedAt || task.createdAt || 0;
-        if (!referenceTime) return false;
+  const { filteredTasks, globalStats, workerStats, charts, qualityStats } = engine;
 
-        let timeMatch = false;
-        switch (filterMode) {
-            case 'TODAY':
-                timeMatch = referenceTime >= todayTs;
-                break;
-            case 'YESTERDAY':
-                const yesterdayTs = todayTs - 86400000;
-                timeMatch = referenceTime >= yesterdayTs && referenceTime < todayTs;
-                break;
-            case 'WEEK':
-                const weekTs = todayTs - (today.getDay() || 7 - 1) * 86400000;
-                timeMatch = referenceTime >= weekTs;
-                break;
-            case 'MONTH':
-                const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).getTime();
-                timeMatch = referenceTime >= monthStart;
-                break;
-            case 'CUSTOM':
-                if (!customStart || !customEnd) return false;
-                const startTs = new Date(customStart).getTime();
-                const endTs = new Date(customEnd).getTime() + 86399999;
-                timeMatch = referenceTime >= startTs && referenceTime <= endTs;
-                break;
-            default:
-                timeMatch = true;
-        }
-        if (!timeMatch) return false;
+  // DOPLNKOVÉ VÝPOČTY PRE SMART KPI TILES
+  const kpiMetrics = useMemo(() => {
+    const logDone = filteredTasks.filter(t => t.isLogistics && t.isDone).length;
+    const prodDone = filteredTasks.filter(t => !t.isLogistics && t.isDone).length;
+    const totalKm = (globalStats.totalFullDist + globalStats.totalEmptyDist) / 1000;
+    const badEntriesCount = filteredTasks.filter(t => t.isMissing || t.auditResult === 'NOK').length;
 
-        if (sourceFilter === 'PROD' && !task.isProduction && task.isLogistics) return false;
-        if (sourceFilter === 'LOG' && !task.isLogistics) return false;
-
-        if (shiftFilter !== 'ALL') {
-            const hour = new Date(referenceTime).getHours();
-            const isDay = hour >= 6 && hour < 18;
-            if (shiftFilter === 'DAY' && !isDay) return false;
-            if (shiftFilter === 'NIGHT' && isDay) return false;
-        }
-
-        return true;
-    });
-  }, [_liveTasks, archivedTasks, filterMode, customStart, customEnd, sourceFilter, shiftFilter]);
-
-  const stats = useMemo(() => {
-    // Basic Counters
-    let total = filteredTasks.length;
-    let done = 0;
-    
-    // Aggregation Containers
-    const workerMap: Record<string, Task[]> = {};
-    const workplaceMap: Record<string, {load: number, pal: number, req: number}> = {};
-    const partMap: Record<string, {load: number, pal: number, req: number}> = {};
-    const hourlyMap: Record<number, {prod: number, log: number}> = {};
-    
-    // Quality & Driving
-    let realErrorsCount = 0;
-    let falseAlarmsCount = 0;
-    let totalAuditedMissing = 0;
-    const missingPartsMap: Record<string, number> = {};
-    let totalFullDist = 0;
-    let totalEmptyDist = 0;
-    let totalRides = 0;
-
-    filteredTasks.forEach(task => {
-        // Status Counts
-        if (task.isDone) done++;
-
-        // Worker Stats
-        if (task.isDone && task.completedBy) {
-            if (!workerMap[task.completedBy]) workerMap[task.completedBy] = [];
-            workerMap[task.completedBy].push(task);
-        }
-
-        // Quality
-        if (task.auditResult) {
-            totalAuditedMissing++;
-            if (task.auditResult === 'NOK') realErrorsCount++;
-            else if (task.auditResult === 'OK') falseAlarmsCount++;
-        }
-        if (task.isMissing && task.partNumber) {
-            missingPartsMap[task.partNumber] = (missingPartsMap[task.partNumber] || 0) + 1;
-        }
-
-        // Hourly Data
-        const time = task.completedAt || task.createdAt || 0;
-        const hour = new Date(time).getHours();
-        if (!hourlyMap[hour]) hourlyMap[hour] = { prod: 0, log: 0 };
-        const load = (task.quantityUnit === 'pallet' ? parseFloat(task.quantity || '0') : 1) || 1;
-        if (task.isLogistics) hourlyMap[hour].log += load;
-        else hourlyMap[hour].prod += load;
-
-        // High Runners & Workplaces
-        if (task.isDone) {
-            const qtyVal = parseFloat((task.quantity || '0').replace(',', '.'));
-            const isPal = task.quantityUnit === 'pallet';
-            const points = isPal ? qtyVal : 1;
-            
-            if (task.workplace) {
-                if (!workplaceMap[task.workplace]) workplaceMap[task.workplace] = { load: 0, pal: 0, req: 0 };
-                workplaceMap[task.workplace].load += points;
-                workplaceMap[task.workplace].req++;
-                if (isPal) workplaceMap[task.workplace].pal += qtyVal;
-            }
-            if (task.partNumber) {
-                if (!partMap[task.partNumber]) partMap[task.partNumber] = { load: 0, pal: 0, req: 0 };
-                partMap[task.partNumber].load += points;
-                partMap[task.partNumber].req++;
-                if (isPal) partMap[task.partNumber].pal += qtyVal;
-            }
-        }
-    });
-
-    // Transform Worker Stats
-    const workerStats = Object.entries(workerMap).map(([uid, tasks]) => ({
-        id: uid,
-        name: resolveName(uid),
-        count: tasks.length,
-        tasks: tasks
-    })).sort((a,b) => b.count - a.count);
-
-    // Transform Hourly Data
-    const hourlyData = Object.entries(hourlyMap).map(([h, d]) => ({
-        hour: parseInt(h),
-        label: `${h}:00`,
-        production: d.prod,
-        logistics: d.log
-    })).sort((a,b) => a.hour - b.hour);
-
-    // Transform High Runners
-    const topWorkplaces = Object.entries(workplaceMap)
-        .map(([k, v]) => ({ workplace: k, load: v.load, pal: v.pal, taskRequests: v.req, totalTasks: v.req }))
-        .sort((a,b) => b.load - a.load).slice(0, 3);
-        
-    const topHighRunners = Object.entries(partMap)
-        .map(([k, v]) => ({ partNumber: k, load: v.load, pal: v.pal, taskRequests: v.req, totalTasks: v.req }))
-        .sort((a,b) => b.load - a.load).slice(0, 3);
-
-    // Transform Missing Parts
-    const topMissingParts = Object.entries(missingPartsMap)
-        .map(([p, c]) => ({ partNumber: p, count: c }))
-        .sort((a,b) => b.count - a.count).slice(0, 3);
-
-    return { 
-        total, 
-        done, 
-        efficiency: 0, 
-        totalVolume: 0, 
-        grandTotalExecutionTime: 0, 
-        workerStats, 
-        topHighRunners, 
-        topWorkplaces, 
-        hourlyData, 
-        quality: { realErrorsCount, falseAlarmsCount, totalAuditedMissing, topMissingParts }, 
-        driving: { totalFullDist, totalEmptyDist, totalRides, logEfficiency: 50 } 
+    return {
+      logDone,
+      prodDone,
+      totalKm,
+      badEntriesCount
     };
-  }, [filteredTasks, resolveName]);
+  }, [filteredTasks, globalStats]);
+
+  // Mapovanie pre graf
+  const chartData = useMemo(() => {
+      return workerStats.map(w => ({
+          ...w,
+          count: w.tasksDone 
+      })).sort((a, b) => b.count - a.count);
+  }, [workerStats]);
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20 animate-fade-in text-slate-200">
@@ -350,20 +226,60 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      {/* 8 SMART KPI TILES GRID */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Tile 1: Total Tasks */}
         <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 border-l-4 border-l-blue-500 shadow-xl">
-          <p className="text-slate-500 text-[10px] font-black uppercase">{t('kpi_total')}</p>
-          <p className="text-3xl font-black text-white mt-2 font-mono">{stats.total}</p>
+          <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">CELKOVO ÚLOH</p>
+          <p className="text-3xl font-black text-white mt-2 font-mono">{globalStats.totalTasks}</p>
         </div>
+
+        {/* Tile 2: Logistics Done */}
+        <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 border-l-4 border-l-purple-500 shadow-xl">
+          <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">LOGISTICKÉ ÚLOHY</p>
+          <p className="text-3xl font-black text-white mt-2 font-mono">{kpiMetrics.logDone}</p>
+        </div>
+
+        {/* Tile 3: Production Done */}
+        <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 border-l-4 border-l-amber-500 shadow-xl">
+          <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">VÝROBNÉ ÚLOHY</p>
+          <p className="text-3xl font-black text-white mt-2 font-mono">{kpiMetrics.prodDone}</p>
+        </div>
+
+        {/* Tile 4: Ride Efficiency */}
+        <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 border-l-4 border-l-teal-500 shadow-xl">
+          <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">EFEKTIVITA JÁZD</p>
+          <p className="text-3xl font-black text-white mt-2 font-mono">{globalStats.globalEfficiency.toFixed(1)}%</p>
+        </div>
+
+        {/* Tile 5: Standard Performance Ratio */}
         <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 border-l-4 border-l-green-500 shadow-xl">
-          <p className="text-slate-500 text-[10px] font-black uppercase">{language === 'sk' ? 'DOKONČENÉ' : 'COMPLETED'}</p>
-          <p className="text-3xl font-black text-white mt-2 font-mono">{stats.done}</p>
+          <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">PLNENIE NORIEM (TEMPO)</p>
+          <p className="text-3xl font-black text-white mt-2 font-mono">{globalStats.globalPerformanceRatio.toFixed(1)}%</p>
+        </div>
+
+        {/* Tile 6: Total distance in KM */}
+        <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 border-l-4 border-l-sky-500 shadow-xl">
+          <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">NAJAZDENÉ KM (SPOLU)</p>
+          <p className="text-3xl font-black text-white mt-2 font-mono">{kpiMetrics.totalKm.toFixed(2)} <span className="text-xs font-normal">km</span></p>
+        </div>
+
+        {/* Tile 7: Global Physical Rides count */}
+        <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 border-l-4 border-l-indigo-500 shadow-xl">
+          <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">CELKOVO JÁZD</p>
+          <p className="text-3xl font-black text-white mt-2 font-mono">{globalStats.totalPhysicalRides}</p>
+        </div>
+
+        {/* Tile 8: Failed entries (Missing/Audit NOK) */}
+        <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 border-l-4 border-l-rose-500 shadow-xl">
+          <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">CHYBNÉ ZADANIA</p>
+          <p className="text-3xl font-black text-rose-500 mt-2 font-mono">{kpiMetrics.badEntriesCount}</p>
         </div>
       </div>
 
-      <QualityAuditSection data={stats.quality} t={t} />
-      <HighRunnerSection topHighRunners={stats.topHighRunners} topWorkplaces={stats.topWorkplaces} t={t} />
-      <HourlyChartSection hourlyData={stats.hourlyData} t={t} />
+      <QualityAuditSection data={qualityStats} t={t} />
+      <HighRunnerSection topHighRunners={charts.highRunners} topWorkplaces={charts.workplaces} t={t} />
+      <HourlyChartSection hourlyData={charts.hourly} t={t} />
       
       {/* WORKER PERFORMANCE CHART */}
       <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-2xl overflow-hidden">
@@ -372,9 +288,9 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               <h3 className="text-sm font-black text-white uppercase tracking-[0.25em]">{language === 'sk' ? 'VÝKONNOSŤ SKLADNÍKOV' : 'WORKER PERFORMANCE'}</h3>
           </div>
           <div className="h-[400px] w-full">
-              {stats.workerStats.length > 0 ? (
+              {chartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={stats.workerStats} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                      <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                           <XAxis type="number" stroke="#94a3b8" fontSize={10} fontWeight="bold" />
                           <YAxis dataKey="name" type="category" stroke="#fff" fontSize={11} fontWeight="bold" width={100} />
@@ -388,10 +304,13 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                               fill="#8b5cf6" 
                               radius={[0, 4, 4, 0]} 
                               barSize={20} 
-                              onClick={(entry: any) => setSelectedWorkerData({ name: entry.name, tasks: entry.tasks })} 
+                              onClick={(entry: any) => setSelectedWorkerData({ 
+                                  name: entry.name, 
+                                  tasks: filteredTasks.filter(t => t.completedBy === entry.id) 
+                              })} 
                               cursor="pointer"
                           >
-                              {stats.workerStats.map((entry, index) => (
+                              {chartData.map((entry, index) => (
                                   <Cell key={`cell-${index}`} fill={index < 3 ? '#a78bfa' : '#6d28d9'} />
                               ))}
                           </Bar>
@@ -405,7 +324,13 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           </div>
       </div>
 
-      <DrivingMetrics totalKm={stats.driving.totalFullDist} emptyKm={stats.driving.totalEmptyDist} rides={stats.driving.totalRides} efficiency={stats.driving.logEfficiency} vzvSpeed={systemConfig.vzvSpeed || 8} />
+      <DrivingMetrics 
+        totalKm={globalStats.totalFullDist} 
+        emptyKm={globalStats.totalEmptyDist} 
+        rides={globalStats.totalPhysicalRides} 
+        efficiency={globalStats.globalEfficiency} 
+        vzvSpeed={systemConfig.vzvSpeed || 8} 
+      />
       
       {selectedWorkerData && (
         <WorkerDetailModal 

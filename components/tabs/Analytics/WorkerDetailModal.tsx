@@ -1,7 +1,6 @@
-
 import React, { useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Task, SystemBreak, MapSector, DBItem, SystemConfig } from '../../../App';
+import { Task, SystemBreak, MapSector, DBItem, SystemConfig } from '../../../types/appTypes';
 import { useLanguage } from '../../LanguageContext';
 
 interface WorkerDetailModalProps {
@@ -51,13 +50,17 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
     
     let totalFullDist = 0;
     let totalEmptyDist = 0;
+    let totalTransitBetweenTasksDist = 0;
 
     const workplacesMap: Record<string, number> = {};
     const partsMap: Record<string, number> = {};
     const missingHistory: Task[] = [];
     const uniqueDaysWorked = new Set<string>();
 
+    // Sort tasks chronologically to calculate chaining (transit distance)
     const sortedTasks = [...tasks].sort((a,b) => (a.completedAt || 0) - (b.completedAt || 0));
+
+    let lastWorkplaceCoords: { x: number, y: number } | null = null;
 
     sortedTasks.forEach(task => {
       if (task.completedAt) {
@@ -75,7 +78,21 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
       if (task.isDone && task.completedBy) {
           let validatedTrips = 0;
           let oneWayD = 0;
+          let currentPickupCoords: { x: number, y: number } | null = null;
+          let currentDropoffCoords: { x: number, y: number } | null = null;
 
+          // 1. CHAINING LOGIC (Shadow Logistics): Transit from end of previous task to start of current
+          if (lastWorkplaceCoords && !task.isLogistics && task.pickedFromSectorId) {
+              const sector = mapSectors.find(s => s.id === task.pickedFromSectorId);
+              if (sector) {
+                  const tdx = sector.coordX - lastWorkplaceCoords.x;
+                  const tdy = sector.coordY - lastWorkplaceCoords.y;
+                  const transitD = Math.sqrt(tdx*tdx + tdy*tdy) / 10;
+                  totalTransitBetweenTasksDist += transitD;
+              }
+          }
+
+          // 2. TASK LOGIC: Distance within the current task
           if (task.isLogistics) {
               const logOp = logisticsOperations.find(o => o.value === task.workplace);
               if (logOp && logOp.distancePx) {
@@ -89,19 +106,27 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
               const sector = mapSectors.find(s => s.id === task.pickedFromSectorId);
               const wp = workplaces.find(w => w.value === task.workplace);
               if (sector && wp) {
+                  currentPickupCoords = { x: sector.coordX, y: sector.coordY };
+                  currentDropoffCoords = { x: wp.coordX || 0, y: wp.coordY || 0 };
+                  
                   const dx = (wp.coordX || 0) - (sector.coordX || 0);
                   const dy = (wp.coordY || 0) - (sector.coordY || 0);
                   oneWayD = Math.sqrt(dx*dx + dy*dy) / 10;
+                  
                   const durationMs = (task.completedAt || 0) - (task.startedAt || task.createdAt || 0);
                   const possibleTrips = Math.round(( (durationMs / 1000) * VZV_SPEED_MPS ) / (2 * oneWayD));
                   const maxQty = !isNaN(qtyVal) ? Math.max(1, Math.floor(qtyVal)) : 1;
                   validatedTrips = Math.min(maxQty, Math.max(1, possibleTrips));
+                  
+                  // Store last coordinates for next iteration chaining
+                  lastWorkplaceCoords = currentDropoffCoords;
               }
           }
 
           if (validatedTrips > 0) {
               totalFullDist += validatedTrips * oneWayD;
-              totalEmptyDist += validatedTrips * oneWayD;
+              // "Empty" distance = returns for additional pallets
+              totalEmptyDist += (validatedTrips > 1 ? (validatedTrips - 1) * oneWayD : 0);
           }
       }
 
@@ -143,8 +168,12 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
     const performanceRatio = (totalStandardMin > 0 && pureWorkMinutes > 0) ? (totalStandardMin / pureWorkMinutes) * 100 : 0;
     const avgReactionSeconds = reactionCount > 0 ? (totalReactionMs / reactionCount) / 1000 : 0;
     const confidenceRating = missingReported > 0 ? ((missingReported - realErrors) / missingReported) * 100 : 100;
-    const logEfficiency = (totalFullDist + totalEmptyDist) > 0 ? (totalFullDist / (totalFullDist + totalEmptyDist)) * 100 : 50;
+    
+    // Deadhead/Transit kilometers calculation
+    const grandTotalEmptyDist = totalEmptyDist + totalTransitBetweenTasksDist;
+    const logEfficiency = (totalFullDist + grandTotalEmptyDist) > 0 ? (totalFullDist / (totalFullDist + grandTotalEmptyDist)) * 100 : 50;
 
+    // Worker Performance Index (WPI) calculation
     const scoreQuality = (confidenceRating / 100) * 3.0;
     const scoreUtilization = (Math.min(utilizationPercent, 100) / 100) * 2.5;
     const scoreStandards = performanceRatio > 0 ? (Math.min(performanceRatio, 120) / 120) * 2.0 : 1.5; 
@@ -174,7 +203,8 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
       performanceRatio,
       avgReactionSeconds,
       totalFullDist,
-      totalEmptyDist,
+      totalEmptyDist: grandTotalEmptyDist,
+      transitOnlyDist: totalTransitBetweenTasksDist,
       logEfficiency
     };
   }, [tasks, systemBreaks, mapSectors, workplaces, systemConfig, VZV_SPEED_MPS, logisticsOperations]);
@@ -193,279 +223,187 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
     return h > 0 ? `${h}h ${m}m` : `${m} min`;
   };
 
-  const cardStyle = "bg-slate-800/40 border-t-4 p-6 rounded-2xl shadow-xl backdrop-blur-md relative overflow-hidden";
-
-  const getUtilColor = (val: number) => {
-    if (val > 85) return 'border-t-emerald-500';
-    if (val > 60) return 'border-t-teal-500';
-    return 'border-t-amber-500';
-  };
-
-  const getUtilBarColor = (val: number) => {
-    if (val > 85) return 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)]';
-    if (val > 60) return 'bg-teal-500';
-    return 'bg-amber-500';
-  };
-
-  const getIndexBorderColor = (val: number) => {
-    if (val >= 8) return 'border-emerald-500';
-    if (val >= 5) return 'border-amber-500';
-    return 'border-red-500';
-  };
-
-  const getIndexTextColor = (val: number) => {
-    if (val >= 8) return 'text-emerald-400';
-    if (val >= 5) return 'text-amber-400';
-    return 'text-red-400';
-  };
-
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/95 backdrop-blur-xl p-4 animate-fade-in" onClick={onClose}>
-      <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-y-auto custom-scrollbar relative" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 animate-fade-in" onClick={onClose}>
+      <div className="bg-slate-900 border-2 border-slate-800 rounded-[2.5rem] shadow-[0_0_100px_rgba(0,0,0,0.8)] w-full max-w-6xl p-8 relative overflow-hidden flex flex-col max-h-[95vh]" onClick={e => e.stopPropagation()}>
         
-        <div className="p-8 sm:p-10 border-b border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-slate-800/30">
-          <div className="space-y-1">
-            <div className="flex items-center gap-3">
-               <span className="bg-teal-500/20 text-teal-400 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-teal-500/30">{periodLabel}</span>
-               <span className="text-slate-500 text-xs font-bold uppercase tracking-widest">{tasks.length} {t('records')}</span>
+        {/* Background Decor */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-teal-500/5 rounded-full -mr-48 -mt-48 blur-[100px]"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/5 rounded-full -ml-48 -mb-48 blur-[100px]"></div>
+
+        {/* Header */}
+        <div className="flex justify-between items-start mb-10 relative z-10 border-b border-white/5 pb-8">
+          <div>
+            <div className="flex items-center gap-4 mb-2">
+              <div className="w-14 h-14 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400 text-2xl font-black">
+                {name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <h2 className="text-4xl font-black text-white tracking-tighter uppercase">{name}</h2>
+                <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mt-1">
+                  Analytika za obdobie: <span className="text-teal-500">{periodLabel}</span>
+                </p>
+              </div>
             </div>
-            <h2 className="text-5xl font-black text-white uppercase tracking-tighter leading-none">{name}</h2>
           </div>
-          
-          <div className="flex gap-3">
-             <button onClick={onClose} className="p-4 rounded-full bg-slate-800/50 hover:bg-slate-700 text-slate-400 transition-all border border-slate-700 shadow-lg">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
-             </button>
+          <div className="text-right">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.25em] mb-1">WORKER INDEX</p>
+            <p className="text-6xl font-black text-white tracking-tighter tabular-nums leading-none">
+              {stats.workerIndex}<span className="text-xl text-slate-600">/10</span>
+            </p>
           </div>
         </div>
 
-        <div className="p-8 sm:p-10 grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Scrollable Content */}
+        <div className="flex-grow overflow-y-auto custom-scrollbar pr-4 space-y-10 relative z-10">
           
-          <div className={`col-span-1 md:col-span-2 bg-slate-950/40 border-l-[12px] p-8 rounded-3xl shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-8 ${getIndexBorderColor(stats.workerIndex)}`}>
-            <div className="text-center sm:text-left">
-              <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.3em] mb-2">CELKOVÝ INDEX SCORE</h3>
-              <p className="text-xs text-slate-600 font-bold uppercase leading-relaxed max-w-sm">Komplexné vyhodnotenie kvality, využitia zmeny, plnenia noriem, logistickej efektivity a rýchlosti reakcie.</p>
+          {/* Top KPI Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-slate-800/40 p-6 rounded-3xl border border-white/5">
+                <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">Celkový Nápor</p>
+                <p className="text-3xl font-black text-white mt-1">{stats.totalLoad.toFixed(1)} <span className="text-sm font-normal text-slate-600">bodov</span></p>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className={`text-8xl font-black font-mono leading-none tracking-tighter ${getIndexTextColor(stats.workerIndex)}`}>{stats.workerIndex.toFixed(1)}</span>
-              <span className="text-2xl font-black text-slate-700 font-mono">/10</span>
+            <div className="bg-slate-800/40 p-6 rounded-3xl border border-white/5">
+                <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">Naložené paliet</p>
+                <p className="text-3xl font-black text-sky-400 mt-1">{stats.palCount} <span className="text-sm font-normal text-slate-600">pal</span></p>
+            </div>
+            <div className="bg-slate-800/40 p-6 rounded-3xl border border-white/5">
+                <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">Využitie zmeny</p>
+                <p className={`text-3xl font-black mt-1 ${stats.utilizationPercent > 80 ? 'text-green-400' : stats.utilizationPercent > 50 ? 'text-amber-400' : 'text-slate-400'}`}>
+                  {stats.utilizationPercent.toFixed(1)}%
+                </p>
+            </div>
+            <div className="bg-slate-800/40 p-6 rounded-3xl border border-white/5">
+                <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">Priem. Reakcia</p>
+                <p className="text-3xl font-black text-purple-400 mt-1">
+                  {stats.avgReactionSeconds > 60 ? `${(stats.avgReactionSeconds/60).toFixed(1)}m` : `${Math.round(stats.avgReactionSeconds)}s`}
+                </p>
             </div>
           </div>
 
-          <div className={`${cardStyle} ${getUtilColor(stats.utilizationPercent)}`}>
-            <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
-              <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">{t('shift_utilization')}</h3>
-              <span className="bg-slate-900 px-3 py-1 rounded-full text-[9px] font-black text-slate-500 uppercase">
-                {stats.numDays} {stats.numDays === 1 ? 'DEŇ' : 'DNI'} @ 7.5h
-              </span>
-            </div>
-            <div className="space-y-5">
-              <div className="grid grid-cols-2 gap-4">
+          {/* Secondary Stats Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Efficiency and Logistics */}
+            <div className="bg-slate-950/40 border border-slate-800 p-8 rounded-3xl space-y-8">
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.25em] border-b border-white/5 pb-4">Logistika & Prejazdy</h3>
+              
+              <div className="space-y-6">
                 <div>
-                  <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Čistý čas práce</p>
-                  <p className="text-xl font-black text-white font-mono">{formatMinutes(stats.pureWorkMinutes)}</p>
+                  <div className="flex justify-between items-end mb-2">
+                    <p className="text-[10px] font-black text-slate-500 uppercase">Efektivita Trás</p>
+                    <p className="text-lg font-black text-white">{stats.logEfficiency.toFixed(1)}%</p>
+                  </div>
+                  <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                    <div style={{ width: `${stats.logEfficiency}%` }} className={`h-full transition-all duration-700 ${stats.logEfficiency > 75 ? 'bg-green-500' : 'bg-amber-500'}`}></div>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Využitie kapacity</p>
-                  <p className={`text-4xl font-black font-mono leading-none ${stats.utilizationPercent > 85 ? 'text-emerald-400' : 'text-white'}`}>{stats.utilizationPercent.toFixed(1)}%</p>
+
+                <div className="grid grid-cols-2 gap-8 pt-4">
+                  <div>
+                    <p className="text-slate-500 text-[9px] font-black uppercase">Najazdené Plné</p>
+                    <p className="text-xl font-black text-sky-500 mt-1">{(stats.totalFullDist / 1000).toFixed(3)} km</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500 text-[9px] font-black uppercase">Jalové Kilometre</p>
+                    <p className="text-xl font-black text-rose-500 mt-1">{(stats.totalEmptyDist / 1000).toFixed(3)} km</p>
+                  </div>
                 </div>
-              </div>
 
-              <div className="bg-slate-950/40 p-4 rounded-xl border border-white/5 flex justify-between items-center">
-                <span className="text-[10px] font-black text-teal-500 uppercase tracking-widest">Efektívny čas (+15% réžia):</span>
-                <span className="text-xl font-black text-white font-mono">{formatMinutes(stats.effectiveWorkMinutes)}</span>
-              </div>
-
-              <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden shadow-inner border border-white/5">
-                <div 
-                  style={{ width: `${Math.min(stats.utilizationPercent, 100)}%` }} 
-                  className={`h-full transition-all duration-1000 ${getUtilBarColor(stats.utilizationPercent)}`}
-                ></div>
-              </div>
-
-              <div className="bg-slate-950/60 p-4 rounded-2xl border border-white/10 flex justify-between items-center shadow-inner">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                  OČAKÁVANÝ FOND ({stats.numDays} {stats.numDays === 1 ? 'DEŇ' : 'DNI'}):
-                </p>
-                <p className="text-2xl font-black text-teal-500 font-mono leading-none">
-                  {stats.totalAvailableMinutes} <span className="text-xs font-bold text-slate-600 font-sans">MIN</span>
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className={`${cardStyle} border-t-teal-500`}>
-            <h3 className="text-xs font-black text-teal-400 uppercase tracking-[0.2em] mb-8 border-b border-white/5 pb-4">VÝKONOVÉ UKAZOVATELE</h3>
-            <div className="grid grid-cols-3 gap-6">
-              <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">LOAD SCORE</p>
-                <p className="text-2xl font-black text-teal-400 font-mono">{stats.totalLoad.toFixed(1)}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">HOTOVÉ ÚLOHY</p>
-                <p className="text-2xl font-black text-white font-mono">{tasks.length}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">PRIEM. REAKCIA</p>
-                <p className="text-2xl font-black text-blue-400 font-mono">{Math.round(stats.avgReactionSeconds)}s</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">PLNENIE NORMY</p>
-                <p className="text-2xl font-black text-white font-mono">{stats.performanceRatio > 0 ? stats.performanceRatio.toFixed(0) : '---'}%</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{t('pallets')}</p>
-                <p className="text-2xl font-black text-white font-mono">{stats.palCount.toFixed(1)}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">KUSY</p>
-                <p className="text-2xl font-black text-white font-mono">{stats.pcsTasks}</p>
-              </div>
-              <div className="col-span-3 pt-4 border-t border-white/5 flex justify-between items-center">
-                <span className="text-[10px] font-black text-slate-500 uppercase">Aktívny čas na úlohách:</span>
-                <span className="text-xl font-black text-teal-400 font-mono">{formatDuration(stats.totalExecMs)}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className={`${cardStyle} border-t-sky-500`}>
-             <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
-               <h3 className="text-xs font-black text-sky-400 uppercase tracking-[0.2em]">LOGISTICKÉ KM</h3>
-               <div className="text-right">
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Pomer plných jázd</p>
-                  <p className={`text-2xl font-black font-mono ${stats.logEfficiency > 70 ? 'text-green-400' : 'text-amber-400'}`}>{stats.logEfficiency.toFixed(0)}%</p>
-               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-900/30 p-4 rounded-2xl border border-white/5">
-                  <p className="text-[9px] font-black text-slate-500 uppercase mb-1 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span> REÁLNA LOGISTIKA
+                <div className="bg-slate-900/50 p-4 rounded-2xl border border-white/5">
+                  <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">Tieňová Logistika (Transit)</p>
+                  <p className="text-sm font-bold text-slate-300">
+                    Skladník najazdil <span className="text-white font-black">{stats.transitOnlyDist.toFixed(0)}m</span> prázdnych prejazdov medzi ukončením jednej a začatím ďalšej úlohy.
                   </p>
-                  <p className="text-2xl font-black text-white font-mono">{stats.totalFullDist.toFixed(1)} <span className="text-xs font-bold text-slate-500">m</span></p>
                 </div>
-                <div className="bg-slate-900/30 p-4 rounded-2xl border border-white/5">
-                  <p className="text-[9px] font-black text-slate-500 uppercase mb-1 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500/50"></span> JALOVÉ JAZDY
-                  </p>
-                  <p className="text-2xl font-black text-slate-400 font-mono">{stats.totalEmptyDist.toFixed(1)} <span className="text-xs font-bold text-slate-500">m</span></p>
-                </div>
+              </div>
             </div>
-            <p className="mt-4 text-[9px] text-slate-600 italic leading-tight">* Vzdialenosť validovaná limitom {systemConfig.vzvSpeed || 8} km/h. Počet reálnych otočiek je určený podľa času trvania úlohy a fyzickej vzdialenosti (m).</p>
-          </div>
 
-          <div className={`${cardStyle} border-t-red-500`}>
-            <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
-               <h3 className="text-xs font-black text-red-400 uppercase tracking-[0.2em]">INTEGRITA & KVALITA</h3>
-               <div className="text-right">
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Confidence Rating</p>
-                  <p className={`text-2xl font-black font-mono ${stats.confidenceRating > 80 ? 'text-green-400' : 'text-red-400'}`}>{stats.confidenceRating.toFixed(0)}%</p>
-               </div>
-            </div>
-            <div className="space-y-3">
-              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Posledné hlásenia chýb:</p>
-              {stats.missingHistory.length > 0 ? stats.missingHistory.map((m, idx) => (
-                <div key={idx} className="flex justify-between items-center bg-slate-900/50 p-3 rounded-xl border border-white/5 text-[11px]">
-                  <span className="font-mono text-slate-300 font-bold uppercase truncate max-w-[150px]">{m.partNumber}</span>
-                  <span className={`px-2 py-0.5 rounded font-black uppercase text-[9px] ${m.auditResult === 'OK' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                    {m.auditResult || 'PENDING'}
-                  </span>
+            {/* Quality and Confidence */}
+            <div className="bg-slate-950/40 border border-slate-800 p-8 rounded-3xl space-y-8">
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.25em] border-b border-white/5 pb-4">Kvalita Hlásení</h3>
+              
+              <div className="flex items-center gap-8">
+                <div className="relative w-24 h-24 flex-shrink-0">
+                  <svg className="w-full h-full transform -rotate-90">
+                    <circle cx="48" cy="48" r="42" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-800" />
+                    <circle cx="48" cy="48" r="42" stroke="currentColor" strokeWidth="8" fill="transparent" 
+                      strokeDasharray={264} 
+                      strokeDashoffset={264 - (264 * stats.confidenceRating) / 100} 
+                      className={`${stats.confidenceRating > 90 ? 'text-teal-500' : 'text-amber-500'} transition-all duration-1000`} 
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-xl font-black text-white leading-none">{Math.round(stats.confidenceRating)}</span>
+                    <span className="text-[8px] text-slate-500 uppercase font-black">Score</span>
+                  </div>
                 </div>
-              )) : (
-                <div className="py-6 text-center text-slate-600 italic text-xs">Bez nahlásených chýb</div>
+                <div className="space-y-4">
+                  <p className="text-sm text-slate-300 leading-relaxed">
+                    Skladník nahlásil <span className="text-white font-black">{stats.missingReported}x</span> chýbajúci tovar, z čoho <span className="text-rose-500 font-black">{stats.realErrors}</span> boli reálne chyby systému.
+                  </p>
+                  <div className="flex gap-4">
+                    <div className="px-3 py-1 bg-teal-500/10 border border-teal-500/20 rounded-lg">
+                      <p className="text-[8px] font-black text-teal-500 uppercase">Dôveryhodnosť</p>
+                      <p className="text-sm font-black text-teal-400">VYSOKÁ</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {stats.topParts.length > 0 && (
+                <div className="pt-4 border-t border-white/5">
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Top manipulované diely</p>
+                  <div className="flex flex-wrap gap-2">
+                    {stats.topParts.map(p => (
+                      <span key={p.name} className="bg-slate-900 px-3 py-1.5 rounded-xl border border-white/5 text-[10px] font-mono font-bold text-slate-400">
+                        {p.name} <span className="text-white ml-2">({p.count}x)</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           </div>
 
-          <div className={`${cardStyle} border-t-blue-500`}>
-            <h3 className="text-xs font-black text-blue-400 uppercase tracking-[0.2em] mb-8 border-b border-white/5 pb-4">ČASOVÁ EFEKTIVITA</h3>
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-900/30 p-4 rounded-2xl border border-white/5">
-                  <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Najrýchlejšia úloha</p>
-                  <p className="text-xl font-black text-white font-mono">{formatDuration(stats.fastest)}</p>
+          {/* Time Analysis Section */}
+          <div className="bg-slate-950/40 border border-slate-800 p-8 rounded-3xl">
+             <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.25em] border-b border-white/5 pb-4 mb-8">Časová Analýza Výkonu</h3>
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+                <div className="space-y-2">
+                  <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">Odpracovaný čistý čas</p>
+                  <p className="text-3xl font-black text-white">{formatMinutes(stats.pureWorkMinutes)}</p>
+                  <p className="text-[10px] text-slate-600 font-bold uppercase italic">* Bez prestávok a blokácií</p>
                 </div>
-                <div className="bg-slate-900/30 p-4 rounded-2xl border border-white/5">
-                  <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Najdlhšia úloha</p>
-                  <p className="text-xl font-black text-white font-mono">{formatDuration(stats.longest)}</p>
+                <div className="space-y-2">
+                  <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">Plnenie Noriem (Efficiency)</p>
+                  <p className={`text-3xl font-black ${stats.performanceRatio > 100 ? 'text-green-400' : 'text-slate-300'}`}>
+                    {stats.performanceRatio.toFixed(1)}%
+                  </p>
+                  <p className="text-[10px] text-slate-600 font-bold uppercase">Súčet normočasu: {stats.performanceRatio > 0 ? stats.performanceRatio.toFixed(0) : 0} min</p>
                 </div>
-              </div>
-              <div className="bg-blue-500/10 p-5 rounded-2xl border border-blue-500/20 flex justify-between items-center">
-                 <div className="space-y-1">
-                   <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Priemer na 1 bod náporu</p>
-                   <p className="text-xs text-slate-500">Menej je lepšie (rýchlosť vybavenia)</p>
-                 </div>
-                 <p className="text-3xl font-black text-white font-mono">{Number((stats.avgMsPerPoint / 60000).toFixed(2))} <span className="text-xs font-normal text-slate-500">min</span></p>
-              </div>
-            </div>
-          </div>
-
-          <div className={`${cardStyle} border-t-amber-500 col-span-1 md:col-span-2`}>
-            <h3 className="text-xs font-black text-amber-400 uppercase tracking-[0.2em] mb-8 border-b border-white/5 pb-4">GEOGRAFIA & MATERIÁL</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-               <div className="space-y-4">
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">TOP 3 PRACOVISKÁ</p>
-                  <div className="space-y-2">
-                    {stats.topWorkplaces.map((w, i) => (
-                      <div key={i} className="flex justify-between items-center text-xs">
-                        <span className="font-bold text-slate-300 truncate max-w-[200px]">{w.name}</span>
-                        <span className="font-mono text-amber-500 font-black">{w.count}×</span>
-                      </div>
-                    ))}
-                  </div>
-               </div>
-               <div className="space-y-4 md:border-l md:border-white/5 md:pl-8">
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">TOP 3 DIELY</p>
-                  <div className="space-y-2">
-                    {stats.topParts.map((p, i) => (
-                      <div key={i} className="flex justify-between items-center text-xs">
-                        <span className="font-bold text-slate-300 truncate max-w-[200px]">{p.name}</span>
-                        <span className="font-mono text-teal-500 font-black">{p.count}×</span>
-                      </div>
-                    ))}
-                  </div>
-               </div>
-            </div>
-          </div>
-
-          <div className="col-span-1 md:col-span-2 bg-slate-900/50 border border-slate-800 p-6 rounded-[2rem] shadow-inner animate-fade-in">
-            <h3 className="text-xs font-black text-teal-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              {language === 'sk' ? 'LEGENDA HODNOTENIA (INDEX SCORE)' : 'RATING LEGEND (INDEX SCORE)'}
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-              <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">🎯 KVALITA (30%)</p>
-                <p className="text-[10px] text-slate-500 leading-tight">Presnosť hlásení a výsledky auditov (max 3.0b).</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">⏱️ VYUŽITIE (25%)</p>
-                <p className="text-[10px] text-slate-500 leading-tight">Čas strávený prácou z fondu 450 min (max 2.5b).</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">🚀 NORMY (20%)</p>
-                <p className="text-[10px] text-slate-500 leading-tight">Rýchlosť voči technickej norme (max 2.0b).</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">🚚 LOGISTIKA (15%)</p>
-                <p className="text-[10px] text-slate-500 leading-tight">Pomer plných vs. jalových jázd (max 1.5b).</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">📱 REAKCIA (10%)</p>
-                <p className="text-[10px] text-slate-500 leading-tight">Rýchlosť prijatia úlohy (max 1.0b).</p>
-              </div>
-            </div>
+                <div className="space-y-2">
+                  <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">Tempo Manipulácie</p>
+                  <p className="text-3xl font-black text-amber-500">{formatDuration(stats.avgMsPerPoint)} <span className="text-sm font-normal text-slate-600">/ bod</span></p>
+                  <p className="text-[10px] text-slate-600 font-bold uppercase italic">Priemerný čas jednej operácie</p>
+                </div>
+             </div>
           </div>
 
         </div>
 
-        <div className="p-8 sm:p-10 border-t border-slate-800 bg-slate-800/30 flex justify-center">
+        {/* Footer */}
+        <div className="mt-8 pt-6 border-t border-white/5 flex justify-between items-center relative z-10">
+          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+            ID: {name.toLowerCase().replace(/\s/g, '_')} • Validované systémom Clamason Analytics
+          </p>
           <button 
             onClick={onClose}
-            className="w-full max-w-md py-5 bg-slate-700 hover:bg-slate-600 text-white rounded-[2rem] font-black uppercase text-xs tracking-[0.3em] transition-all shadow-xl active:scale-[0.98] border-2 border-slate-600"
+            className="px-10 py-4 bg-white text-slate-900 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all active:scale-95 shadow-xl"
           >
-            ZAVRIEŤ OKNO
+            Zatvoriť Detail
           </button>
         </div>
+
       </div>
     </div>,
     document.body
