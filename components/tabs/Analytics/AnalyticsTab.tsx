@@ -388,7 +388,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                               fill="#8b5cf6" 
                               radius={[0, 4, 4, 0]} 
                               barSize={20} 
-                              onClick={(entry) => setSelectedWorkerData({ name: entry.name, tasks: entry.tasks })} 
+                              onClick={(entry: any) => setSelectedWorkerData({ name: entry.name, tasks: entry.tasks })} 
                               cursor="pointer"
                           >
                               {stats.workerStats.map((entry, index) => (
