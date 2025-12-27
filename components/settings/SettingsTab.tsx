@@ -13,11 +13,11 @@ import SetupView from './SetupView';
 import YearlyClosing from './YearlyClosing';
 
 interface SettingsTabProps {
-  currentUserRole: 'ADMIN' | 'USER' | 'LEADER';
+  currentUserRole: string;
   users: UserData[];
   onAddUser: (user: UserData) => void;
   onUpdatePassword: (username: string, newPass: string) => void;
-  onUpdateUserRole: (username: string, newRole: 'ADMIN' | 'USER' | 'LEADER') => void;
+  onUpdateUserRole: (username: string, newRole: string) => void;
   onUpdateNickname: (username: string, newNick: string) => void;
   onUpdateExportPermission: (username: string, canExport: boolean) => void;
   onDeleteUser: (username: string) => void;
