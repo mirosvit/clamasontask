@@ -273,7 +273,7 @@ const AppAuthenticated: React.FC<AppAuthenticatedProps> = (props) => {
   return (
     <div className="w-full h-full">
         <PartSearchScreen
-          {...data}
+          {...(data as any)}
           
           // Override CRUD handlers with our adapters
           onAddTask={handleCreateInventoryTask}
@@ -287,6 +287,7 @@ const AppAuthenticated: React.FC<AppAuthenticatedProps> = (props) => {
           onStartAudit={handleStartAudit}
           onFinishAudit={handleFinishAudit}
           onToggleMissing={handleToggleMissing}
+          onDeleteMissingItem={(id) => handleToggleMissing(id)}
 
           // Inject fallback functions
           onGetDocCount={safeGetDocCount}
