@@ -120,6 +120,8 @@ export interface BOMComponent {
 export interface Role {
     id: string;
     name: string;
+    parentId?: string;
+    rank?: number;
     isSystem?: boolean;
 }
 

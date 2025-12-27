@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { db } from '../firebase';
 import { 
@@ -139,7 +140,6 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
   }, []);
 
   useEffect(() => {
-    // REFACTORED: Parts Listener (Single Doc)
     const unsubParts = onSnapshot(doc(db, 'settings', 'parts'), (docSnap) => {
         const cleanMap: Record<string, string> = {};
         if (docSnap.exists()) {
@@ -153,7 +153,6 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
         setPartsMap(cleanMap);
     });
 
-    // REFACTORED: BOM Listener (Single Doc)
     const unsubBOM = onSnapshot(doc(db, 'settings', 'bom'), (docSnap) => {
         const cleanMap: Record<string, any[]> = {};
         if (docSnap.exists()) {
@@ -175,8 +174,6 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
     });
     return () => { unsubParts(); unsubBOM(); unsubBreaks(); };
   }, []);
-
-  // --- WRITE OPERATIONS ---
 
   const onAddTask = async (
     partNumber: string,
@@ -377,7 +374,53 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
     }
   };
 
-  // --- SETTINGS CRUD OPERATIONS (REFACTORED FOR SINGLE DOC) ---
+  const onUpdatePermission = async (permissionName: string, roleName: string, hasPermission: boolean) => {
+    const role = roles.find(r => r.name === roleName);
+    if (!role) return;
+
+    try {
+        if (hasPermission) {
+            await addDoc(collection(db, 'permissions'), {
+                roleId: role.id,
+                permissionName: permissionName
+            });
+        } else {
+            const q = query(
+                collection(db, 'permissions'), 
+                where('roleId', '==', role.id), 
+                where('permissionName', '==', permissionName)
+            );
+            const snap = await getDocs(q);
+            const batch = writeBatch(db);
+            snap.forEach(d => batch.delete(d.ref));
+            await batch.commit();
+        }
+    } catch (e) {
+        console.error("Error updating permission", e);
+    }
+  };
+
+  const onAddRole = async (name: string, parentId?: string, rank: number = 5) => {
+    try {
+        await addDoc(collection(db, 'roles'), { 
+            name: name.toUpperCase(),
+            parentId: parentId || null,
+            rank: rank,
+            isSystem: false
+        });
+    } catch (e) { console.error(e); }
+  };
+
+  const onDeleteRole = async (id: string) => {
+    try {
+        await deleteDoc(doc(db, 'roles', id));
+        const q = query(collection(db, 'permissions'), where('roleId', '==', id));
+        const snap = await getDocs(q);
+        const batch = writeBatch(db);
+        snap.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+    } catch (e) { console.error(e); }
+  };
 
   const onAddPart = async (value: string, description: string = '') => {
       try {
@@ -426,7 +469,6 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
           const snap = await getDoc(ref);
           if (snap.exists()) {
               const currentItems = snap.data().items || [];
-              // Filter out the item (matching by value since ID is internal)
               const newItems = currentItems.filter((i: any) => i.value !== val);
               await updateDoc(ref, { items: newItems });
           }
@@ -436,11 +478,9 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
   const onDeleteAllParts = async () => {
       try {
           await setDoc(doc(db, 'settings', 'parts'), { items: [] });
-          console.log("All parts cleared.");
       } catch (e) { console.error("Error clearing parts:", e); }
   };
 
-  // Workplaces - Still using Collection based on requirement constraint to ONLY refactor Parts/BOM
   const onAddWorkplace = async (val: string, time: number = 0, x: number = 0, y: number = 0) => {
       await addDoc(collection(db, 'workplaces'), { value: val, standardTime: time, coordX: x, coordY: y });
   };
@@ -467,7 +507,6 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
       await batch.commit();
   };
 
-  // Missing Reasons
   const onAddMissingReason = async (val: string) => {
       await addDoc(collection(db, 'missing_reasons'), { value: val });
   };
@@ -475,7 +514,6 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
       await deleteDoc(doc(db, 'missing_reasons', id));
   };
 
-  // Logistics Operations
   const onAddLogisticsOperation = async (val: string, time: number = 0, dist: number = 0) => {
       await addDoc(collection(db, 'logistics_operations'), { value: val, standardTime: time, distancePx: dist });
   };
@@ -486,7 +524,6 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
       await deleteDoc(doc(db, 'logistics_operations', id));
   };
 
-  // Users & Roles (Stubbed basic ops)
   const onAddUser = async (user: UserData) => {
       await addDoc(collection(db, 'users'), user);
   };
@@ -500,10 +537,17 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
       const snap = await getDocs(q);
       snap.forEach(d => updateDoc(d.ref, { nickname: newNick }));
   };
-  const onUpdateUserRole = async (username: string, newRole: any) => {
-      const q = query(collection(db, 'users'), where('username', '==', username));
-      const snap = await getDocs(q);
-      snap.forEach(d => updateDoc(d.ref, { role: newRole }));
+  const onUpdateUserRole = async (username: string, newRole: string) => {
+    if (username.toUpperCase() === 'ADMIN') return;
+    try {
+        const q = query(collection(db, 'users'), where('username', '==', username));
+        const snap = await getDocs(q);
+        const batch = writeBatch(db);
+        snap.forEach(d => batch.update(d.ref, { role: newRole }));
+        await batch.commit();
+    } catch (e) {
+        console.error("Error updating user role", e);
+    }
   };
   const onUpdateExportPermission = async (username: string, canExport: boolean) => {
       const q = query(collection(db, 'users'), where('username', '==', username));
@@ -516,7 +560,6 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
       snap.forEach(d => deleteDoc(d.ref));
   };
 
-  // Map Sectors
   const onAddMapSector = async (name: string, x: number, y: number, color?: string) => {
       await addDoc(collection(db, 'map_sectors'), { name, coordX: x, coordY: y, color });
   };
@@ -526,8 +569,6 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
   const onDeleteMapSector = async (id: string) => {
       await deleteDoc(doc(db, 'map_sectors', id));
   };
-
-  // --- BOM (Kusovníky) CRUD Functions (REFACTORED FOR SINGLE DOC) ---
 
   const onAddBOMItem = async (parent: string, child: string, qty: number) => {
       try {
@@ -591,23 +632,17 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
     tasks, users, partsMap, bomMap, workplaces, missingReasons, logisticsOperations,
     mapSectors, partRequests, bomRequests, breakSchedules, systemBreaks, isBreakActive,
     roles, permissions, notifications, onClearNotification,
-    // Task CRUD
     onAddTask, onUpdateTask, onDeleteTask, onToggleTask, onEditTask, onToggleMissing,
     onSetInProgress, onToggleBlock, onToggleManualBlock, onExhaustSearch, 
     onMarkAsIncorrect, onAddNote, onReleaseTask, onRequestPart, onRequestBOM,
     onAddNotification,
-    // Settings CRUD - Parts
     onAddPart, onBatchAddParts, onDeletePart, onDeleteAllParts,
-    // Settings CRUD - Workplaces
     onAddWorkplace, onUpdateWorkplace, onDeleteWorkplace, onDeleteAllWorkplaces, onBatchAddWorkplaces,
-    // Settings CRUD - Reasons & Ops
     onAddMissingReason, onDeleteMissingReason,
     onAddLogisticsOperation, onUpdateLogisticsOperation, onDeleteLogisticsOperation,
-    // Settings CRUD - Map Sectors
     onAddMapSector, onUpdateMapSector, onDeleteMapSector,
-    // Settings CRUD - Users
     onAddUser, onUpdatePassword, onUpdateNickname, onUpdateUserRole, onUpdateExportPermission, onDeleteUser,
-    // Settings CRUD - BOM
-    onAddBOMItem, onBatchAddBOMItems, onDeleteBOMItem, onDeleteAllBOMItems
+    onAddBOMItem, onBatchAddBOMItems, onDeleteBOMItem, onDeleteAllBOMItems,
+    onUpdatePermission, onAddRole, onDeleteRole
   };
 };

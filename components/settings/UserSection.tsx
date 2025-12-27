@@ -1,4 +1,3 @@
-
 import React, { useState, memo } from 'react';
 import { UserData, Role } from '../../App';
 import { useLanguage } from '../LanguageContext';
@@ -9,6 +8,7 @@ interface UserSectionProps {
   onAddUser: (user: UserData) => void;
   onUpdatePassword: (username: string, newPass: string) => void;
   onUpdateNickname: (username: string, newNick: string) => void;
+  onUpdateUserRole: (username: string, newRole: string) => void;
   onUpdateExportPermission: (username: string, canExport: boolean) => void;
   onDeleteUser: (username: string) => void;
 }
@@ -18,7 +18,7 @@ const Icons = {
   Trash: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
 };
 
-const UserSection: React.FC<UserSectionProps> = memo(({ users, roles, onAddUser, onUpdatePassword, onUpdateNickname, onUpdateExportPermission, onDeleteUser }) => {
+const UserSection: React.FC<UserSectionProps> = memo(({ users, roles, onAddUser, onUpdatePassword, onUpdateNickname, onUpdateUserRole, onUpdateExportPermission, onDeleteUser }) => {
   const { t, language } = useLanguage();
   const [newUser, setNewUser] = useState('');
   const [newPass, setNewPass] = useState('');
@@ -48,7 +48,7 @@ const UserSection: React.FC<UserSectionProps> = memo(({ users, roles, onAddUser,
                 </div>
               </div>
               <div className="flex flex-1 items-center gap-4 w-full">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-grow">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 flex-grow">
                     <input 
                       type="text" 
                       placeholder="Zmeniť Heslo"
@@ -63,8 +63,19 @@ const UserSection: React.FC<UserSectionProps> = memo(({ users, roles, onAddUser,
                       onChange={(e) => setNicknameInputs(p => ({ ...p, [u.username]: e.target.value }))}
                       className={inputClass}
                     />
-                    {/* POVODNY GRID UPRAVENY PRE CHECKBOX */}
-                    <label className="flex items-center justify-center gap-2 bg-slate-800/50 rounded-xl border border-slate-700 px-4 cursor-pointer hover:bg-slate-800 transition-colors">
+                    {/* ROLE SELECTOR */}
+                    <select 
+                        value={u.role}
+                        onChange={(e) => onUpdateUserRole(u.username, e.target.value)}
+                        disabled={u.username === 'ADMIN'}
+                        className={`${inputClass} ${u.username === 'ADMIN' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                        {roles.map(r => (
+                            <option key={r.id} value={r.name}>{r.name}</option>
+                        ))}
+                    </select>
+                    {/* EXPORT CHECKBOX */}
+                    <label className="flex items-center justify-center gap-2 bg-slate-800/50 rounded-xl border border-slate-700 px-4 cursor-pointer hover:bg-slate-800 transition-colors h-12">
                       <input 
                         type="checkbox" 
                         checked={u.canExportAnalytics || false}

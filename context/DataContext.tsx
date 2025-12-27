@@ -1,8 +1,8 @@
+
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useFirestoreData } from '../hooks/useFirestoreData';
 
 // Týmto získame kompletný typ toho, čo vracia hook useFirestoreData (dáta aj CRUD funkcie)
-// Vďaka ReturnType nemusíme manuálne udržiavať interface pri pridávaní nových polí v hooku
 type UseFirestoreDataReturn = ReturnType<typeof useFirestoreData>;
 
 const DataContext = createContext<UseFirestoreDataReturn | undefined>(undefined);
@@ -24,8 +24,17 @@ export const DataProvider: React.FC<DataProviderProps> = ({
 }) => {
   const data = useFirestoreData(isAuthenticated, currentUserRole);
 
+  // Explicitná deštrukturalizácia pre zabezpečenie prepojenia kritických funkcií
+  const { onUpdatePermission, onUpdateUserRole } = data;
+
+  const contextValue = {
+    ...data,
+    onUpdatePermission,
+    onUpdateUserRole
+  };
+
   return (
-    <DataContext.Provider value={data}>
+    <DataContext.Provider value={contextValue}>
       {children}
     </DataContext.Provider>
   );
