@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import TaskList from './tabs/TaskList';
@@ -23,6 +24,7 @@ interface PartSearchScreenProps {
   currentUserRole: 'ADMIN' | 'USER' | 'LEADER';
   onLogout: () => void;
   tasks: Task[];
+  draftTasks: Task[];
   onAddTask: (partNumber: string, workplace: string | null, quantity: string | null, quantityUnit: string | null, priority: PriorityLevel, isLogistics?: boolean, note?: string) => void; 
   onUpdateTask: (id: string, updates: Partial<Task>) => void;
   onToggleTask: (id: string) => void;
@@ -114,7 +116,7 @@ interface PartSearchScreenProps {
 
 const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   const { 
-    currentUser, currentUserRole, onLogout, tasks, onAddTask, onUpdateTask, roles, permissions,
+    currentUser, currentUserRole, onLogout, tasks, draftTasks, onAddTask, onUpdateTask, roles, permissions,
     notifications, onClearNotification, installPrompt, onInstallApp, parts, workplaces,
     onToggleTask, onEditTask, onDeleteTask, onToggleMissing, onSetInProgress, onToggleManualBlock, onExhaustSearch, onMarkAsIncorrect, onAddNote, onReleaseTask, missingReasons,
     users,
@@ -231,6 +233,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
           {activeTab === 'analytics' && (
             <AnalyticsTab 
               tasks={tasks} 
+              draftTasks={draftTasks}
               onFetchArchivedTasks={props.onFetchArchivedTasks} 
               fetchSanons={fetchSanons} 
               settings={settings} 

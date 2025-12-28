@@ -21,16 +21,12 @@ import {
 import { Task, UserData, DBItem, MapSector, PartRequest, BOMRequest, BreakSchedule, SystemBreak, Role, Permission, Notification, PriorityLevel } from '../types/appTypes';
 import { PRIORITY_ORDER } from '../constants/uiConstants';
 
-// Helper: Calculate ISO Week ID (SANON_YYYY_KW)
 const getISOWeekId = () => {
   const date = new Date();
   date.setHours(0, 0, 0, 0);
-  // Thursday in current week decides the year.
   date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
   const week1 = new Date(date.getFullYear(), 0, 4);
-  // Adjust to Thursday in week 1 and count number of weeks from date to week1.
   const weekNumber = 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
-  
   return `SANON_${date.getFullYear()}_${weekNumber.toString().padStart(2, '0')}`;
 };
 
@@ -51,6 +47,7 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [draftTasks, setDraftTasks] = useState<Task[]>([]);
   
   const isFirstLoad = useRef(true);
   const rolesRef = useRef<Role[]>([]);
@@ -142,7 +139,6 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
       const unsubPartReq = onSnapshot(collection(db, 'part_requests'), s => setPartRequests(s.docs.map(d => ({id:d.id, ...d.data()} as PartRequest))));
       const unsubBomReq = onSnapshot(collection(db, 'bom_requests'), s => setBomRequests(s.docs.map(d => ({id:d.id, ...d.data()} as BOMRequest))));
       const unsubSysBreaks = onSnapshot(collection(db, 'system_breaks'), s => setSystemBreaks(s.docs.map(d => ({id:d.id, ...d.data()} as SystemBreak))));
-      
       const unsubNotifications = onSnapshot(collection(db, 'notifications'), s => setNotifications(s.docs.map(d => ({id:d.id, ...d.data()} as Notification))));
 
       return () => { 
@@ -185,78 +181,46 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
     const unsubBreaks = onSnapshot(doc(db, 'settings', 'breaks'), (s) => {
       if (s.exists()) setBreakSchedules(s.data().data || []);
     });
-    return () => { unsubParts(); unsubBOM(); unsubBreaks(); };
+
+    // POSILNENÝ LISTENER PRE DRAFT
+    const unsubDraft = onSnapshot(doc(db, 'settings', 'draft'), (s) => {
+      if (s.exists()) {
+        const d = s.data();
+        setDraftTasks(Array.isArray(d.data) ? d.data : []);
+      } else {
+        setDraftTasks([]);
+      }
+    }, (err) => {
+      console.error("Draft snapshot error:", err);
+      setDraftTasks([]);
+    });
+
+    return () => { unsubParts(); unsubBOM(); unsubBreaks(); unsubDraft(); };
   }, []);
 
-  const onAddTask = async (
-    partNumber: string,
-    workplace: string | null,
-    quantity: string | null,
-    quantityUnit: string | null,
-    priority: PriorityLevel,
-    isLogistics: boolean = false,
-    note: string = '',
-    isProduction: boolean = false
-  ) => {
+  const onAddTask = async (partNumber: string, workplace: string | null, quantity: string | null, quantityUnit: string | null, priority: PriorityLevel, isLogistics: boolean = false, note: string = '', isProduction: boolean = false) => {
     const createdBy = localStorage.getItem('app_user') || 'Unknown';
     const newTask = {
-        text: partNumber, 
-        partNumber,
-        workplace: workplace || '',
-        quantity: quantity || '0',
-        quantityUnit: quantityUnit || 'pcs',
-        priority,
-        isLogistics,
-        isProduction,
-        note,
-        isDone: false,
-        isMissing: false,
-        createdAt: Date.now(),
-        createdBy,
-        status: 'open'
+        text: partNumber, partNumber, workplace: workplace || '', quantity: quantity || '0', quantityUnit: quantityUnit || 'pcs', priority, isLogistics, isProduction, note, isDone: false, isMissing: false, createdAt: Date.now(), createdBy, status: 'open'
     };
-
-    try {
-        await addDoc(collection(db, 'tasks'), newTask);
-    } catch (e) {
-        console.error("Error adding task", e);
-    }
+    try { await addDoc(collection(db, 'tasks'), newTask); } catch (e) { console.error("Error adding task", e); }
   };
 
   const onUpdateTask = async (id: string, updates: Partial<Task>) => {
-    try {
-        const docRef = doc(db, 'tasks', id);
-        await updateDoc(docRef, updates);
-    } catch(e) {
-        console.error("Error updating task", e);
-    }
+    try { await updateDoc(doc(db, 'tasks', id), updates); } catch(e) { console.error("Error updating task", e); }
   };
 
   const onDeleteTask = async (id: string) => {
-    try {
-        await deleteDoc(doc(db, 'tasks', id));
-    } catch(e) { console.error(e); }
+    try { await deleteDoc(doc(db, 'tasks', id)); } catch(e) { console.error(e); }
   };
 
   const onToggleTask = async (id: string) => {
     const task = tasks.find(t => t.id === id);
     if(!task) return;
     const currentUser = localStorage.getItem('app_user') || 'Unknown';
-    
-    const updates: any = {
-        isDone: !task.isDone
-    };
-    
-    if (!task.isDone) {
-        updates.completedAt = Date.now();
-        updates.completedBy = currentUser;
-        updates.status = 'completed';
-    } else {
-        updates.completedAt = null;
-        updates.completedBy = null;
-        updates.status = 'open';
-    }
-    
+    const updates: any = { isDone: !task.isDone };
+    if (!task.isDone) { updates.completedAt = Date.now(); updates.completedBy = currentUser; updates.status = 'completed'; }
+    else { updates.completedAt = null; updates.completedBy = null; updates.status = 'open'; }
     await onUpdateTask(id, updates);
   };
 
@@ -270,15 +234,9 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
     const task = tasks.find(t => t.id === id);
     if (!task) return;
     const user = localStorage.getItem('app_user') || 'Unknown';
-    
     const updates: any = { isMissing: !task.isMissing };
-    if (!task.isMissing) {
-        updates.missingReason = reason || 'Unknown';
-        updates.missingReportedBy = user;
-    } else {
-        updates.missingReason = null;
-        updates.missingReportedBy = null;
-    }
+    if (!task.isMissing) { updates.missingReason = reason || 'Unknown'; updates.missingReportedBy = user; }
+    else { updates.missingReason = null; updates.missingReportedBy = null; }
     await onUpdateTask(id, updates);
   };
 
@@ -286,24 +244,16 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
     const task = tasks.find(t => t.id === id);
     if (!task) return;
     const user = localStorage.getItem('app_user') || 'Unknown';
-
-    if (task.isInProgress) {
-        await onUpdateTask(id, { isInProgress: false, inProgressBy: null });
-    } else {
-        await onUpdateTask(id, { isInProgress: true, inProgressBy: user, startedAt: Date.now() });
-    }
+    if (task.isInProgress) await onUpdateTask(id, { isInProgress: false, inProgressBy: null });
+    else await onUpdateTask(id, { isInProgress: true, inProgressBy: user, startedAt: Date.now() });
   };
 
   const onToggleBlock = async (id: string) => {
     const task = tasks.find(t => t.id === id);
     if (!task) return;
     const user = localStorage.getItem('app_user') || 'Unknown';
-    
-    if (task.isBlocked) {
-        await onUpdateTask(id, { isBlocked: false, blockedBy: null });
-    } else {
-        await onUpdateTask(id, { isBlocked: true, blockedBy: user });
-    }
+    if (task.isBlocked) await onUpdateTask(id, { isBlocked: false, blockedBy: null });
+    else await onUpdateTask(id, { isBlocked: true, blockedBy: user });
   };
 
   const onToggleManualBlock = async (id: string) => {
@@ -318,12 +268,7 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
 
   const onMarkAsIncorrect = async (id: string) => {
     const user = localStorage.getItem('app_user') || 'Unknown';
-    await onUpdateTask(id, { 
-        status: 'incorrectly_entered', 
-        isDone: true, 
-        completedBy: user, 
-        completedAt: Date.now() 
-    });
+    await onUpdateTask(id, { status: 'incorrectly_entered', isDone: true, completedBy: user, completedAt: Date.now() });
   };
 
   const onAddNote = async (id: string, note: string) => {
@@ -331,97 +276,51 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
   };
 
   const onReleaseTask = async (id: string) => {
-    await onUpdateTask(id, { 
-        isBlocked: false, 
-        isManualBlocked: false, 
-        isInProgress: false, 
-        inProgressBy: null,
-        blockedBy: null
-    });
+    await onUpdateTask(id, { isBlocked: false, isManualBlocked: false, isInProgress: false, inProgressBy: null, blockedBy: null });
   };
 
   const onRequestPart = async (part: string) => {
     try {
         const user = localStorage.getItem('app_user') || 'Unknown';
-        await addDoc(collection(db, 'part_requests'), {
-            partNumber: part,
-            requestedBy: user,
-            requestedAt: Date.now()
-        });
+        await addDoc(collection(db, 'part_requests'), { partNumber: part, requestedBy: user, requestedAt: Date.now() });
         return true;
-    } catch (e) {
-        return false;
-    }
+    } catch (e) { return false; }
   };
 
   const onRequestBOM = async (parent: string) => {
     try {
         const user = localStorage.getItem('app_user') || 'Unknown';
-        await addDoc(collection(db, 'bom_requests'), {
-            parentPart: parent,
-            requestedBy: user,
-            requestedAt: Date.now()
-        });
+        await addDoc(collection(db, 'bom_requests'), { parentPart: parent, requestedBy: user, requestedAt: Date.now() });
         return true;
-    } catch (e) {
-        return false;
-    }
+    } catch (e) { return false; }
   };
 
   const onAddNotification = async (notification: Partial<Notification>) => {
-    try {
-        await addDoc(collection(db, 'notifications'), {
-            ...notification,
-            timestamp: Date.now()
-        });
-    } catch (e) {
-        console.error("Error adding notification", e);
-    }
+    try { await addDoc(collection(db, 'notifications'), { ...notification, timestamp: Date.now() }); }
+    catch (e) { console.error("Error adding notification", e); }
   };
 
   const onClearNotification = async (id: string) => {
-    try {
-        await deleteDoc(doc(db, 'notifications', id));
-    } catch (e) {
-        console.error("Error clearing notification", e);
-    }
+    try { await deleteDoc(doc(db, 'notifications', id)); } catch (e) { console.error("Error clearing notification", e); }
   };
 
   const onUpdatePermission = async (permissionName: string, roleName: string, hasPermission: boolean) => {
     const role = roles.find(r => r.name === roleName);
     if (!role) return;
-
     try {
-        if (hasPermission) {
-            await addDoc(collection(db, 'permissions'), {
-                roleId: role.id,
-                permissionName: permissionName
-            });
-        } else {
-            const q = query(
-                collection(db, 'permissions'), 
-                where('roleId', '==', role.id), 
-                where('permissionName', '==', permissionName)
-            );
+        if (hasPermission) { await addDoc(collection(db, 'permissions'), { roleId: role.id, permissionName: permissionName }); } 
+        else {
+            const q = query(collection(db, 'permissions'), where('roleId', '==', role.id), where('permissionName', '==', permissionName));
             const snap = await getDocs(q);
             const batch = writeBatch(db);
             snap.forEach(d => batch.delete(d.ref));
             await batch.commit();
         }
-    } catch (e) {
-        console.error("Error updating permission", e);
-    }
+    } catch (e) { console.error("Error updating permission", e); }
   };
 
   const onAddRole = async (name: string, parentId?: string, rank: number = 5) => {
-    try {
-        await addDoc(collection(db, 'roles'), { 
-            name: name.toUpperCase(),
-            parentId: parentId || null,
-            rank: rank,
-            isSystem: false
-        });
-    } catch (e) { console.error(e); }
+    try { await addDoc(collection(db, 'roles'), { name: name.toUpperCase(), parentId: parentId || null, rank: rank, isSystem: false }); } catch (e) { console.error(e); }
   };
 
   const onDeleteRole = async (id: string) => {
@@ -437,15 +336,8 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
 
   const onAddPart = async (value: string, description: string = '') => {
       try {
-          const newItem = {
-              id: `part_${Date.now()}_${Math.random().toString(36).substr(2,9)}`,
-              value: value.toUpperCase(),
-              description,
-              createdAt: Date.now()
-          };
-          await setDoc(doc(db, 'settings', 'parts'), {
-              items: arrayUnion(newItem)
-          }, { merge: true });
+          const newItem = { id: `part_${Date.now()}_${Math.random().toString(36).substr(2,9)}`, value: value.toUpperCase(), description, createdAt: Date.now() };
+          await setDoc(doc(db, 'settings', 'parts'), { items: arrayUnion(newItem) }, { merge: true });
       } catch (e) { console.error(e); }
   };
 
@@ -455,25 +347,10 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
       vals.forEach((valLine) => {
         if (!valLine.trim()) return;
         const [p, d] = valLine.split(';');
-        if(p) {
-            itemsToAdd.push({
-                id: `part_${Date.now()}_${Math.random().toString(36).substr(2,9)}_${itemsToAdd.length}`,
-                value: p.trim().toUpperCase(),
-                description: d ? d.trim() : '',
-                createdAt: Date.now()
-            });
-        }
+        if(p) { itemsToAdd.push({ id: `part_${Date.now()}_${Math.random().toString(36).substr(2,9)}_${itemsToAdd.length}`, value: p.trim().toUpperCase(), description: d ? d.trim() : '', createdAt: Date.now() }); }
       });
-      
-      if (itemsToAdd.length > 0) {
-          await setDoc(doc(db, 'settings', 'parts'), {
-              items: arrayUnion(...itemsToAdd)
-          }, { merge: true });
-      }
-    } catch (error) {
-      console.error("Error batch adding parts:", error);
-      throw error;
-    }
+      if (itemsToAdd.length > 0) { await setDoc(doc(db, 'settings', 'parts'), { items: arrayUnion(...itemsToAdd) }, { merge: true }); }
+    } catch (error) { console.error("Error batch adding parts:", error); throw error; }
   };
 
   const onDeletePart = async (val: string) => {
@@ -489,9 +366,7 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
   };
 
   const onDeleteAllParts = async () => {
-      try {
-          await setDoc(doc(db, 'settings', 'parts'), { items: [] });
-      } catch (e) { console.error("Error clearing parts:", e); }
+      try { await setDoc(doc(db, 'settings', 'parts'), { items: [] }); } catch (e) { console.error("Error clearing parts:", e); }
   };
 
   const onAddWorkplace = async (val: string, time: number = 0, x: number = 0, y: number = 0) => {
@@ -520,26 +395,12 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
       await batch.commit();
   };
 
-  const onAddMissingReason = async (val: string) => {
-      await addDoc(collection(db, 'missing_reasons'), { value: val });
-  };
-  const onDeleteMissingReason = async (id: string) => {
-      await deleteDoc(doc(db, 'missing_reasons', id));
-  };
-
-  const onAddLogisticsOperation = async (val: string, time: number = 0, dist: number = 0) => {
-      await addDoc(collection(db, 'logistics_operations'), { value: val, standardTime: time, distancePx: dist });
-  };
-  const onUpdateLogisticsOperation = async (id: string, updates: Partial<DBItem>) => {
-      await updateDoc(doc(db, 'logistics_operations', id), updates);
-  };
-  const onDeleteLogisticsOperation = async (id: string) => {
-      await deleteDoc(doc(db, 'logistics_operations', id));
-  };
-
-  const onAddUser = async (user: UserData) => {
-      await addDoc(collection(db, 'users'), user);
-  };
+  const onAddMissingReason = async (val: string) => { await addDoc(collection(db, 'missing_reasons'), { value: val }); };
+  const onDeleteMissingReason = async (id: string) => { await deleteDoc(doc(db, 'missing_reasons', id)); };
+  const onAddLogisticsOperation = async (val: string, time: number = 0, dist: number = 0) => { await addDoc(collection(db, 'logistics_operations'), { value: val, standardTime: time, distancePx: dist }); };
+  const onUpdateLogisticsOperation = async (id: string, updates: Partial<DBItem>) => { await updateDoc(doc(db, 'logistics_operations', id), updates); };
+  const onDeleteLogisticsOperation = async (id: string) => { await deleteDoc(doc(db, 'logistics_operations', id)); };
+  const onAddUser = async (user: UserData) => { await addDoc(collection(db, 'users'), user); };
   const onUpdatePassword = async (username: string, newPass: string) => {
       const q = query(collection(db, 'users'), where('username', '==', username));
       const snap = await getDocs(q);
@@ -558,9 +419,7 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
         const batch = writeBatch(db);
         snap.forEach(d => batch.update(d.ref, { role: newRole }));
         await batch.commit();
-    } catch (e) {
-        console.error("Error updating user role", e);
-    }
+    } catch (e) { console.error("Error updating user role", e); }
   };
   const onUpdateExportPermission = async (username: string, canExport: boolean) => {
       const q = query(collection(db, 'users'), where('username', '==', username));
@@ -572,57 +431,27 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
       const snap = await getDocs(q);
       snap.forEach(d => deleteDoc(d.ref));
   };
-
-  const onAddMapSector = async (name: string, x: number, y: number, color?: string) => {
-      await addDoc(collection(db, 'map_sectors'), { name, coordX: x, coordY: y, color });
-  };
-  const onUpdateMapSector = async (id: string, updates: Partial<MapSector>) => {
-      await updateDoc(doc(db, 'map_sectors', id), updates);
-  };
-  const onDeleteMapSector = async (id: string) => {
-      await deleteDoc(doc(db, 'map_sectors', id));
-  };
+  const onAddMapSector = async (name: string, x: number, y: number, color?: string) => { await addDoc(collection(db, 'map_sectors'), { name, coordX: x, coordY: y, color }); };
+  const onUpdateMapSector = async (id: string, updates: Partial<MapSector>) => { await updateDoc(doc(db, 'map_sectors', id), updates); };
+  const onDeleteMapSector = async (id: string) => { await deleteDoc(doc(db, 'map_sectors', id)); };
 
   const onAddBOMItem = async (parent: string, child: string, qty: number) => {
       try {
-          const newItem = {
-              id: `bom_${Date.now()}_${Math.random().toString(36).substr(2,9)}`,
-              parent: parent.toUpperCase(),
-              child: child.toUpperCase(),
-              consumption: qty,
-              createdAt: Date.now()
-          };
-          await setDoc(doc(db, 'settings', 'bom'), {
-              items: arrayUnion(newItem)
-          }, { merge: true });
+          const newItem = { id: `bom_${Date.now()}_${Math.random().toString(36).substr(2,9)}`, parent: parent.toUpperCase(), child: child.toUpperCase(), consumption: qty, createdAt: Date.now() };
+          await setDoc(doc(db, 'settings', 'bom'), { items: arrayUnion(newItem) }, { merge: true });
       } catch (e) { console.error(e); }
   };
-
   const onBatchAddBOMItems = async (vals: string[]) => {
       try {
           const itemsToAdd: any[] = [];
           vals.forEach(line => {
               if (!line.trim()) return;
               const [p, c, q] = line.split(';');
-              if (p && c) {
-                  itemsToAdd.push({
-                      id: `bom_${Date.now()}_${Math.random().toString(36).substr(2,9)}_${itemsToAdd.length}`,
-                      parent: p.trim().toUpperCase(),
-                      child: c.trim().toUpperCase(),
-                      consumption: parseFloat(q?.replace(',', '.') || '0'),
-                      createdAt: Date.now()
-                  });
-              }
+              if (p && c) { itemsToAdd.push({ id: `bom_${Date.now()}_${Math.random().toString(36).substr(2,9)}_${itemsToAdd.length}`, parent: p.trim().toUpperCase(), child: c.trim().toUpperCase(), consumption: parseFloat(q?.replace(',', '.') || '0'), createdAt: Date.now() }); }
           });
-          
-          if (itemsToAdd.length > 0) {
-              await setDoc(doc(db, 'settings', 'bom'), {
-                  items: arrayUnion(...itemsToAdd)
-              }, { merge: true });
-          }
+          if (itemsToAdd.length > 0) { await setDoc(doc(db, 'settings', 'bom'), { items: arrayUnion(...itemsToAdd) }, { merge: true }); }
       } catch (e) { console.error(e); }
   };
-
   const onDeleteBOMItem = async (parent: string, child: string) => {
       try {
           const ref = doc(db, 'settings', 'bom');
@@ -634,136 +463,70 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
           }
       } catch (e) { console.error(e); }
   };
-
-  const onDeleteAllBOMItems = async () => {
-      try {
-          await setDoc(doc(db, 'settings', 'bom'), { items: [] });
-      } catch (e) { console.error(e); }
-  };
+  const onDeleteAllBOMItems = async () => { try { await setDoc(doc(db, 'settings', 'bom'), { items: [] }); } catch (e) { console.error(e); } };
 
   const onDailyClosing = async () => {
     try {
       const tasksRef = collection(db, 'tasks');
       const q = query(tasksRef, where('isDone', '==', true));
       const snapshot = await getDocs(q);
-
-      if (snapshot.empty) {
-        return { success: true, count: 0 };
-      }
-
+      if (snapshot.empty) return { success: true, count: 0 };
       const completedTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-      // Read Draft
       const draftRef = doc(db, 'settings', 'draft');
       const draftSnap = await getDoc(draftRef);
       let existingData = [];
-      if (draftSnap.exists()) {
-        existingData = draftSnap.data().data || [];
-      }
-
+      if (draftSnap.exists()) existingData = draftSnap.data().data || [];
       const mergedData = [...existingData, ...completedTasks];
-
-      // Batch Operation
       const batch = writeBatch(db);
-
-      // 1. Update Draft
       batch.set(draftRef, { data: mergedData }, { merge: true });
-
-      // 2. Delete from Tasks
-      snapshot.docs.forEach((doc) => {
-        batch.delete(doc.ref);
-      });
-
+      snapshot.docs.forEach((doc) => { batch.delete(doc.ref); });
       await batch.commit();
-
       return { success: true, count: completedTasks.length };
-    } catch (e) {
-      console.error("Daily closing failed:", e);
-      return { success: false, count: 0 };
-    }
+    } catch (e) { console.error("Daily closing failed:", e); return { success: false, count: 0 }; }
   };
 
   const onWeeklyClosing = async () => {
     try {
         const sanonId = getISOWeekId();
-        
-        // 1. Get Draft Data
         const draftRef = doc(db, 'settings', 'draft');
         const draftSnap = await getDoc(draftRef);
-        let draftTasks = [];
-        if (draftSnap.exists()) {
-            draftTasks = draftSnap.data().data || [];
-        }
-
-        // 2. Get Active Completed Tasks (Forget-me-nots)
+        let draftTasksFromDb = [];
+        if (draftSnap.exists()) draftTasksFromDb = draftSnap.data().data || [];
         const tasksRef = collection(db, 'tasks');
         const q = query(tasksRef, where('isDone', '==', true));
         const activeSnap = await getDocs(q);
         const activeTasks = activeSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        const allTasksToArchive = [...draftTasks, ...activeTasks];
-
-        if (allTasksToArchive.length === 0) {
-            return { success: true, count: 0, sanon: sanonId };
-        }
-
-        // 3. Batch Write
+        const allTasksToArchive = [...draftTasksFromDb, ...activeTasks];
+        if (allTasksToArchive.length === 0) return { success: true, count: 0, sanon: sanonId };
         let batch = writeBatch(db);
         let opCount = 0;
-
-        // A. Create Sanon Document (Overwrite if exists to be safe, or merge)
         const sanonRef = doc(db, 'sanony', sanonId);
-        batch.set(sanonRef, { 
-            tasks: allTasksToArchive, 
-            createdAt: Date.now(),
-            id: sanonId 
-        });
+        batch.set(sanonRef, { tasks: allTasksToArchive, createdAt: Date.now(), id: sanonId });
         opCount++;
-
-        // B. Clear Draft
         batch.set(draftRef, { data: [] });
         opCount++;
-
-        // C. Delete Active Tasks (Chunking logic if > 498 items)
         const docsToDelete = activeSnap.docs;
-        
         for (let i = 0; i < docsToDelete.length; i++) {
             batch.delete(docsToDelete[i].ref);
             opCount++;
-
-            if (opCount >= 498) {
-                await batch.commit();
-                batch = writeBatch(db);
-                opCount = 0;
-            }
+            if (opCount >= 498) { await batch.commit(); batch = writeBatch(db); opCount = 0; }
         }
-
-        if (opCount > 0) {
-            await batch.commit();
-        }
-
+        if (opCount > 0) await batch.commit();
         return { success: true, count: allTasksToArchive.length, sanon: sanonId };
-
-    } catch (e) {
-        console.error("Weekly closing failed:", e);
-        return { success: false, count: 0, sanon: '' };
-    }
+    } catch (e) { console.error("Weekly closing failed:", e); return { success: false, count: 0, sanon: '' }; }
   };
 
   const fetchSanons = async () => {
       try {
           const snap = await getDocs(collection(db, 'sanony'));
           return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      } catch (e) {
-          console.error("Error fetching sanons", e);
-          return [];
-      }
+      } catch (e) { console.error("Error fetching sanons", e); return []; }
   };
 
   return {
     tasks, users, partsMap, bomMap, workplaces, missingReasons, logisticsOperations,
     mapSectors, partRequests, bomRequests, breakSchedules, systemBreaks, isBreakActive,
-    roles, permissions, notifications, onClearNotification,
+    roles, permissions, notifications, draftTasks, onClearNotification,
     onAddTask, onUpdateTask, onDeleteTask, onToggleTask, onEditTask, onToggleMissing,
     onSetInProgress, onToggleBlock, onToggleManualBlock, onExhaustSearch, 
     onMarkAsIncorrect, onAddNote, onReleaseTask, onRequestPart, onRequestBOM,

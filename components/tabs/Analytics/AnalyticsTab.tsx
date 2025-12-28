@@ -13,6 +13,7 @@ import { useAnalyticsEngine, FilterMode, SourceFilter, ShiftFilter } from '../..
 
 interface AnalyticsTabProps {
   tasks: Task[];
+  draftTasks: Task[];
   onFetchArchivedTasks: () => Promise<Task[]>;
   fetchSanons: () => Promise<any[]>;
   settings?: any;
@@ -29,7 +30,7 @@ interface AnalyticsTabProps {
 }
 
 const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ 
-  tasks: _liveTasks, fetchSanons, settings, systemBreaks, resolveName, mapSectors, workplaces, systemConfig, logisticsOperations,
+  tasks: _liveTasks, draftTasks: _draftTasks, fetchSanons, settings, systemBreaks, resolveName, mapSectors, workplaces, systemConfig, logisticsOperations,
   users, currentUser, currentUserRole 
 }) => {
   const [filterMode, setFilterMode] = useState<FilterMode>('TODAY');
@@ -73,19 +74,22 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     loadHistory();
   }, [fetchSanons]);
 
-  // MASTER DATA MERGE
+  // MASTER DATA MERGE - MERGE ALL THREE SOURCES
   const masterDataset = useMemo(() => {
-    const draftTasks = settings?.draft?.data || [];
+    const live = Array.isArray(_liveTasks) ? _liveTasks : [];
+    const draft = Array.isArray(_draftTasks) ? _draftTasks : [];
+    const archive = Array.isArray(historicalArchive) ? historicalArchive : [];
+
     // Combine Live + Daily Draft + Weekly Sanons
-    const combined = [..._liveTasks, ...draftTasks, ...historicalArchive];
+    const combined = [...live, ...draft, ...archive];
     
-    // De-duplicate by ID to be safe (Quota Guard best practice)
+    // De-duplicate by ID to be safe
     const uniqueMap = new Map();
     combined.forEach(task => {
-        if (task.id) uniqueMap.set(task.id, task);
+        if (task && task.id) uniqueMap.set(task.id, task);
     });
     return Array.from(uniqueMap.values());
-  }, [_liveTasks, settings, historicalArchive]);
+  }, [_liveTasks, _draftTasks, historicalArchive]);
 
   // INTEGRÁCIA ANALYTICKÉHO ENGINU s MASTER DATASETOM
   const engine = useAnalyticsEngine(
