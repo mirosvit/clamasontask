@@ -179,8 +179,8 @@ export const useAnalyticsEngine = (
         if (task.startedAt && task.completedAt) {
           const rawExecMs = task.completedAt - task.startedAt;
           const blockedMs = calculateBlockedTime(task.inventoryHistory, task.startedAt, task.completedAt);
-          // ActualDuration - minimálne 1 minúta
-          const actualMin = Math.max((rawExecMs - blockedMs) / 60000, 1);
+          
+          let actualMin = (rawExecMs - blockedMs) / 60000;
           
           // TargetDuration - vyhľadanie normy v DB
           const norm = task.isLogistics 
@@ -189,9 +189,22 @@ export const useAnalyticsEngine = (
           
           const targetMin = norm * qtyVal;
 
+          // --- ANTI-CHEAT LOGIC START ---
+          if (actualMin < 0.5) {
+              // PUNISHMENT: Ak je úloha hotová pod 30s, rátame ju ako 2x Normu (Výkon bude 50%)
+              // Safety: Ak je norma 0, počítame 2 minúty, aby sme predišli nekonečnej efektivite pri rýchlom klikaní
+              actualMin = (targetMin * 2) || 2; 
+          } else {
+              // Štandardná poistka (min 1 minúta pre úlohy nad 30s)
+              actualMin = Math.max(actualMin, 1);
+          }
+          // --- ANTI-CHEAT LOGIC END ---
+
           wActualMinTotal += actualMin;
           wTargetMinTotal += targetMin;
-          wExecMs += (rawExecMs - blockedMs);
+          
+          // Pre 'wExecMs' (čistý čas práce pre analytiku času) ponecháme reálny čas
+          wExecMs += Math.max(rawExecMs - blockedMs, 0);
           
           globalTotalActualMin += actualMin;
           globalTotalTargetMin += targetMin;

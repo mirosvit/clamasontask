@@ -116,13 +116,26 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     const logDone = filteredTasks.filter(t => t.isLogistics && t.isDone).length;
     const prodDone = filteredTasks.filter(t => !t.isLogistics && t.isDone).length;
     const totalKm = (globalStats.totalFullDist + globalStats.totalEmptyDist) / 1000;
-    const badEntriesCount = filteredTasks.filter(t => t.isMissing || t.auditResult === 'NOK').length;
+
+    const totalNetMs = filteredTasks.reduce((acc, t) => {
+      // Ponechávame výpočet čistého času presne podľa požiadavky
+      if (t.isDone && t.startedAt && t.completedAt && t.completedAt > t.startedAt) {
+          return acc + (t.completedAt - t.startedAt);
+      }
+      return acc;
+    }, 0);
+    
+    // AKTUALIZOVANÉ FORMÁTOVANIE: Pridanie sekúnd pre presnosť pri testovaní krátkych úloh
+    const hours = Math.floor(totalNetMs / 3600000);
+    const minutes = Math.floor((totalNetMs % 3600000) / 60000);
+    const seconds = Math.floor((totalNetMs % 60000) / 1000);
+    const netTimeString = `${hours}h ${minutes}m ${seconds}s`;
 
     return {
       logDone,
       prodDone,
       totalKm,
-      badEntriesCount
+      netTimeString
     };
   }, [filteredTasks, globalStats]);
 
@@ -286,9 +299,9 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">CELKOVO JÁZD</p>
           <p className="text-3xl font-black text-white mt-2 font-mono">{globalStats.totalPhysicalRides}</p>
         </div>
-        <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 border-l-4 border-l-rose-500 shadow-xl">
-          <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">CHYBNÉ ZADANIA</p>
-          <p className="text-3xl font-black text-rose-500 mt-2 font-mono">{kpiMetrics.badEntriesCount}</p>
+        <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 border-l-4 border-l-emerald-500 shadow-xl">
+          <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">ČISTÝ ČAS PRÁCE</p>
+          <p className="text-3xl font-black text-white mt-2 font-mono">{kpiMetrics.netTimeString}</p>
         </div>
       </div>
 
