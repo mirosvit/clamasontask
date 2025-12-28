@@ -52,7 +52,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     return currentUserRole === 'ADMIN' || (users?.find(u => u.username === currentUser)?.canExportAnalytics === true);
   }, [currentUser, currentUserRole, users]);
 
-  // EFFECT: Fetch historical archives (Sanons) once on mount
   useEffect(() => {
     const loadHistory = async () => {
       setIsLoadingHistory(true);
@@ -74,16 +73,13 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     loadHistory();
   }, [fetchSanons]);
 
-  // MASTER DATA MERGE - MERGE ALL THREE SOURCES
   const masterDataset = useMemo(() => {
     const live = Array.isArray(_liveTasks) ? _liveTasks : [];
     const draft = Array.isArray(_draftTasks) ? _draftTasks : [];
     const archive = Array.isArray(historicalArchive) ? historicalArchive : [];
 
-    // Combine Live + Daily Draft + Weekly Sanons
     const combined = [...live, ...draft, ...archive];
     
-    // De-duplicate by ID to be safe
     const uniqueMap = new Map();
     combined.forEach(task => {
         if (task && task.id) uniqueMap.set(task.id, task);
@@ -91,10 +87,9 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     return Array.from(uniqueMap.values());
   }, [_liveTasks, _draftTasks, historicalArchive]);
 
-  // INTEGRÁCIA ANALYTICKÉHO ENGINU s MASTER DATASETOM
   const engine = useAnalyticsEngine(
     masterDataset,
-    [], // archivedTasks prop in engine is now redundant since we merged it into masterDataset
+    [],
     systemBreaks,
     mapSectors,
     workplaces,
@@ -110,7 +105,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     resolveName
   );
 
-  const { filteredTasks, globalStats, workerStats, charts, qualityStats } = engine;
+  const { filteredTasks, globalStats, workerStats, charts, qualityStats, drivingStats } = engine;
 
   const kpiMetrics = useMemo(() => {
     const logDone = filteredTasks.filter(t => t.isLogistics && t.isDone).length;
@@ -118,14 +113,12 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     const totalKm = (globalStats.totalFullDist + globalStats.totalEmptyDist) / 1000;
 
     const totalNetMs = filteredTasks.reduce((acc, t) => {
-      // Ponechávame výpočet čistého času presne podľa požiadavky
       if (t.isDone && t.startedAt && t.completedAt && t.completedAt > t.startedAt) {
           return acc + (t.completedAt - t.startedAt);
       }
       return acc;
     }, 0);
     
-    // AKTUALIZOVANÉ FORMÁTOVANIE: Pridanie sekúnd pre presnosť pri testovaní krátkych úloh
     const hours = Math.floor(totalNetMs / 3600000);
     const minutes = Math.floor((totalNetMs % 3600000) / 60000);
     const seconds = Math.floor((totalNetMs % 60000) / 1000);
@@ -352,10 +345,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       </div>
 
       <DrivingMetrics 
-        totalKm={globalStats.totalFullDist} 
-        emptyKm={globalStats.totalEmptyDist} 
-        rides={globalStats.totalPhysicalRides} 
-        efficiency={globalStats.globalEfficiency} 
+        productionStats={drivingStats.production}
+        logisticsStats={drivingStats.logistics}
         vzvSpeed={systemConfig.vzvSpeed || 8} 
       />
       

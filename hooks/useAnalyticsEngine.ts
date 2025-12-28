@@ -14,6 +14,14 @@ export interface AnalyticsFilters {
   customEnd?: string;
 }
 
+export interface DrivingStats {
+    fullDist: number;   // metre
+    emptyDist: number;  // metre
+    fullRides: number;  // počet jázd s nákladom
+    emptyRides: number; // počet jázd naprázdno (vrátane tranzitov)
+    efficiency: number; // %
+}
+
 export interface WorkerStats {
   id: string;
   name: string;
@@ -98,9 +106,12 @@ export const useAnalyticsEngine = (
     let globalFalseAlarms = 0;
     let globalAuditedCount = 0;
 
-    // Globálne akumulátory pre vážený Performance Ratio (Target / Actual)
     let globalTotalTargetMin = 0;
     let globalTotalActualMin = 0;
+
+    // --- NEW DETAILED DRIVING STATS INITIALIZATION ---
+    const prodDriving: DrivingStats = { fullDist: 0, emptyDist: 0, fullRides: 0, emptyRides: 0, efficiency: 0 };
+    const logDriving: DrivingStats = { fullDist: 0, emptyDist: 0, fullRides: 0, emptyRides: 0, efficiency: 0 };
 
     combinedData.forEach(t => {
       if (t.isDone && t.completedBy) {
@@ -137,7 +148,7 @@ export const useAnalyticsEngine = (
       return totalBlocked;
     };
 
-    const workerStats: WorkerStats[] = Object.entries(workerTaskMap).map(([uid, workerTasks]) => {
+    const workerStatsList: WorkerStats[] = Object.entries(workerTaskMap).map(([uid, workerTasks]) => {
       const sorted = [...workerTasks].sort((a, b) => (a.completedAt || 0) - (b.completedAt || 0));
       
       let wFullDist = 0;
@@ -158,59 +169,45 @@ export const useAnalyticsEngine = (
       sorted.forEach(task => {
         if (task.completedAt) daysWorked.add(new Date(task.completedAt).toLocaleDateString());
         
-        if (!lastCoords) { wRides++; }
-
         const qtyVal = parseFloat((task.quantity || '1').replace(',', '.'));
         const points = (task.quantityUnit === 'pallet') ? qtyVal : 1;
 
-        // KPI náporu (Points)
-        if (task.workplace) {
-          if (!workplaceLoad[task.workplace]) workplaceLoad[task.workplace] = { load: 0, pal: 0, req: 0 };
-          workplaceLoad[task.workplace].load += points; workplaceLoad[task.workplace].req++;
-          if (task.quantityUnit === 'pallet') workplaceLoad[task.workplace].pal += qtyVal;
-        }
-        if (task.partNumber) {
-          if (!highRunnerLoad[task.partNumber]) highRunnerLoad[task.partNumber] = { load: 0, pal: 0, req: 0 };
-          highRunnerLoad[task.partNumber].load += points; highRunnerLoad[task.partNumber].req++;
-          if (task.quantityUnit === 'pallet') highRunnerLoad[task.partNumber].pal += qtyVal;
+        if (!task.isLogistics) {
+            if (task.workplace) {
+              if (!workplaceLoad[task.workplace]) workplaceLoad[task.workplace] = { load: 0, pal: 0, req: 0 };
+              workplaceLoad[task.workplace].load += points; workplaceLoad[task.workplace].req++;
+              if (task.quantityUnit === 'pallet') workplaceLoad[task.workplace].pal += qtyVal;
+            }
+            if (task.partNumber) {
+              if (!highRunnerLoad[task.partNumber]) highRunnerLoad[task.partNumber] = { load: 0, pal: 0, req: 0 };
+              highRunnerLoad[task.partNumber].load += points; highRunnerLoad[task.partNumber].req++;
+              if (task.quantityUnit === 'pallet') highRunnerLoad[task.partNumber].pal += qtyVal;
+            }
         }
 
-        // Výpočet Performance (Tempo) pre úlohu
         if (task.startedAt && task.completedAt) {
           const rawExecMs = task.completedAt - task.startedAt;
           const blockedMs = calculateBlockedTime(task.inventoryHistory, task.startedAt, task.completedAt);
-          
           let actualMin = (rawExecMs - blockedMs) / 60000;
-          
-          // TargetDuration - vyhľadanie normy v DB
           const norm = task.isLogistics 
             ? (logisticsOperations.find(o => o.value === task.workplace)?.standardTime || 0)
             : (workplaces.find(w => w.value === task.workplace)?.standardTime || 0);
-          
           const targetMin = norm * qtyVal;
 
-          // --- ANTI-CHEAT LOGIC START ---
           if (actualMin < 0.5) {
-              // PUNISHMENT: Ak je úloha hotová pod 30s, rátame ju ako 2x Normu (Výkon bude 50%)
-              // Safety: Ak je norma 0, počítame 2 minúty, aby sme predišli nekonečnej efektivite pri rýchlom klikaní
               actualMin = (targetMin * 2) || 2; 
           } else {
-              // Štandardná poistka (min 1 minúta pre úlohy nad 30s)
               actualMin = Math.max(actualMin, 1);
           }
-          // --- ANTI-CHEAT LOGIC END ---
 
           wActualMinTotal += actualMin;
           wTargetMinTotal += targetMin;
-          
-          // Pre 'wExecMs' (čistý čas práce pre analytiku času) ponecháme reálny čas
           wExecMs += Math.max(rawExecMs - blockedMs, 0);
-          
           globalTotalActualMin += actualMin;
           globalTotalTargetMin += targetMin;
         }
 
-        // Logistika (Prejazdy)
+        // --- DISTANCE LOGIC WITH SEGMENT SPLIT ---
         let oneWayD = 0;
         if (task.isLogistics) {
           const logOp = logisticsOperations.find(o => o.value === task.workplace);
@@ -220,10 +217,21 @@ export const useAnalyticsEngine = (
             const possibleTrips = Math.round(((durationMs / 1000) * VZV_SPEED_MPS) / (2 * oneWayD));
             const maxQty = Math.max(1, Math.floor(qtyVal));
             const validatedTrips = Math.min(maxQty, Math.max(1, possibleTrips));
-            wFullDist += validatedTrips * oneWayD;
-            wEmptyDist += (validatedTrips > 1 ? (validatedTrips - 1) * oneWayD : 0);
+            
+            const fullD = validatedTrips * oneWayD;
+            const emptyD = (validatedTrips > 1 ? (validatedTrips - 1) * oneWayD : 0);
+            
+            wFullDist += fullD;
+            wEmptyDist += emptyD;
             wRides += (validatedTrips * 2 - 1); 
-            lastCoords = null;
+
+            // Accumulate Global Logistics Driving Stats
+            logDriving.fullDist += fullD;
+            logDriving.emptyDist += emptyD;
+            logDriving.fullRides += validatedTrips;
+            logDriving.emptyRides += (validatedTrips > 1 ? validatedTrips - 1 : 0);
+
+            lastCoords = null; // Break chain for logistics
           }
         } 
         else if (task.pickedFromSectorId && task.workplace) {
@@ -233,18 +241,37 @@ export const useAnalyticsEngine = (
             const pickup = { x: sector.coordX, y: sector.coordY };
             const dropoff = { x: wp.coordX || 0, y: wp.coordY || 0 };
             oneWayD = Math.sqrt(Math.pow(dropoff.x - pickup.x, 2) + Math.pow(dropoff.y - pickup.y, 2)) / 10;
+            
+            let currentTransitD = 0;
             if (lastCoords) {
-              wTransitDist += Math.sqrt(Math.pow(pickup.x - lastCoords.x, 2) + Math.pow(pickup.y - lastCoords.y, 2)) / 10;
+              currentTransitD = Math.sqrt(Math.pow(pickup.x - lastCoords.x, 2) + Math.pow(pickup.y - lastCoords.y, 2)) / 10;
+              wTransitDist += currentTransitD;
               wRides++; 
+              // Transit is always an empty ride
+              prodDriving.emptyRides += 1;
+              prodDriving.emptyDist += currentTransitD;
+            } else {
+              wRides++;
             }
+
             const durationMs = (task.completedAt || 0) - (task.startedAt || task.createdAt || 0);
             const possibleTrips = Math.round(((durationMs / 1000) * VZV_SPEED_MPS) / (2 * oneWayD));
             const maxQty = Math.max(1, Math.floor(qtyVal));
             const validatedTrips = Math.min(maxQty, Math.max(1, possibleTrips));
+            
             if (validatedTrips > 0) {
-              wFullDist += validatedTrips * oneWayD;
-              wEmptyDist += (validatedTrips > 1 ? (validatedTrips - 1) * oneWayD : 0);
+              const fullD = validatedTrips * oneWayD;
+              const emptyD = (validatedTrips > 1 ? (validatedTrips - 1) * oneWayD : 0);
+              
+              wFullDist += fullD;
+              wEmptyDist += emptyD;
               wRides += (validatedTrips * 2 - 1);
+
+              // Accumulate Global Production Driving Stats
+              prodDriving.fullDist += fullD;
+              prodDriving.emptyDist += emptyD; // This task's internal returns
+              prodDriving.fullRides += validatedTrips;
+              prodDriving.emptyRides += (validatedTrips > 1 ? validatedTrips - 1 : 0);
             }
             lastCoords = dropoff;
           }
@@ -263,16 +290,12 @@ export const useAnalyticsEngine = (
       const nDays = Math.max(daysWorked.size, 1);
       const pureMin = wExecMs / 60000;
       const utilization = (pureMin * 1.15 / (nDays * SHIFT_MINUTES)) * 100;
-      
-      // FINAL PERFORMANCE (TEMPO) pre pracovníka - s limitom 200%
       const perf = wActualMinTotal > 0 ? Math.min((wTargetMinTotal / wActualMinTotal) * 100, 200) : 0;
-      
       const reactSec = wReactCount > 0 ? (wReactMs / wReactCount) / 1000 : 0;
       const conf = wMissingReported > 0 ? ((wMissingReported - wRealErrors) / wMissingReported) * 100 : 100;
       const totalEmpty = wEmptyDist + wTransitDist;
       const logEff = (wFullDist + totalEmpty) > 0 ? (wFullDist / (wFullDist + totalEmpty)) * 100 : 50;
 
-      // WPI SCORE
       const sQual = (conf / 100) * 3.0;
       const sUtil = (Math.min(utilization, 100) / 100) * 2.5;
       const sStd = Math.min(perf, 200) / 200 * 2.0;
@@ -290,28 +313,32 @@ export const useAnalyticsEngine = (
       };
     });
 
-    const totalFull = workerStats.reduce((a, b) => a + b.fullDistMeters, 0);
-    const totalEmpty = workerStats.reduce((a, b) => a + b.emptyDistMeters, 0);
-    const totalPhysicalRides = workerStats.reduce((a, b) => a + b.totalRides, 0);
-    
-    // Globálny Performance Ratio (Vážený priemer) - s limitom 200%
-    const globalPerformanceRatio = globalTotalActualMin > 0 
-        ? Math.min((globalTotalTargetMin / globalTotalActualMin) * 100, 200) 
-        : 0;
+    // --- CALCULATE FINAL EFFICIENCIES ---
+    prodDriving.efficiency = (prodDriving.fullDist + prodDriving.emptyDist) > 0 ? (prodDriving.fullDist / (prodDriving.fullDist + prodDriving.emptyDist)) * 100 : 0;
+    logDriving.efficiency = (logDriving.fullDist + logDriving.emptyDist) > 0 ? (logDriving.fullDist / (logDriving.fullDist + logDriving.emptyDist)) * 100 : 0;
+
+    const totalFullDistGlobal = prodDriving.fullDist + logDriving.fullDist;
+    const totalEmptyDistGlobal = prodDriving.emptyDist + logDriving.emptyDist;
+    const totalPhysicalRidesGlobal = workerStatsList.reduce((a, b) => a + b.totalRides, 0);
+    const globalPerformanceRatio = globalTotalActualMin > 0 ? Math.min((globalTotalTargetMin / globalTotalActualMin) * 100, 200) : 0;
 
     return {
       filteredTasks: combinedData,
       globalStats: {
         totalTasks: combinedData.length,
         totalDone: combinedData.filter(t => t.isDone).length,
-        totalFullDist: totalFull,
-        totalEmptyDist: totalEmpty,
-        globalEfficiency: (totalFull + totalEmpty) > 0 ? (totalFull / (totalFull + totalEmpty)) * 100 : 0,
+        totalFullDist: totalFullDistGlobal,
+        totalEmptyDist: totalEmptyDistGlobal,
+        globalEfficiency: (totalFullDistGlobal + totalEmptyDistGlobal) > 0 ? (totalFullDistGlobal / (totalFullDistGlobal + totalEmptyDistGlobal)) * 100 : 0,
         globalPerformanceRatio: globalPerformanceRatio,
         totalVolume: combinedData.reduce((a, b) => a + (parseFloat((b.quantity || '0').replace(',', '.')) || 0), 0),
-        totalPhysicalRides: totalPhysicalRides
+        totalPhysicalRides: totalPhysicalRidesGlobal
       },
-      workerStats,
+      drivingStats: {
+        production: prodDriving,
+        logistics: logDriving
+      },
+      workerStats: workerStatsList,
       charts: {
         hourly: Object.entries(hourlyLoad).map(([h, d]) => ({ 
           hour: parseInt(h), 

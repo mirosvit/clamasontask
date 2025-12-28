@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Task, SystemBreak, MapSector, DBItem, SystemConfig } from '../../../types/appTypes';
@@ -42,11 +43,15 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
     let pcsTasks = 0;
     let missingReported = 0;
     let realErrors = 0;
-    let totalExecMs = 0;
+    let totalExecMs = 0; // Reálne odpracovaný čas (nezmenený)
     let totalStandardMin = 0;
     let totalReactionMs = 0;
     let reactionCount = 0;
     let durations: number[] = [];
+    
+    // Nové akumulátory pre férový výkon s limitom (Capped Average)
+    let sumPerformance = 0;
+    let countPerformanceTasks = 0;
     
     let totalFullDist = 0;
     let totalEmptyDist = 0;
@@ -54,12 +59,9 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
 
     const workplacesMap: Record<string, number> = {};
     const partsMap: Record<string, number> = {};
-    const missingHistory: Task[] = [];
     const uniqueDaysWorked = new Set<string>();
 
-    // Sort tasks chronologically to calculate chaining (transit distance)
     const sortedTasks = [...tasks].sort((a,b) => (a.completedAt || 0) - (b.completedAt || 0));
-
     let lastWorkplaceCoords: { x: number, y: number } | null = null;
 
     sortedTasks.forEach(task => {
@@ -68,7 +70,7 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
         uniqueDaysWorked.add(dateKey);
       }
 
-      const qtyVal = parseFloat((task.quantity || '0').replace(',', '.'));
+      const qtyVal = parseFloat((task.quantity || '1').replace(',', '.'));
       const loadPoints = (task.quantityUnit === 'pallet' && !isNaN(qtyVal)) ? qtyVal : 1;
       totalLoad += loadPoints;
 
@@ -78,134 +80,133 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
       if (task.isDone && task.completedBy) {
           let validatedTrips = 0;
           let oneWayD = 0;
-          let currentPickupCoords: { x: number, y: number } | null = null;
-          let currentDropoffCoords: { x: number, y: number } | null = null;
 
-          // 1. CHAINING LOGIC (Shadow Logistics): Transit from end of previous task to start of current
+          // 1. CHAINING LOGIC
           if (lastWorkplaceCoords && !task.isLogistics && task.pickedFromSectorId) {
               const sector = mapSectors.find(s => s.id === task.pickedFromSectorId);
               if (sector) {
-                  const tdx = sector.coordX - lastWorkplaceCoords.x;
-                  const tdy = sector.coordY - lastWorkplaceCoords.y;
-                  const transitD = Math.sqrt(tdx*tdx + tdy*tdy) / 10;
+                  const transitD = Math.sqrt(Math.pow(sector.coordX - lastWorkplaceCoords.x, 2) + Math.pow(sector.coordY - lastWorkplaceCoords.y, 2)) / 10;
                   totalTransitBetweenTasksDist += transitD;
               }
           }
 
-          // 2. TASK LOGIC: Distance within the current task
+          // 2. TASK DISTANCE
           if (task.isLogistics) {
               const logOp = logisticsOperations.find(o => o.value === task.workplace);
               if (logOp && logOp.distancePx) {
                   oneWayD = logOp.distancePx;
                   const durationMs = (task.completedAt || 0) - (task.startedAt || task.createdAt || 0);
                   const possibleTrips = Math.round(( (durationMs / 1000) * VZV_SPEED_MPS ) / (2 * oneWayD));
-                  const maxQty = !isNaN(qtyVal) ? Math.max(1, Math.floor(qtyVal)) : 1;
-                  validatedTrips = Math.min(maxQty, Math.max(1, possibleTrips));
+                  validatedTrips = Math.min(Math.max(1, Math.floor(qtyVal)), Math.max(1, possibleTrips));
               }
           } else if (task.pickedFromSectorId && task.workplace) {
               const sector = mapSectors.find(s => s.id === task.pickedFromSectorId);
               const wp = workplaces.find(w => w.value === task.workplace);
               if (sector && wp) {
-                  currentPickupCoords = { x: sector.coordX, y: sector.coordY };
-                  currentDropoffCoords = { x: wp.coordX || 0, y: wp.coordY || 0 };
-                  
                   const dx = (wp.coordX || 0) - (sector.coordX || 0);
                   const dy = (wp.coordY || 0) - (sector.coordY || 0);
                   oneWayD = Math.sqrt(dx*dx + dy*dy) / 10;
-                  
                   const durationMs = (task.completedAt || 0) - (task.startedAt || task.createdAt || 0);
                   const possibleTrips = Math.round(( (durationMs / 1000) * VZV_SPEED_MPS ) / (2 * oneWayD));
-                  const maxQty = !isNaN(qtyVal) ? Math.max(1, Math.floor(qtyVal)) : 1;
-                  validatedTrips = Math.min(maxQty, Math.max(1, possibleTrips));
-                  
-                  // Store last coordinates for next iteration chaining
-                  lastWorkplaceCoords = currentDropoffCoords;
+                  validatedTrips = Math.min(Math.max(1, Math.floor(qtyVal)), Math.max(1, possibleTrips));
+                  lastWorkplaceCoords = { x: wp.coordX || 0, y: wp.coordY || 0 };
               }
           }
 
           if (validatedTrips > 0) {
               totalFullDist += validatedTrips * oneWayD;
-              // "Empty" distance = returns for additional pallets
               totalEmptyDist += (validatedTrips > 1 ? (validatedTrips - 1) * oneWayD : 0);
           }
       }
 
-      if (task.isMissing) {
-        missingReported++;
-        if (task.auditResult === 'NOK') realErrors++;
-        if (missingHistory.length < 5) missingHistory.push(task);
-      }
-
+      // --- HLAVNÝ VÝPOČET ČASU A VÝKONU (CAP + ANTI-CHEAT) ---
       if (task.startedAt && task.completedAt) {
-        let exec = task.completedAt - task.startedAt;
-        exec -= calculateBlockedTime(task.inventoryHistory, task.startedAt, task.completedAt);
-        if (exec > 0) {
-          totalExecMs += exec;
-          durations.push(exec);
-          totalStandardMin += (task.standardTime || 0);
+        const rawDurationMs = task.completedAt - task.startedAt;
+        const blockedMs = calculateBlockedTime(task.inventoryHistory, task.startedAt, task.completedAt);
+        const realDurationMs = Math.max(rawDurationMs - blockedMs, 0);
+
+        // 1. Reálny čas práce pre displej dochádzky
+        totalExecMs += realDurationMs;
+        durations.push(realDurationMs);
+
+        // 2. Vyhľadanie normy
+        const norm = task.isLogistics 
+            ? (logisticsOperations.find(o => o.value === task.workplace)?.standardTime || 0)
+            : (workplaces.find(w => w.value === task.workplace)?.standardTime || 0);
+        
+        const targetMin = norm * qtyVal;
+        const durationMin = realDurationMs / 60000;
+
+        // 3. Adjusted Time Logic (Anti-Cheat & Floor)
+        let adjustedMin;
+        if (durationMin < 0.5) {
+            // PENALTY: Úloha pod 30s -> berie sa ako 2x norma (Vždy 50%)
+            adjustedMin = (targetMin * 2) || 2; 
+        } else if (durationMin < 1) {
+            // Safety Floor (Min 1 minúta)
+            adjustedMin = 1;
+        } else {
+            // Reálny čistý čas
+            adjustedMin = durationMin;
+        }
+
+        // 4. Per-task Performance s limitom 200%
+        if (targetMin > 0) {
+            const taskPerf = (targetMin / adjustedMin) * 100;
+            const cappedPerf = Math.min(taskPerf, 200);
+            sumPerformance += cappedPerf;
+            countPerformanceTasks++;
+            totalStandardMin += targetMin;
         }
       }
 
       if (task.createdAt && task.startedAt) {
         const react = task.startedAt - task.createdAt;
-        if (react > 0) {
-          totalReactionMs += react;
-          reactionCount++;
-        }
+        if (react > 0) { totalReactionMs += react; reactionCount++; }
       }
 
       const isProd = (task.isProduction === true) || (!task.isLogistics && !!task.workplace);
       if (isProd && task.workplace) workplacesMap[task.workplace] = (workplacesMap[task.workplace] || 0) + 1;
       if (task.partNumber) partsMap[task.partNumber] = (partsMap[task.partNumber] || 0) + 1;
+
+      if (task.isMissing) {
+        missingReported++;
+        if (task.auditResult === 'NOK') realErrors++;
+      }
     });
 
     const numDays = Math.max(uniqueDaysWorked.size, 1);
-    const shiftTotalMinutes = 450; 
-    const totalAvailableMinutes = numDays * shiftTotalMinutes;
+    const SHIFT_MINUTES = 450;
+    const totalAvailableMinutes = numDays * SHIFT_MINUTES;
     const pureWorkMinutes = totalExecMs / 60000;
-    const effectiveWorkMinutes = pureWorkMinutes * 1.15; 
-    const utilizationPercent = totalAvailableMinutes > 0 ? (effectiveWorkMinutes / totalAvailableMinutes) * 100 : 0;
-    const performanceRatio = (totalStandardMin > 0 && pureWorkMinutes > 0) ? (totalStandardMin / pureWorkMinutes) * 100 : 0;
+    
+    // WPI Score Logic
+    const performanceRatio = countPerformanceTasks > 0 ? (sumPerformance / countPerformanceTasks) : 0;
     const avgReactionSeconds = reactionCount > 0 ? (totalReactionMs / reactionCount) / 1000 : 0;
     const confidenceRating = missingReported > 0 ? ((missingReported - realErrors) / missingReported) * 100 : 100;
-    
-    // Deadhead/Transit kilometers calculation
     const grandTotalEmptyDist = totalEmptyDist + totalTransitBetweenTasksDist;
     const logEfficiency = (totalFullDist + grandTotalEmptyDist) > 0 ? (totalFullDist / (totalFullDist + grandTotalEmptyDist)) * 100 : 50;
 
-    // Worker Performance Index (WPI) calculation
+    const utilizationPercent = (pureWorkMinutes * 1.15 / totalAvailableMinutes) * 100;
+
     const scoreQuality = (confidenceRating / 100) * 3.0;
     const scoreUtilization = (Math.min(utilizationPercent, 100) / 100) * 2.5;
-    const scoreStandards = performanceRatio > 0 ? (Math.min(performanceRatio, 120) / 120) * 2.0 : 1.5; 
+    const scoreStandards = performanceRatio > 0 ? (Math.min(performanceRatio, 200) / 200) * 2.0 : 1.0; 
     const scoreReaction = avgReactionSeconds > 0 ? (avgReactionSeconds < 60 ? 1.0 : avgReactionSeconds < 180 ? 0.5 : 0) : 0.5;
     const scoreLogistics = (logEfficiency / 100) * 1.0;
 
     const workerIndex = parseFloat((scoreQuality + scoreUtilization + scoreStandards + scoreReaction + scoreLogistics).toFixed(1));
     
-    const avgMsPerPoint = durations.length > 0 ? totalExecMs / totalLoad : 0;
-    const topWorkplaces = Object.entries(workplacesMap).sort(([,a],[,b]) => b-a).slice(0, 3).map(([name, count]) => ({ name, count }));
-    const topParts = Object.entries(partsMap).sort(([,a],[,b]) => b-a).slice(0, 3).map(([name, count]) => ({ name, count }));
-
     return {
       totalLoad, palCount, pcsTasks, 
-      confidenceRating, realErrors, missingReported, missingHistory,
+      confidenceRating, realErrors, missingReported,
       totalExecMs, 
-      fastest: durations.length > 0 ? Math.min(...durations) : 0,
-      longest: durations.length > 0 ? Math.max(...durations) : 0,
-      avgMsPerPoint,
-      topWorkplaces, topParts,
-      utilizationPercent,
-      pureWorkMinutes,
-      effectiveWorkMinutes,
-      numDays,
-      totalAvailableMinutes,
-      workerIndex,
-      performanceRatio,
-      avgReactionSeconds,
-      totalFullDist,
-      totalEmptyDist: grandTotalEmptyDist,
-      transitOnlyDist: totalTransitBetweenTasksDist,
-      logEfficiency
+      avgMsPerPoint: durations.length > 0 ? totalExecMs / totalLoad : 0,
+      topWorkplaces: Object.entries(workplacesMap).sort(([,a],[,b]) => b-a).slice(0, 3).map(([name, count]) => ({ name, count })),
+      topParts: Object.entries(partsMap).sort(([,a],[,b]) => b-a).slice(0, 3).map(([name, count]) => ({ name, count })),
+      utilizationPercent, pureWorkMinutes, workerIndex, performanceRatio, avgReactionSeconds,
+      totalFullDist, totalEmptyDist: grandTotalEmptyDist, transitOnlyDist: totalTransitBetweenTasksDist,
+      logEfficiency, totalStandardMin
     };
   }, [tasks, systemBreaks, mapSectors, workplaces, systemConfig, VZV_SPEED_MPS, logisticsOperations]);
 
@@ -257,7 +258,6 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
         {/* Scrollable Content */}
         <div className="flex-grow overflow-y-auto custom-scrollbar pr-4 space-y-10 relative z-10">
           
-          {/* Top KPI Grid */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-slate-800/40 p-6 rounded-3xl border border-white/5">
                 <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">Celkový Nápor</p>
@@ -281,12 +281,9 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
             </div>
           </div>
 
-          {/* Secondary Stats Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Efficiency and Logistics */}
             <div className="bg-slate-950/40 border border-slate-800 p-8 rounded-3xl space-y-8">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.25em] border-b border-white/5 pb-4">Logistika & Prejazdy</h3>
-              
               <div className="space-y-6">
                 <div>
                   <div className="flex justify-between items-end mb-2">
@@ -297,7 +294,6 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
                     <div style={{ width: `${stats.logEfficiency}%` }} className={`h-full transition-all duration-700 ${stats.logEfficiency > 75 ? 'bg-green-500' : 'bg-amber-500'}`}></div>
                   </div>
                 </div>
-
                 <div className="grid grid-cols-2 gap-8 pt-4">
                   <div>
                     <p className="text-slate-500 text-[9px] font-black uppercase">Najazdené Plné</p>
@@ -308,20 +304,17 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
                     <p className="text-xl font-black text-rose-500 mt-1">{(stats.totalEmptyDist / 1000).toFixed(3)} km</p>
                   </div>
                 </div>
-
                 <div className="bg-slate-900/50 p-4 rounded-2xl border border-white/5">
                   <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">Tieňová Logistika (Transit)</p>
                   <p className="text-sm font-bold text-slate-300">
-                    Skladník najazdil <span className="text-white font-black">{stats.transitOnlyDist.toFixed(0)}m</span> prázdnych prejazdov medzi ukončením jednej a začatím ďalšej úlohy.
+                    Skladník najazdil <span className="text-white font-black">{stats.transitOnlyDist.toFixed(0)}m</span> prázdnych prejazdov medzi úlohami.
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Quality and Confidence */}
             <div className="bg-slate-950/40 border border-slate-800 p-8 rounded-3xl space-y-8">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.25em] border-b border-white/5 pb-4">Kvalita Hlásení</h3>
-              
               <div className="flex items-center gap-8">
                 <div className="relative w-24 h-24 flex-shrink-0">
                   <svg className="w-full h-full transform -rotate-90">
@@ -339,20 +332,17 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
                 </div>
                 <div className="space-y-4">
                   <p className="text-sm text-slate-300 leading-relaxed">
-                    Skladník nahlásil <span className="text-white font-black">{stats.missingReported}x</span> chýbajúci tovar, z čoho <span className="text-rose-500 font-black">{stats.realErrors}</span> boli reálne chyby systému.
+                    Skladník nahlásil <span className="text-white font-black">{stats.missingReported}x</span> chýbajúci tovar, z čoho <span className="text-rose-500 font-black">{stats.realErrors}</span> boli reálne chyby.
                   </p>
-                  <div className="flex gap-4">
-                    <div className="px-3 py-1 bg-teal-500/10 border border-teal-500/20 rounded-lg">
+                  <div className="px-3 py-1 bg-teal-500/10 border border-teal-500/20 rounded-lg w-fit">
                       <p className="text-[8px] font-black text-teal-500 uppercase">Dôveryhodnosť</p>
-                      <p className="text-sm font-black text-teal-400">VYSOKÁ</p>
-                    </div>
+                      <p className="text-sm font-black text-teal-400">{stats.confidenceRating > 80 ? 'VYSOKÁ' : 'MODERÁTNA'}</p>
                   </div>
                 </div>
               </div>
-
               {stats.topParts.length > 0 && (
                 <div className="pt-4 border-t border-white/5">
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Top manipulované diely</p>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Top diely</p>
                   <div className="flex flex-wrap gap-2">
                     {stats.topParts.map(p => (
                       <span key={p.name} className="bg-slate-900 px-3 py-1.5 rounded-xl border border-white/5 text-[10px] font-mono font-bold text-slate-400">
@@ -365,36 +355,34 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
             </div>
           </div>
 
-          {/* Time Analysis Section */}
           <div className="bg-slate-950/40 border border-slate-800 p-8 rounded-3xl">
-             <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.25em] border-b border-white/5 pb-4 mb-8">Časová Analýza Výkonu</h3>
+             <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.25em] border-b border-white/5 pb-4 mb-8">Časová Analýza Výkonu (S Limitom 200%)</h3>
              <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
                 <div className="space-y-2">
                   <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">Odpracovaný čistý čas</p>
                   <p className="text-3xl font-black text-white">{formatMinutes(stats.pureWorkMinutes)}</p>
-                  <p className="text-[10px] text-slate-600 font-bold uppercase italic">* Bez prestávok a blokácií</p>
+                  <p className="text-[10px] text-slate-600 font-bold uppercase italic">* Skutočný čas v práci (unadjusted)</p>
                 </div>
                 <div className="space-y-2">
-                  <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">Plnenie Noriem (Efficiency)</p>
+                  <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">Plnenie Noriem (Capped Perf)</p>
                   <p className={`text-3xl font-black ${stats.performanceRatio > 100 ? 'text-green-400' : 'text-slate-300'}`}>
                     {stats.performanceRatio.toFixed(1)}%
                   </p>
-                  <p className="text-[10px] text-slate-600 font-bold uppercase">Súčet normočasu: {stats.performanceRatio > 0 ? stats.performanceRatio.toFixed(0) : 0} min</p>
+                  <p className="text-[10px] text-slate-600 font-bold uppercase">Súčet normočasu: {stats.totalStandardMin.toFixed(0)} min</p>
                 </div>
                 <div className="space-y-2">
                   <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">Tempo Manipulácie</p>
                   <p className="text-3xl font-black text-amber-500">{formatDuration(stats.avgMsPerPoint)} <span className="text-sm font-normal text-slate-600">/ bod</span></p>
-                  <p className="text-[10px] text-slate-600 font-bold uppercase italic">Priemerný čas jednej operácie</p>
+                  <p className="text-[10px] text-slate-600 font-bold uppercase italic">Priemerný čas na 1 operáciu</p>
                 </div>
              </div>
           </div>
 
         </div>
 
-        {/* Footer */}
         <div className="mt-8 pt-6 border-t border-white/5 flex justify-between items-center relative z-10">
           <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
-            ID: {name.toLowerCase().replace(/\s/g, '_')} • Validované systémom Clamason Analytics
+            Auditované systémom Clamason Intelligence • Per-task 200% Cap Enabled
           </p>
           <button 
             onClick={onClose}
