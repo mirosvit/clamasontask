@@ -1,3 +1,4 @@
+
 import React from 'react';
 import PartSearchScreen from './components/PartSearchScreen';
 import { useData } from './context/DataContext';
@@ -43,6 +44,9 @@ const AppAuthenticated: React.FC<AppAuthenticatedProps> = (props) => {
   const safeVerifyAdminPassword = (data as any).onVerifyAdminPassword || ((p: string) => false);
   const safeRequestPart = (data as any).onRequestPart || (async () => false);
   const safeRequestBOM = (data as any).onRequestBOM || (async () => false);
+  const safeOnDailyClosing = (data as any).onDailyClosing || (async () => ({ success: false, count: 0 }));
+  const safeOnWeeklyClosing = (data as any).onWeeklyClosing || (async () => ({ success: false, count: 0, sanon: '' }));
+  const safeFetchSanons = (data as any).fetchSanons || (async () => []);
 
   // 5. CRUD Adapters
   // A. Create Task Adapter (Handles specific logic for Inventory)
@@ -297,6 +301,9 @@ const AppAuthenticated: React.FC<AppAuthenticatedProps> = (props) => {
           onVerifyAdminPassword={safeVerifyAdminPassword}
           onRequestPart={safeRequestPart}
           onRequestBOM={safeRequestBOM}
+          onDailyClosing={safeOnDailyClosing}
+          onWeeklyClosing={safeOnWeeklyClosing}
+          fetchSanons={safeFetchSanons}
           
           // Props from App.tsx
           parts={partsList}

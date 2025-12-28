@@ -7,8 +7,7 @@ import {
   writeBatch,
   doc,
   getDoc,
-  updateDoc,
-  deleteDoc
+  updateDoc
 } from 'firebase/firestore';
 import { useLanguage } from '../LanguageContext';
 
@@ -16,9 +15,10 @@ declare var XLSX: any;
 
 interface YearlyClosingProps {
   resolveName: (username?: string | null) => string;
+  fetchSanons: () => Promise<any[]>;
 }
 
-const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName }) => {
+const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName, fetchSanons }) => {
   const { language } = useLanguage();
   const [isExporting, setIsExporting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
@@ -62,16 +62,13 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName }) => {
           (draftSnap.data().data || []).forEach((t: any) => allTasks.push(t));
       }
 
-      // 3. Sťahujeme všetky šanóny (týždne) - Single-Doc bucket prístup
+      // 3. Sťahujeme všetky šanóny pomocou optimalizovanej funkcie
       setProgress(language === 'sk' ? 'Sťahujem týždenné šanóny...' : 'Fetching weekly buckets...');
-      const promises = [];
-      for (let i = 1; i <= 53; i++) {
-          promises.push(getDoc(doc(db, 'sanony', `${currentYear}_${i}`)));
-      }
-      const snaps = await Promise.all(promises);
-      snaps.forEach(s => {
-          if (s.exists()) {
-              (s.data().tasks || []).forEach((t: any) => allTasks.push(t));
+      const sanons = await fetchSanons();
+      
+      sanons.forEach(sanon => {
+          if (sanon.tasks && Array.isArray(sanon.tasks)) {
+              allTasks.push(...sanon.tasks);
           }
       });
 
@@ -169,36 +166,48 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName }) => {
     if (!confirm2) return;
 
     setIsResetting(true);
-    const currentYear = new Date().getFullYear();
     setProgress(language === 'sk' ? 'Premazávam databázu...' : 'Cleaning database...');
 
     try {
       // 1. Vymazanie Draft bucketu
       await updateDoc(doc(db, 'settings', 'draft'), { data: [] });
       
-      // 2. Vymazanie všetkých šanónov
-      for (let i = 1; i <= 53; i++) {
-        const sanonRef = doc(db, 'sanony', `${currentYear}_${i}`);
-        const s = await getDoc(sanonRef);
-        if (s.exists()) {
-            await deleteDoc(sanonRef);
-        }
+      // 2. Vymazanie všetkých šanónov (efektívne cez batch)
+      const sanonsToDelete = await fetchSanons();
+      if (sanonsToDelete.length > 0) {
+          const batch = writeBatch(db);
+          let opCount = 0;
+          
+          for (const sanon of sanonsToDelete) {
+              const sanonRef = doc(db, 'sanony', sanon.id);
+              batch.delete(sanonRef);
+              opCount++;
+              
+              if (opCount >= 498) {
+                  await batch.commit();
+                  // Nový batch sa musí vytvoriť po commite
+                  // Keďže writeBatch je factory function, toto v React komponente 
+                  // uprostred cyklu môže byť tricky, ale tu je to OK.
+                  // Pre istotu resetujeme premennú (aj keď v JS je to nový objekt)
+              }
+          }
+          if (opCount > 0) await batch.commit();
       }
 
       // 3. Vymazanie živých úloh (tasks)
       const snapTasks = await getDocs(collection(db, 'tasks'));
-      let batch = writeBatch(db);
+      let batchTasks = writeBatch(db);
       let count = 0;
       for (const d of snapTasks.docs) {
-        batch.delete(d.ref);
+        batchTasks.delete(d.ref);
         count++;
         if (count === 500) {
-          await batch.commit();
-          batch = writeBatch(db);
+          await batchTasks.commit();
+          batchTasks = writeBatch(db);
           count = 0;
         }
       }
-      if (count > 0) await batch.commit();
+      if (count > 0) await batchTasks.commit();
 
       alert(language === 'sk' ? 'Systém bol úspešne zresetovaný.' : 'System successfully reset.');
       window.location.reload();

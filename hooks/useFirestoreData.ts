@@ -21,6 +21,19 @@ import {
 import { Task, UserData, DBItem, MapSector, PartRequest, BOMRequest, BreakSchedule, SystemBreak, Role, Permission, Notification, PriorityLevel } from '../types/appTypes';
 import { PRIORITY_ORDER } from '../constants/uiConstants';
 
+// Helper: Calculate ISO Week ID (SANON_YYYY_KW)
+const getISOWeekId = () => {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  // Thursday in current week decides the year.
+  date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
+  const week1 = new Date(date.getFullYear(), 0, 4);
+  // Adjust to Thursday in week 1 and count number of weeks from date to week1.
+  const weekNumber = 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+  
+  return `SANON_${date.getFullYear()}_${weekNumber.toString().padStart(2, '0')}`;
+};
+
 export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: string) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
@@ -628,6 +641,125 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
       } catch (e) { console.error(e); }
   };
 
+  const onDailyClosing = async () => {
+    try {
+      const tasksRef = collection(db, 'tasks');
+      const q = query(tasksRef, where('isDone', '==', true));
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        return { success: true, count: 0 };
+      }
+
+      const completedTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      // Read Draft
+      const draftRef = doc(db, 'settings', 'draft');
+      const draftSnap = await getDoc(draftRef);
+      let existingData = [];
+      if (draftSnap.exists()) {
+        existingData = draftSnap.data().data || [];
+      }
+
+      const mergedData = [...existingData, ...completedTasks];
+
+      // Batch Operation
+      const batch = writeBatch(db);
+
+      // 1. Update Draft
+      batch.set(draftRef, { data: mergedData }, { merge: true });
+
+      // 2. Delete from Tasks
+      snapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+
+      await batch.commit();
+
+      return { success: true, count: completedTasks.length };
+    } catch (e) {
+      console.error("Daily closing failed:", e);
+      return { success: false, count: 0 };
+    }
+  };
+
+  const onWeeklyClosing = async () => {
+    try {
+        const sanonId = getISOWeekId();
+        
+        // 1. Get Draft Data
+        const draftRef = doc(db, 'settings', 'draft');
+        const draftSnap = await getDoc(draftRef);
+        let draftTasks = [];
+        if (draftSnap.exists()) {
+            draftTasks = draftSnap.data().data || [];
+        }
+
+        // 2. Get Active Completed Tasks (Forget-me-nots)
+        const tasksRef = collection(db, 'tasks');
+        const q = query(tasksRef, where('isDone', '==', true));
+        const activeSnap = await getDocs(q);
+        const activeTasks = activeSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        const allTasksToArchive = [...draftTasks, ...activeTasks];
+
+        if (allTasksToArchive.length === 0) {
+            return { success: true, count: 0, sanon: sanonId };
+        }
+
+        // 3. Batch Write
+        let batch = writeBatch(db);
+        let opCount = 0;
+
+        // A. Create Sanon Document (Overwrite if exists to be safe, or merge)
+        const sanonRef = doc(db, 'sanony', sanonId);
+        batch.set(sanonRef, { 
+            tasks: allTasksToArchive, 
+            createdAt: Date.now(),
+            id: sanonId 
+        });
+        opCount++;
+
+        // B. Clear Draft
+        batch.set(draftRef, { data: [] });
+        opCount++;
+
+        // C. Delete Active Tasks (Chunking logic if > 498 items)
+        const docsToDelete = activeSnap.docs;
+        
+        for (let i = 0; i < docsToDelete.length; i++) {
+            batch.delete(docsToDelete[i].ref);
+            opCount++;
+
+            if (opCount >= 498) {
+                await batch.commit();
+                batch = writeBatch(db);
+                opCount = 0;
+            }
+        }
+
+        if (opCount > 0) {
+            await batch.commit();
+        }
+
+        return { success: true, count: allTasksToArchive.length, sanon: sanonId };
+
+    } catch (e) {
+        console.error("Weekly closing failed:", e);
+        return { success: false, count: 0, sanon: '' };
+    }
+  };
+
+  const fetchSanons = async () => {
+      try {
+          const snap = await getDocs(collection(db, 'sanony'));
+          return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      } catch (e) {
+          console.error("Error fetching sanons", e);
+          return [];
+      }
+  };
+
   return {
     tasks, users, partsMap, bomMap, workplaces, missingReasons, logisticsOperations,
     mapSectors, partRequests, bomRequests, breakSchedules, systemBreaks, isBreakActive,
@@ -643,6 +775,7 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
     onAddMapSector, onUpdateMapSector, onDeleteMapSector,
     onAddUser, onUpdatePassword, onUpdateNickname, onUpdateUserRole, onUpdateExportPermission, onDeleteUser,
     onAddBOMItem, onBatchAddBOMItems, onDeleteBOMItem, onDeleteAllBOMItems,
-    onUpdatePermission, onAddRole, onDeleteRole
+    onUpdatePermission, onAddRole, onDeleteRole,
+    onDailyClosing, onWeeklyClosing, fetchSanons
   };
 };
