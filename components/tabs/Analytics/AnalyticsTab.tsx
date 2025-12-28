@@ -1,7 +1,5 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { db } from '../../../firebase';
-import { doc, getDoc } from 'firebase/firestore';
 import { Task, SystemBreak, MapSector, DBItem, SystemConfig, UserData } from '../../../types/appTypes';
 import { useLanguage } from '../../LanguageContext';
 import AnalyticsExportPanel from './AnalyticsExportPanel';
@@ -16,6 +14,8 @@ import { useAnalyticsEngine, FilterMode, SourceFilter, ShiftFilter } from '../..
 interface AnalyticsTabProps {
   tasks: Task[];
   onFetchArchivedTasks: () => Promise<Task[]>;
+  fetchSanons: () => Promise<any[]>;
+  settings?: any;
   systemBreaks: SystemBreak[];
   resolveName: (username?: string | null) => string;
   mapSectors: MapSector[];
@@ -29,7 +29,7 @@ interface AnalyticsTabProps {
 }
 
 const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ 
-  tasks: _liveTasks, systemBreaks, resolveName, mapSectors, workplaces, systemConfig, logisticsOperations,
+  tasks: _liveTasks, fetchSanons, settings, systemBreaks, resolveName, mapSectors, workplaces, systemConfig, logisticsOperations,
   users, currentUser, currentUserRole 
 }) => {
   const [filterMode, setFilterMode] = useState<FilterMode>('TODAY');
@@ -38,7 +38,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
+  const [historicalArchive, setHistoricalArchive] = useState<Task[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [selectedWorkerData, setSelectedWorkerData] = useState<{ name: string; tasks: Task[] } | null>(null);
   const { t, language } = useLanguage();
 
@@ -50,26 +51,46 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     return currentUserRole === 'ADMIN' || (users?.find(u => u.username === currentUser)?.canExportAnalytics === true);
   }, [currentUser, currentUserRole, users]);
 
+  // EFFECT: Fetch historical archives (Sanons) once on mount
   useEffect(() => {
-    const load = async () => {
-      const results: Task[] = [];
+    const loadHistory = async () => {
+      setIsLoadingHistory(true);
       try {
-          const draftSnap = await getDoc(doc(db, 'settings', 'draft'));
-          if (draftSnap.exists()) {
-              results.push(...(draftSnap.data().data || []));
+        const sanons = await fetchSanons();
+        const allArchivedTasks: Task[] = [];
+        sanons.forEach(sanon => {
+          if (sanon.tasks && Array.isArray(sanon.tasks)) {
+            allArchivedTasks.push(...sanon.tasks);
           }
+        });
+        setHistoricalArchive(allArchivedTasks);
       } catch (err) {
-          console.error("Failed to load draft tasks", err);
+        console.error("Failed to load historical archives", err);
+      } finally {
+        setIsLoadingHistory(false);
       }
-      setArchivedTasks(results);
     };
-    load();
-  }, [filterMode, customStart, customEnd]);
+    loadHistory();
+  }, [fetchSanons]);
 
-  // INTEGRÁCIA ANALYTICKÉHO ENGINU
+  // MASTER DATA MERGE
+  const masterDataset = useMemo(() => {
+    const draftTasks = settings?.draft?.data || [];
+    // Combine Live + Daily Draft + Weekly Sanons
+    const combined = [..._liveTasks, ...draftTasks, ...historicalArchive];
+    
+    // De-duplicate by ID to be safe (Quota Guard best practice)
+    const uniqueMap = new Map();
+    combined.forEach(task => {
+        if (task.id) uniqueMap.set(task.id, task);
+    });
+    return Array.from(uniqueMap.values());
+  }, [_liveTasks, settings, historicalArchive]);
+
+  // INTEGRÁCIA ANALYTICKÉHO ENGINU s MASTER DATASETOM
   const engine = useAnalyticsEngine(
-    _liveTasks,
-    archivedTasks,
+    masterDataset,
+    [], // archivedTasks prop in engine is now redundant since we merged it into masterDataset
     systemBreaks,
     mapSectors,
     workplaces,
@@ -87,7 +108,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
 
   const { filteredTasks, globalStats, workerStats, charts, qualityStats } = engine;
 
-  // DOPLNKOVÉ VÝPOČTY PRE SMART KPI TILES
   const kpiMetrics = useMemo(() => {
     const logDone = filteredTasks.filter(t => t.isLogistics && t.isDone).length;
     const prodDone = filteredTasks.filter(t => !t.isLogistics && t.isDone).length;
@@ -102,7 +122,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     };
   }, [filteredTasks, globalStats]);
 
-  // Mapovanie pre graf
   const chartData = useMemo(() => {
       return workerStats.map(w => ({
           ...w,
@@ -112,7 +131,15 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20 animate-fade-in text-slate-200">
-      <h1 className="text-2xl sm:text-3xl font-black text-teal-400 uppercase tracking-tighter">{t('analytics_title')}</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl sm:text-3xl font-black text-teal-400 uppercase tracking-tighter">{t('analytics_title')}</h1>
+        {isLoadingHistory && (
+          <div className="flex items-center gap-2 px-4 py-1.5 bg-teal-500/10 border border-teal-500/20 rounded-full animate-pulse">
+            <div className="w-1.5 h-1.5 bg-teal-500 rounded-full"></div>
+            <span className="text-[10px] font-black text-teal-500 uppercase tracking-widest">Načítavam archívy...</span>
+          </div>
+        )}
+      </div>
 
       <AnalyticsExportPanel 
         canExport={canExport} 
@@ -226,51 +253,35 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
         )}
       </div>
 
-      {/* 8 SMART KPI TILES GRID */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Tile 1: Total Tasks */}
         <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 border-l-4 border-l-blue-500 shadow-xl">
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">CELKOVO ÚLOH</p>
           <p className="text-3xl font-black text-white mt-2 font-mono">{globalStats.totalTasks}</p>
         </div>
-
-        {/* Tile 2: Logistics Done */}
         <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 border-l-4 border-l-purple-500 shadow-xl">
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">LOGISTICKÉ ÚLOHY</p>
           <p className="text-3xl font-black text-white mt-2 font-mono">{kpiMetrics.logDone}</p>
         </div>
-
-        {/* Tile 3: Production Done */}
         <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 border-l-4 border-l-amber-500 shadow-xl">
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">VÝROBNÉ ÚLOHY</p>
           <p className="text-3xl font-black text-white mt-2 font-mono">{kpiMetrics.prodDone}</p>
         </div>
-
-        {/* Tile 4: Ride Efficiency */}
         <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 border-l-4 border-l-teal-500 shadow-xl">
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">EFEKTIVITA JÁZD</p>
           <p className="text-3xl font-black text-white mt-2 font-mono">{globalStats.globalEfficiency.toFixed(1)}%</p>
         </div>
-
-        {/* Tile 5: Standard Performance Ratio */}
         <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 border-l-4 border-l-green-500 shadow-xl">
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">PLNENIE NORIEM (TEMPO)</p>
           <p className="text-3xl font-black text-white mt-2 font-mono">{globalStats.globalPerformanceRatio.toFixed(1)}%</p>
         </div>
-
-        {/* Tile 6: Total distance in KM */}
         <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 border-l-4 border-l-sky-500 shadow-xl">
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">NAJAZDENÉ KM (SPOLU)</p>
           <p className="text-3xl font-black text-white mt-2 font-mono">{kpiMetrics.totalKm.toFixed(2)} <span className="text-xs font-normal">km</span></p>
         </div>
-
-        {/* Tile 7: Global Physical Rides count */}
         <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 border-l-4 border-l-indigo-500 shadow-xl">
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">CELKOVO JÁZD</p>
           <p className="text-3xl font-black text-white mt-2 font-mono">{globalStats.totalPhysicalRides}</p>
         </div>
-
-        {/* Tile 8: Failed entries (Missing/Audit NOK) */}
         <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 border-l-4 border-l-rose-500 shadow-xl">
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">CHYBNÉ ZADANIA</p>
           <p className="text-3xl font-black text-rose-500 mt-2 font-mono">{kpiMetrics.badEntriesCount}</p>
@@ -281,7 +292,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       <HighRunnerSection topHighRunners={charts.highRunners} topWorkplaces={charts.workplaces} t={t} />
       <HourlyChartSection hourlyData={charts.hourly} t={t} />
       
-      {/* WORKER PERFORMANCE CHART */}
       <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-2xl overflow-hidden">
           <div className="flex items-center gap-3 mb-6 border-b border-white/5 pb-6">
               <div className="w-1.5 h-6 bg-purple-500 rounded-full"></div>
@@ -306,7 +316,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                               barSize={20} 
                               onClick={(entry: any) => setSelectedWorkerData({ 
                                   name: entry.name, 
-                                  tasks: filteredTasks.filter(t => t.completedBy === entry.id) 
+                                  tasks: masterDataset.filter(t => t.completedBy === entry.id) 
                               })} 
                               cursor="pointer"
                           >
