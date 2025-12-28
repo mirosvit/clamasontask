@@ -21,17 +21,25 @@ const HighRunnerSection: React.FC<HighRunnerSectionProps> = ({ topHighRunners, t
 
   const renderCard = (item: HighRunnerData, idx: number, isWorkplace: boolean) => {
     const title = isWorkplace ? item.workplace : item.partNumber;
-    const borderColors = ['border-t-amber-400', 'border-t-slate-300', 'border-t-orange-600'];
+    
+    // DEFINÍCIA FARIEB PODĽA RANQU (RUŽOVÁ TÉMA)
+    const rankStyles = [
+      { border: 'border-t-fuchsia-500', text: 'text-fuchsia-500', badgeBorder: 'border-fuchsia-500/30' }, // #1 Vivid Pink
+      { border: 'border-t-rose-500', text: 'text-rose-500', badgeBorder: 'border-rose-500/30' },        // #2 Standard Rose
+      { border: 'border-t-rose-700', text: 'text-rose-700', badgeBorder: 'border-rose-700/30' }         // #3 Dark Rose
+    ];
+    
+    const style = rankStyles[idx] || rankStyles[1];
     
     return (
-      <div key={title} className={`bg-slate-900/40 border-t-4 ${borderColors[idx] || 'border-t-teal-500'} rounded-2xl p-6 shadow-xl relative overflow-hidden group hover:bg-slate-900/60 transition-all`}>
+      <div key={title} className={`bg-slate-900/40 border-t-4 ${style.border} rounded-2xl p-6 shadow-xl relative overflow-hidden group hover:bg-slate-900/60 transition-all`}>
         <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
           <span className="text-8xl font-black italic">{idx + 1}</span>
         </div>
         
         <div className="flex justify-between items-start mb-4">
-          <span className="text-[10px] font-black text-teal-500 uppercase tracking-widest">Pozícia #{idx + 1}</span>
-          <span className="bg-slate-800 text-teal-400 text-[10px] font-black px-2 py-1 rounded border border-teal-500/30 shadow-sm animate-pulse">
+          <span className={`text-[10px] font-black uppercase tracking-widest ${style.text}`}>Pozícia #{idx + 1}</span>
+          <span className={`bg-slate-800 text-[10px] font-black px-2 py-1 rounded border shadow-sm animate-pulse ${style.text} ${style.badgeBorder}`}>
             {t('load')}: {Number(item.load.toFixed(1))} {t('points')}
           </span>
         </div>
@@ -52,7 +60,7 @@ const HighRunnerSection: React.FC<HighRunnerSectionProps> = ({ topHighRunners, t
         </div>
 
         <div className="mt-6 pt-4 border-t border-white/5">
-          <p className="text-[10px] font-bold text-teal-400/60 uppercase tracking-widest text-center">
+          <p className="text-[10px] font-bold text-rose-200/60 uppercase tracking-widest text-center">
             {t('included')} {item.pal.toFixed(1)} {language === 'sk' ? 'paliet' : 'pallets'} | {item.taskRequests} {language === 'sk' ? 'požiadaviek' : 'requests'}
           </p>
         </div>
@@ -65,7 +73,8 @@ const HighRunnerSection: React.FC<HighRunnerSectionProps> = ({ topHighRunners, t
       {/* HIGH RUNNERS */}
       <div className="bg-slate-950/40 border border-slate-800 p-6 rounded-3xl shadow-2xl overflow-hidden">
         <div className="flex items-center gap-3 mb-8 border-b border-white/5 pb-6">
-          <div className="w-1.5 h-6 bg-teal-500 rounded-full"></div>
+          {/* Jednotná ružová pre výrobné štatistiky */}
+          <div className="w-1.5 h-6 bg-rose-500 rounded-full"></div>
           <h3 className="text-sm font-black text-white uppercase tracking-[0.25em]">{t('top_highrunners_prod')}</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -82,7 +91,8 @@ const HighRunnerSection: React.FC<HighRunnerSectionProps> = ({ topHighRunners, t
       {/* TOP WORKPLACES */}
       <div className="bg-slate-950/40 border border-slate-800 p-6 rounded-3xl shadow-2xl overflow-hidden">
         <div className="flex items-center gap-3 mb-8 border-b border-white/5 pb-6">
-          <div className="w-1.5 h-6 bg-amber-500 rounded-full"></div>
+          {/* Jednotná ružová pre výrobné štatistiky */}
+          <div className="w-1.5 h-6 bg-rose-500 rounded-full"></div>
           <h3 className="text-sm font-black text-white uppercase tracking-[0.25em]">{t('top_workplaces_prod')}</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

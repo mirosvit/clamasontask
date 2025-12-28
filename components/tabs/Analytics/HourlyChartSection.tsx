@@ -16,8 +16,16 @@ const HourlyChartSection: React.FC<HourlyChartSectionProps> = ({ hourlyData, t }
   
   const renderHourlyChart = (data: HourlyData[], type: 'production' | 'logistics') => {
     const maxVal = Math.max(...data.map(d => d[type]), 5);
-    const colorClass = type === 'production' ? 'bg-teal-500 hover:bg-teal-400' : 'bg-blue-600 hover:bg-blue-500';
-    const borderClass = type === 'production' ? 'border-t-teal-500' : 'border-t-blue-600';
+    
+    // AKTUALIZOVANÉ FARBY: Výroba -> Rose, Logistika -> Sky
+    const colorClass = type === 'production' 
+      ? 'bg-rose-500 hover:bg-rose-400' 
+      : 'bg-sky-500 hover:bg-sky-400';
+      
+    const borderClass = type === 'production' 
+      ? 'border-t-rose-500' 
+      : 'border-t-sky-500';
+
     const label = type === 'production' ? t('hourly_production_load') : t('hourly_logistics_load');
 
     return (
@@ -51,7 +59,8 @@ const HourlyChartSection: React.FC<HourlyChartSectionProps> = ({ hourlyData, t }
   return (
     <div className="bg-slate-950/40 border border-slate-800 p-4 sm:p-6 rounded-3xl shadow-2xl overflow-hidden">
       <div className="flex items-center gap-3 mb-8 border-b border-white/5 pb-6">
-        <div className="w-1.5 h-6 bg-teal-600 rounded-full"></div>
+        {/* Neutrálna farba ikony sekcie (Slate), keďže obsahuje mix Rose a Sky */}
+        <div className="w-1.5 h-6 bg-slate-500 rounded-full"></div>
         <h3 className="text-sm font-black text-white uppercase tracking-[0.25em]">HODINOVÁ ANALÝZA NÁPORU</h3>
       </div>
       

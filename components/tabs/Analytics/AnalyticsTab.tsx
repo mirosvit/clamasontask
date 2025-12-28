@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { Task, SystemBreak, MapSector, DBItem, SystemConfig, UserData } from '../../../types/appTypes';
 import { useLanguage } from '../../LanguageContext';
@@ -8,7 +7,6 @@ import HourlyChartSection from './HourlyChartSection';
 import QualityAuditSection from './QualityAuditSection';
 import WorkerDetailModal from './WorkerDetailModal';
 import DrivingMetrics from './DrivingMetrics';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { useAnalyticsEngine, FilterMode, SourceFilter, ShiftFilter } from '../../../hooks/useAnalyticsEngine';
 
 interface AnalyticsTabProps {
@@ -105,7 +103,76 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     resolveName
   );
 
-  const { filteredTasks, globalStats, workerStats, charts, qualityStats, drivingStats } = engine;
+  const { filteredTasks, globalStats, qualityStats, drivingStats } = engine;
+
+  // POMOCNÁ FUNKCIA PRE BLOKOVANÝ ČAS
+  const calculateBlockedTime = (startTime: number, endTime: number): number => {
+    let totalBlocked = 0;
+    systemBreaks.forEach(br => {
+      const overlapStart = Math.max(startTime, br.start);
+      const overlapEnd = Math.min(endTime, br.end || endTime);
+      if (overlapEnd > overlapStart) totalBlocked += (overlapEnd - overlapStart);
+    });
+    return totalBlocked;
+  };
+
+  // PRÍPRAVA DÁT PRE TABUĽKU (ANTI-CHEAT LOGIKA)
+  const workerTableData = useMemo(() => {
+    const workers: Record<string, { id: string; netMs: number; rides: number; sumPerf: number; countPerf: number }> = {};
+
+    filteredTasks.forEach(task => {
+        if (!task.isDone || !task.completedBy) return;
+        
+        if (!workers[task.completedBy]) {
+            workers[task.completedBy] = { id: task.completedBy, netMs: 0, rides: 0, sumPerf: 0, countPerf: 0 };
+        }
+        
+        const w = workers[task.completedBy];
+        w.rides++; // Zjednodušený počet úloh ako "Jazdy spolu" v tabuľke
+
+        if (task.startedAt && task.completedAt) {
+            const rawDurationMs = task.completedAt - task.startedAt;
+            const blockedMs = calculateBlockedTime(task.startedAt, task.completedAt);
+            const pureMs = Math.max(rawDurationMs - blockedMs, 0);
+            w.netMs += pureMs;
+
+            const norm = task.isLogistics 
+                ? (logisticsOperations.find(o => o.value === task.workplace)?.standardTime || 0)
+                : (workplaces.find(w => w.value === task.workplace)?.standardTime || 0);
+            
+            const qtyVal = parseFloat((task.quantity || '1').replace(',', '.'));
+            const targetMin = norm * qtyVal;
+            const durationMin = pureMs / 60000;
+
+            // Anti-Cheat Adjusted Time
+            let adjMin;
+            if (durationMin < 0.5) adjMin = (targetMin * 2) || 2;
+            else if (durationMin < 1) adjMin = 1;
+            else adjMin = durationMin;
+
+            if (targetMin > 0) {
+                const taskPerf = (targetMin / adjMin) * 100;
+                w.sumPerf += Math.min(taskPerf, 200);
+                w.countPerf++;
+            }
+        }
+    });
+
+    return Object.values(workers).map(w => ({
+        id: w.id,
+        name: resolveName(w.id),
+        netMs: w.netMs,
+        rides: w.rides,
+        efficiency: w.countPerf > 0 ? w.sumPerf / w.countPerf : 0
+    })).sort((a, b) => b.efficiency - a.efficiency);
+  }, [filteredTasks, logisticsOperations, workplaces, systemBreaks, resolveName]);
+
+  const formatNetTime = (ms: number) => {
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
   const kpiMetrics = useMemo(() => {
     const logDone = filteredTasks.filter(t => t.isLogistics && t.isDone).length;
@@ -114,7 +181,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
 
     const totalNetMs = filteredTasks.reduce((acc, t) => {
       if (t.isDone && t.startedAt && t.completedAt && t.completedAt > t.startedAt) {
-          return acc + (t.completedAt - t.startedAt);
+          const blocked = calculateBlockedTime(t.startedAt, t.completedAt);
+          return acc + Math.max(t.completedAt - t.startedAt - blocked, 0);
       }
       return acc;
     }, 0);
@@ -124,20 +192,8 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     const seconds = Math.floor((totalNetMs % 60000) / 1000);
     const netTimeString = `${hours}h ${minutes}m ${seconds}s`;
 
-    return {
-      logDone,
-      prodDone,
-      totalKm,
-      netTimeString
-    };
-  }, [filteredTasks, globalStats]);
-
-  const chartData = useMemo(() => {
-      return workerStats.map(w => ({
-          ...w,
-          count: w.tasksDone 
-      })).sort((a, b) => b.count - a.count);
-  }, [workerStats]);
+    return { logDone, prodDone, totalKm, netTimeString };
+  }, [filteredTasks, globalStats, systemBreaks]);
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20 animate-fade-in text-slate-200">
@@ -298,57 +354,86 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
         </div>
       </div>
 
-      <QualityAuditSection data={qualityStats} t={t} />
-      <HighRunnerSection topHighRunners={charts.highRunners} topWorkplaces={charts.workplaces} t={t} />
-      <HourlyChartSection hourlyData={charts.hourly} t={t} />
-      
+      {/* NOVÁ TABUĽKA VÝKONNOSTI SKLADNÍKOV */}
       <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-2xl overflow-hidden">
-          <div className="flex items-center gap-3 mb-6 border-b border-white/5 pb-6">
-              <div className="w-1.5 h-6 bg-purple-500 rounded-full"></div>
-              <h3 className="text-sm font-black text-white uppercase tracking-[0.25em]">{language === 'sk' ? 'VÝKONNOSŤ SKLADNÍKOV' : 'WORKER PERFORMANCE'}</h3>
+          <div className="flex items-center gap-3 mb-8 border-b border-white/5 pb-6">
+              <div className="w-1.5 h-6 bg-purple-500 rounded-full shadow-[0_0_10px_rgba(168,85,247,0.5)]"></div>
+              <h3 className="text-sm font-black text-white uppercase tracking-[0.25em]">{t('table_title')}</h3>
           </div>
-          <div className="h-[400px] w-full">
-              {chartData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
-                          <XAxis type="number" stroke="#94a3b8" fontSize={10} fontWeight="bold" />
-                          <YAxis dataKey="name" type="category" stroke="#fff" fontSize={11} fontWeight="bold" width={100} />
-                          <Tooltip 
-                              cursor={{ fill: '#334155', opacity: 0.4 }}
-                              contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '12px', color: '#fff' }}
-                              itemStyle={{ color: '#818cf8', fontWeight: 'bold' }}
-                          />
-                          <Bar 
-                              dataKey="count" 
-                              fill="#8b5cf6" 
-                              radius={[0, 4, 4, 0]} 
-                              barSize={20} 
-                              onClick={(entry: any) => setSelectedWorkerData({ 
-                                  name: entry.name, 
-                                  tasks: masterDataset.filter(t => t.completedBy === entry.id) 
-                              })} 
-                              cursor="pointer"
-                          >
-                              {chartData.map((entry, index) => (
-                                  <Cell key={`cell-${index}`} fill={index < 3 ? '#a78bfa' : '#6d28d9'} />
-                              ))}
-                          </Bar>
-                      </BarChart>
-                  </ResponsiveContainer>
-              ) : (
-                  <div className="flex h-full items-center justify-center">
-                      <p className="text-slate-600 font-bold uppercase tracking-widest text-xs">{t('no_data')}</p>
-                  </div>
-              )}
+          
+          <div className="overflow-x-auto custom-scrollbar">
+              <table className="w-full text-left border-collapse min-w-[600px]">
+                  <thead>
+                      <tr className="bg-slate-950/50 text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] border-b border-slate-800">
+                          <th className="py-4 px-6 text-center w-16">{t('th_rank')}</th>
+                          <th className="py-4 px-6">{t('username')} (NICKNAME)</th>
+                          <th className="py-4 px-6 text-center">{t('th_work_time')}</th>
+                          <th className="py-4 px-6 text-center">{language === 'sk' ? 'ÚLOHY SPOLU' : 'TOTAL TASKS'}</th>
+                          <th className="py-4 px-6 text-right">{t('kpi_effic')}</th>
+                      </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/50">
+                      {workerTableData.length > 0 ? (
+                          workerTableData.map((w, idx) => (
+                              <tr key={w.id} className="hover:bg-white/[0.03] transition-colors group">
+                                  <td className="py-5 px-6 text-center">
+                                      <div className={`inline-flex items-center justify-center w-10 h-10 rounded-lg font-black text-xl border ${
+                                          idx === 0 ? 'bg-amber-500/20 border-amber-500 text-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]' :
+                                          idx === 1 ? 'bg-slate-400/20 border-slate-400 text-slate-400' :
+                                          idx === 2 ? 'bg-orange-700/20 border-orange-700 text-orange-600' :
+                                          'bg-slate-800 border-slate-700 text-slate-500'
+                                      }`}>
+                                          {idx + 1}
+                                      </div>
+                                  </td>
+                                  <td className="py-5 px-6">
+                                      <button 
+                                          onClick={() => setSelectedWorkerData({ name: w.name, tasks: masterDataset.filter(t => t.completedBy === w.id) })}
+                                          className="text-base font-black text-teal-400 hover:text-teal-300 hover:underline transition-all uppercase tracking-tight"
+                                      >
+                                          {w.name}
+                                      </button>
+                                  </td>
+                                  <td className="py-5 px-6 text-center">
+                                      <span className="text-xl font-black text-slate-300 font-mono">{formatNetTime(w.netMs)}</span>
+                                  </td>
+                                  <td className="py-5 px-6 text-center">
+                                      <span className="text-xl font-black text-white bg-slate-800 px-4 py-2 rounded-lg border border-slate-700">{w.rides}</span>
+                                  </td>
+                                  <td className="py-5 px-6 text-right">
+                                      <span className={`text-xl font-black font-mono ${
+                                          w.efficiency > 100 ? 'text-green-400 drop-shadow-[0_0_8px_rgba(74,222,128,0.3)]' :
+                                          w.efficiency > 80 ? 'text-amber-400' :
+                                          'text-red-500'
+                                      }`}>
+                                          {w.efficiency.toFixed(1)}%
+                                      </span>
+                                  </td>
+                              </tr>
+                          ))
+                      ) : (
+                          <tr>
+                              <td colSpan={5} className="py-20 text-center text-slate-600 italic uppercase tracking-widest font-black opacity-30">
+                                  {t('no_data')}
+                              </td>
+                          </tr>
+                      )}
+                  </tbody>
+              </table>
           </div>
       </div>
 
+      <HighRunnerSection topHighRunners={engine.charts.highRunners} topWorkplaces={engine.charts.workplaces} t={t} />
+      
+      <HourlyChartSection hourlyData={engine.charts.hourly} t={t} />
+      
       <DrivingMetrics 
         productionStats={drivingStats.production}
         logisticsStats={drivingStats.logistics}
         vzvSpeed={systemConfig.vzvSpeed || 8} 
       />
+
+      <QualityAuditSection data={qualityStats} t={t} />
       
       {selectedWorkerData && (
         <WorkerDetailModal 
