@@ -29,7 +29,6 @@ const TaskBadges: React.FC<TaskBadgesProps> = ({
 }) => {
   const { t, language } = useLanguage();
 
-  // Allow badges if task is not done OR if it is done but marked as incorrectly entered
   if (task.isDone && task.status !== 'incorrectly_entered') return null;
 
   return (
@@ -52,9 +51,15 @@ const TaskBadges: React.FC<TaskBadgesProps> = ({
         </span>
       )}
 
+      {!isSystemInventoryTask && task.isInProgress && (
+        <span className="bg-yellow-400 text-black text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-yellow-500 shadow-sm animate-pulse">
+          👷 {language === 'sk' ? 'RIEŠI' : 'HANDLING'}: {resolveName(task.inProgressBy)}
+        </span>
+      )}
+
       {isAuditInProgress && (
-        <span className="bg-[#926a05] text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded animate-pulse border border-[#7a5804] shadow-[0_0_10px_rgba(146,106,5,0.4)]">
-          ⚙️ {t('audit_badge')} • {resolveName(task.auditBy)}
+        <span className="bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded animate-pulse border border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.4)]">
+          ⚙️ {language === 'sk' ? 'AUDIT' : 'AUDIT'}: {resolveName(task.auditBy)}
         </span>
       )}
 
@@ -66,7 +71,7 @@ const TaskBadges: React.FC<TaskBadgesProps> = ({
 
       {isSearchingMode && (
         <span className="bg-gray-500 text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded animate-pulse border border-gray-400 shadow-sm">
-          🔍 {t('status_inventory')} {task.blockedBy ? `• ${resolveName(task.blockedBy)}` : ''}
+          🔍 {language === 'sk' ? 'HĽADÁ SA TOVAR' : 'SEARCHING ITEM'}: {resolveName(task.blockedBy)}
         </span>
       )}
 
@@ -76,19 +81,18 @@ const TaskBadges: React.FC<TaskBadgesProps> = ({
         </span>
       )}
 
-      {task.isMissing && task.missingReason && !isAuditInProgress && (
+      {task.isMissing && task.missingReason && !isAuditInProgress && !isSearchingMode && (
         <span className="bg-red-600 text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded animate-pulse border border-red-500 shadow-sm">
           ⚠️ {task.missingReason}
         </span>
       )}
 
-      {task.searchedBy && (
+      {task.searchedBy && !isSearchingMode && (
         <span className="bg-gray-700 text-gray-300 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-gray-600 shadow-sm">
           🕵️ {language === 'sk' ? 'HLADAL' : 'SEARCHED'}: {resolveName(task.searchedBy)}
         </span>
       )}
 
-      {/* BADGE: INCORRECTLY ENTERED */}
       {task.status === 'incorrectly_entered' && (
         <div className="w-fit bg-gray-800/50 text-red-400 border border-red-900/50 text-[10px] font-bold uppercase px-2 py-0.5 rounded-md tracking-widest flex items-center gap-1 shadow-sm">
           <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

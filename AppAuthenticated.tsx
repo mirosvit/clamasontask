@@ -1,8 +1,7 @@
-
 import React from 'react';
 import PartSearchScreen from './components/PartSearchScreen';
 import { useData } from './context/DataContext';
-import { SystemConfig, PriorityLevel } from './types/appTypes';
+import { SystemConfig, PriorityLevel, Task } from './types/appTypes';
 import { db } from './firebase';
 import { collection, addDoc } from 'firebase/firestore';
 

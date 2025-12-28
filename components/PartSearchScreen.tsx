@@ -250,7 +250,43 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
             />
           )}
           {activeTab === 'settings' && <SettingsTab hasPermission={hasPermission} currentUserRole={currentUserRole} users={users} onAddUser={props.onAddUser} onUpdatePassword={props.onUpdatePassword} onUpdateNickname={props.onUpdateNickname} onUpdateUserRole={props.onUpdateUserRole} onDeleteUser={props.onDeleteUser} onUpdateExportPermission={props.onUpdateExportPermission} parts={parts} workplaces={workplaces} missingReasons={missingReasons} onAddPart={props.onAddPart} onBatchAddParts={props.onBatchAddParts} onDeletePart={props.onDeletePart} onDeleteAllParts={props.onDeleteAllParts} onAddWorkplace={props.onAddWorkplace} onUpdateWorkplace={props.onUpdateWorkplace} onBatchAddWorkplaces={props.onBatchAddWorkplaces} onDeleteWorkplace={props.onDeleteWorkplace} onDeleteAllWorkplaces={props.onDeleteAllWorkplaces} onAddMissingReason={props.onAddMissingReason} onDeleteMissingReason={props.onDeleteMissingReason} logisticsOperations={logisticsOperationsList} onAddLogisticsOperation={props.onAddLogisticsOperation} onUpdateLogisticsOperation={props.onUpdateLogisticsOperation} onDeleteLogisticsOperation={props.onDeleteLogisticsOperation} mapSectors={mapSectors} onAddMapSector={props.onAddMapSector} onDeleteMapSector={props.onDeleteMapSector} onUpdateMapSector={props.onUpdateMapSector} partRequests={props.partRequests} onApprovePartRequest={onApprovePartRequest} onRejectPartRequest={onRejectPartRequest} onArchiveTasks={onArchiveTasks} onDailyClosing={props.onDailyClosing} onWeeklyClosing={props.onWeeklyClosing} fetchSanons={fetchSanons} breakSchedules={breakSchedules} onAddBreakSchedule={props.onAddBreakSchedule} onDeleteBreakSchedule={props.onDeleteBreakSchedule} bomMap={bomMap} bomRequests={bomRequests} onAddBOMItem={props.onAddBOMItem} onBatchAddBOMItems={props.onBatchAddBOMItems} onDeleteBOMItem={props.onDeleteBOMItem} onDeleteAllBOMItems={props.onDeleteAllBOMItems} onApproveBOMRequest={onApproveBOMRequest} onRejectBOMRequest={onRejectBOMRequest} roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={onDeleteRole} onUpdatePermission={onUpdatePermission} installPrompt={null} onInstallApp={()=>{}} systemConfig={systemConfig} onUpdateSystemConfig={onUpdateSystemConfig} dbLoadWarning={dbLoadWarning} resolveName={resolveName} onGetDocCount={onGetDocCount} onPurgeOldTasks={onPurgeOldTasks} onExportTasksJSON={onExportTasksJSON} onUpdateAdminKey={props.onUpdateAdminKey} onToggleAdminLock={props.onToggleAdminLock} />}
-          {activeTab === 'tasks' && <div className="animate-fade-in pb-20"><div className="mb-6 flex justify-center"><input type="text" value={taskSearchQuery} onChange={e => setTaskSearchQuery(e.target.value)} className="w-full max-w-lg h-12 px-6 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase" placeholder={t('task_search_placeholder')} /></div><TaskList currentUser={currentUserRole} currentUserName={currentUser} tasks={(tasks || []).filter(t => { const q = taskSearchQuery.toLowerCase(); return (t.partNumber && t.partNumber.toLowerCase().includes(q)) || (t.text && t.text.toLowerCase().includes(q)) || (t.workplace && t.workplace.toLowerCase().includes(q)); })} onToggleTask={handleCompleteWithSectorCheck} onEditTask={onEditTask} onDeleteTask={onDeleteTask} onToggleMissing={onToggleMissing} onSetInProgress={onSetInProgress} onToggleBlock={props.onToggleBlock} onToggleManualBlock={onToggleManualBlock} onExhaustSearch={onExhaustSearch} onMarkAsIncorrect={onMarkAsIncorrect} onAddNote={onAddNote} onReleaseTask={onReleaseTask} onAuditPart={()=>{}} resolveName={resolveName} missingReasons={missingReasons} hasPermission={hasPermission} /></div>}
+          {activeTab === 'tasks' && (
+            <div className="animate-fade-in pb-20">
+              <div className="mb-6 flex justify-center">
+                <input 
+                  type="text" 
+                  value={taskSearchQuery} 
+                  onChange={e => setTaskSearchQuery(e.target.value)} 
+                  className="w-full max-w-lg h-12 px-6 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase" 
+                  placeholder={t('task_search_placeholder')} 
+                />
+              </div>
+              <TaskList 
+                currentUser={currentUserRole} 
+                currentUserName={currentUser} 
+                tasks={(tasks || []).filter(t => { 
+                  const q = taskSearchQuery.toLowerCase(); 
+                  return (t.partNumber && t.partNumber.toLowerCase().includes(q)) || (t.text && t.text.toLowerCase().includes(q)) || (t.workplace && t.workplace.toLowerCase().includes(q)); 
+                })} 
+                onToggleTask={handleCompleteWithSectorCheck} 
+                onEditTask={onEditTask} 
+                onDeleteTask={onDeleteTask} 
+                onToggleMissing={onToggleMissing} 
+                onSetInProgress={onSetInProgress} 
+                onToggleBlock={props.onToggleBlock} 
+                onToggleManualBlock={onToggleManualBlock} 
+                onExhaustSearch={onExhaustSearch} 
+                onMarkAsIncorrect={onMarkAsIncorrect} 
+                onAddNote={onAddNote} 
+                onReleaseTask={onReleaseTask} 
+                onAuditPart={props.onStartAudit}
+                onFinishAudit={props.onFinishAudit} 
+                resolveName={resolveName} 
+                missingReasons={missingReasons} 
+                hasPermission={hasPermission} 
+              />
+            </div>
+          )}
           {activeTab === 'bom' && <BOMScreen parts={parts} workplaces={workplaces} bomMap={bomMap} onAddTask={onAddTask} onRequestBOM={props.onRequestBOM} t={t} language={language} />}
           {activeTab === 'missing' && <MissingItemsTab tasks={tasks} onDeleteMissingItem={props.onDeleteMissingItem} hasPermission={hasPermission} resolveName={resolveName} />}
           {activeTab === 'inventory' && <InventoryTab currentUser={currentUser} tasks={tasks} onAddTask={onAddTask} onUpdateTask={onUpdateTask} onToggleTask={onToggleTask} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} parts={(parts || []).map(p=>p.value)} onRequestPart={props.onRequestPart} resolveName={resolveName} />}

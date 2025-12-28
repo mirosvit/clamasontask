@@ -49,8 +49,8 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
     textClass = "text-gray-500 line-through";
   } else {
     if (isManualBlocked) { bgClass = "bg-black"; textClass = "text-gray-500"; borderClass = "border-l-4 border-gray-800"; }
-    else if (isAuditInProgress) { bgClass = "bg-[#926a05]/30"; borderClass = "border-l-4 border-[#926a05]"; }
-    else if (isSearchingMode) { bgClass = "bg-gray-800"; borderClass = "border-l-4 border-gray-600"; }
+    else if (isAuditInProgress) { bgClass = "bg-amber-500/20"; borderClass = "border-l-4 border-amber-500"; }
+    else if (isSearchingMode) { bgClass = "bg-gray-800"; borderClass = "border-l-4 border-gray-600 shadow-inner"; }
     else if (props.isSystemInventoryTask) { bgClass = "bg-[#4169E1]/20"; borderClass = "border-l-4 border-[#4169E1]"; }
     else if (task.isInProgress) { bgClass = "bg-[#FFD700]/20"; borderClass = "border-l-4 border-[#FFD700]"; }
     else if (task.isMissing) { bgClass = "bg-red-900/20"; borderClass = "border-l-4 border-red-500"; }
@@ -100,6 +100,14 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
 
       <div className="flex-grow p-4 flex flex-col gap-1 min-w-0 relative">
         <div className="relative z-10">
+          {task.auditFinalBadge && (
+            <div className="mb-1.5">
+              <span className="bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-amber-500 shadow-sm inline-block">
+                📌 {task.auditFinalBadge}
+              </span>
+            </div>
+          )}
+
           <TaskBadges 
             task={task} 
             isSystemInventoryTask={props.isSystemInventoryTask} 
@@ -109,14 +117,6 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
             isUrgent={isUrgent} 
             resolveName={resolveName}
           />
-
-          {task.auditFinalBadge && (
-            <div className="mb-1">
-              <span className="bg-[#926a05]/80 text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-[#7a5804] shadow-sm inline-block">
-                📌 {task.auditFinalBadge}
-              </span>
-            </div>
-          )}
 
           <div className="flex justify-between items-start gap-3">
             <div className="flex flex-col min-w-0">
@@ -132,40 +132,16 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
                     </span>
                 )}
                 </h3>
-                {task.isLogistics && (task as any).plate && (
-                    <div className="mt-1 flex items-center gap-2">
-                        <span className="text-sky-500 font-black text-xs uppercase tracking-widest">ŠPZ/PREPR:</span>
-                        <span className="text-gray-300 font-mono font-bold text-base bg-gray-900/50 px-2 py-0.5 rounded border border-gray-700">{(task as any).plate}</span>
-                    </div>
-                )}
             </div>
             <div className="flex flex-col items-end flex-shrink-0">
               <span className={`bg-black border border-gray-700 shadow-inner px-3 py-1 rounded-full text-xl font-bold ${textClass}`}>{task.quantity || "0"} <span className="ml-1 text-lg font-normal">{unitLabel}</span></span>
-              <div className="text-xs text-gray-400 mt-1 font-mono text-right truncate max-w-[150px]"><span className="font-bold text-gray-500">{resolveName(task.createdBy)}</span> • {new Date(task.createdAt || 0).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
             </div>
           </div>
           
           <div className="flex flex-wrap gap-2 items-center mt-2">
-            <span className={`text-lg font-bold uppercase tracking-wider ${task.isDone ? 'text-gray-600' : isManualBlocked ? 'text-gray-600' : props.isSystemInventoryTask ? 'text-[#4169E1]' : isAuditInProgress ? 'text-[#926a05]' : 'text-cyan-400'}`}>{task.workplace || "---"}</span>
+            <span className={`text-lg font-bold uppercase tracking-wider ${task.isDone ? 'text-gray-600' : isManualBlocked ? 'text-gray-600' : props.isSystemInventoryTask ? 'text-[#4169E1]' : isAuditInProgress ? 'text-amber-500' : 'text-cyan-400'}`}>{task.workplace || "---"}</span>
             {task.note && <span className="inline-block px-2 py-0.5 rounded bg-[#fef9c3] text-gray-800 text-xs font-bold shadow-sm border border-yellow-200 leading-tight">{task.note}</span>}
           </div>
-
-          {task.isInProgress && !props.isSystemInventoryTask && !task.isDone && (
-            <div className="flex mt-1">
-              <span className="text-[#FFD700] text-xs font-bold uppercase tracking-wide border border-[#FFD700]/50 bg-[#FFD700]/10 px-2 py-0.5 rounded animate-pulse truncate max-w-[200px]">
-                {t('status_resolving')} {resolveName(task.inProgressBy)}
-              </span>
-            </div>
-          )}
-
-          {task.isDone && task.completedBy && (
-            <div className="mt-2 flex items-center gap-1.5 border-t border-gray-700/50 pt-1.5 animate-fade-in">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div>
-              <span className="text-[10px] font-bold uppercase text-green-500/80 tracking-wide truncate">
-                {t('task_completed_label')}: <span className="text-green-400">{resolveName(task.completedBy)}</span> {t('at_time')} <span className="font-mono">{new Date(task.completedAt || 0).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
-              </span>
-            </div>
-          )}
         </div>
       </div>
 

@@ -3,6 +3,8 @@ import { Task, PriorityLevel, DBItem } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 import TaskCard from './tasklist/TaskCard';
 import TaskModals from './tasklist/TaskModals';
+import SearchConfirmModal from '../modals/SearchConfirmModal';
+import AuditModal from '../modals/AuditModal';
 
 interface TaskListProps {
   currentUser: 'ADMIN' | 'USER' | 'LEADER';
@@ -20,7 +22,8 @@ interface TaskListProps {
   onMarkAsIncorrect: (id: string) => void;
   onAddNote: (id: string, note: string) => void;
   onReleaseTask: (id: string) => void;
-  onAuditPart?: (task: Task) => void;
+  onAuditPart?: (id: string) => void;
+  onFinishAudit?: (id: string, result: 'found' | 'missing', note: string) => void;
   hasPermission: (perm: string) => boolean;
   resolveName: (username?: string | null) => string;
 }
@@ -34,6 +37,9 @@ const TaskList: React.FC<TaskListProps> = (props) => {
   const [noteVal, setNoteVal] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  
+  const [searchConfirmTask, setSearchConfirmTask] = useState<Task | null>(null);
+  const [auditTask, setAuditTask] = useState<Task | null>(null);
 
   const openPriorityModal = (task: Task) => {
     setPriorityEditId(task.id);
@@ -44,6 +50,33 @@ const TaskList: React.FC<TaskListProps> = (props) => {
     const task = props.tasks.find(t => t.id === id);
     if (task) props.onEditTask(id, task.text, newPriority);
     setPriorityEditId(null);
+  };
+
+  const handleSearchClick = (task: Task) => {
+    if (!task.isBlocked) {
+      props.onToggleBlock(task.id);
+    } else {
+      setSearchConfirmTask(task);
+    }
+  };
+
+  const confirmSearch = (taskId: string, found: boolean) => {
+    if (found) {
+      props.onToggleMissing(taskId); // Reset missing
+      props.onToggleBlock(taskId);  // Reset searching
+    } else {
+      props.onExhaustSearch(taskId); // Permanent unsuccessful search
+      props.onToggleBlock(taskId);   // Reset searching status
+    }
+    setSearchConfirmTask(null);
+  };
+
+  const handleAuditClick = (task: Task) => {
+    if (!task.isAuditInProgress) {
+      props.onAuditPart?.(task.id);
+    } else {
+      setAuditTask(task);
+    }
   };
 
   const handleMissingClick = (task: Task, e: React.MouseEvent) => {
@@ -63,7 +96,6 @@ const TaskList: React.FC<TaskListProps> = (props) => {
   const handleNoteClick = (task: Task) => {
     const isNoteLocked = !!(task.auditFinalBadge && !props.hasPermission('perm_btn_audit'));
     if (isNoteLocked) return;
-
     setNoteId(noteId === task.id ? null : task.id);
     setNoteVal(task.note || '');
     setPriorityEditId(null); setMissingId(null); setDeleteId(null);
@@ -114,7 +146,7 @@ const TaskList: React.FC<TaskListProps> = (props) => {
             hasPermission={props.hasPermission}
             onSetInProgress={props.onSetInProgress}
             onToggleTask={props.onToggleTask}
-            onToggleBlock={props.onToggleBlock}
+            onToggleBlock={() => handleSearchClick(task)}
             onToggleManualBlock={props.onToggleManualBlock}
             onExhaustSearch={props.onExhaustSearch}
             onMarkAsIncorrect={props.onMarkAsIncorrect}
@@ -123,7 +155,7 @@ const TaskList: React.FC<TaskListProps> = (props) => {
             handleDeleteClick={handleDeleteClick}
             handleCopyPart={handleCopyPart}
             openPriorityModal={openPriorityModal}
-            onAuditPart={props.onAuditPart}
+            onAuditPart={() => handleAuditClick(task)}
             resolveName={props.resolveName}
           />
         );
@@ -147,6 +179,25 @@ const TaskList: React.FC<TaskListProps> = (props) => {
         saveNote={saveNote}
         confirmDelete={confirmDelete}
       />
+
+      {searchConfirmTask && (
+        <SearchConfirmModal 
+          task={searchConfirmTask} 
+          onClose={() => setSearchConfirmTask(null)} 
+          onConfirm={confirmSearch} 
+        />
+      )}
+
+      {auditTask && (
+        <AuditModal 
+          task={auditTask} 
+          onClose={() => setAuditTask(null)} 
+          onConfirm={(id, res, note) => {
+            props.onFinishAudit?.(id, res, note);
+            setAuditTask(null);
+          }} 
+        />
+      )}
     </div>
   );
 };
