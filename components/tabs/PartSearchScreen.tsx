@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import TaskList from './TaskList';
@@ -14,7 +13,7 @@ import PartCatalogTab from './PartCatalogTab';
 import SectorPickerModal from '../modals/SectorPickerModal';
 import AppHeader from '../AppHeader';
 import TabNavigator from '../TabNavigator';
-import { UserData, DBItem, PartRequest, BreakSchedule, SystemBreak, BOMComponent, Role, Permission, Task, Notification as AppNotification, PriorityLevel, SystemConfig, MapSector } from '../../App';
+import { UserData, DBItem, PartRequest, BreakSchedule, SystemBreak, BOMComponent, Role, Permission, Task, Notification as AppNotification, PriorityLevel, SystemConfig, MapSector } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 
 declare var XLSX: any;
@@ -33,6 +32,7 @@ interface PartSearchScreenProps {
   onToggleMissing: (id: string, reason?: string) => void; 
   onSetInProgress: (id: string) => void;
   onToggleBlock: (id: string) => void; 
+  onToggleManual_block: (id: string) => void;
   onToggleManualBlock: (id: string) => void;
   onExhaustSearch: (id: string) => void;
   onAddNote: (id: string, note: string) => void;
