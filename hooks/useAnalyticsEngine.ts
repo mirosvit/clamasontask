@@ -203,26 +203,63 @@ export const useAnalyticsEngine = (
         if (task.isLogistics) {
             const logOp = logisticsOperations.find(o => o.value === task.workplace);
             if (logOp) {
-                // Fixná cesta pre logistiku
+                // A. Fixná časť (vnútorný pohyb na rampe - vzdialenosť z DB)
                 const distPx = logOp.distancePx || 0;
                 oneWayD = distPx / DISTANCE_SCALE; 
                 
-                // Norma = (StandardTime * loadMultiplier) + TravelTime
-                // Setup Time a Unit Time sa už nepoužíva, všetko je v Standard Time (Norma na pracovisko)
+                // B. Transit (Logistika) - Príjazd k rampe
+                if (lastCoords && logOp.coordX !== undefined && logOp.coordY !== undefined) {
+                    const dx = Math.abs((logOp.coordX) - lastCoords.x);
+                    const dy = Math.abs((logOp.coordY) - lastCoords.y);
+                    const transitMeters = (dx + dy) / DISTANCE_SCALE;
+                    wTransitDist += transitMeters;
+                }
+
+                // Norma = (StandardTime * loadMultiplier) + TravelTime (Internal)
                 const standardTime = logOp.standardTime || 2.0;
                 const travelTimeMin = oneWayD / VZV_SPEED_MPM; 
                 
-                // loadMultiplier zabezpečí, že 5 paliet = 5x norma, ale 500ks = 1x norma
+                // loadMultiplier zabezpečí, že 5 paliet = 5x norma
                 targetMin = (standardTime * loadMultiplier) + travelTimeMin;
                 
-                // Update Coords reset (logistika preruší chain)
-                lastCoords = null;
+                // C. Update Coords (Reťazenie pre ďalšiu úlohu)
+                if (logOp.coordX !== undefined && logOp.coordY !== undefined) {
+                    lastCoords = { x: logOp.coordX, y: logOp.coordY };
+                } else {
+                    // Ak logistika nemá súradnice, reťaz sa pretrhne (fallback na staré správanie)
+                    lastCoords = null;
+                }
             }
         } else {
             // Výrobná úloha
             const wp = workplaces.find(w => w.value === task.workplace);
             if (wp) {
-                // Dynamický Travel Time
+                // A. Transit (Výroba) - Príjazd od predchádzajúcej úlohy
+                // Kontrola: Ak máme lastCoords, vieme vypočítať cestu K sektorou (vyzdvihnutie)
+                // Alebo ak nie je sektor, tak priamo k pracovisku?
+                // Štandardne: lastCoords -> pickedFromSector (ak je) -> Workplace
+                
+                // V tomto modeli zjednodušene: Transit je cesta k začiatku úlohy.
+                // Ak je definovaný sektor, začiatok je sektor. Ak nie, začiatok je pracovisko.
+                let startX = wp.coordX || 0;
+                let startY = wp.coordY || 0;
+                
+                if (task.pickedFromSectorId) {
+                    const sector = mapSectors.find(s => s.id === task.pickedFromSectorId);
+                    if (sector) {
+                        startX = sector.coordX;
+                        startY = sector.coordY;
+                    }
+                }
+
+                if (lastCoords) {
+                    const dx = Math.abs(startX - lastCoords.x);
+                    const dy = Math.abs(startY - lastCoords.y);
+                    const transitMeters = (dx + dy) / DISTANCE_SCALE;
+                    wTransitDist += transitMeters;
+                }
+
+                // B. Výkon (Práca) - Cesta zo Sektora na Pracovisko (alebo fixná)
                 let distMeters = 0;
                 if (task.pickedFromSectorId) {
                     const sector = mapSectors.find(s => s.id === task.pickedFromSectorId);
@@ -239,11 +276,12 @@ export const useAnalyticsEngine = (
 
                 targetMin = (standardTime * loadMultiplier) + travelTimeMin;
 
-                // Update last coords
+                // C. Update last coords (Koniec úlohy je na pracovisku)
                 lastCoords = { x: wp.coordX || 0, y: wp.coordY || 0 };
             } else {
                 // Fallback ak WP neexistuje v DB
-                targetMin = 2 * loadMultiplier; // Default odhad
+                targetMin = 2 * loadMultiplier; 
+                lastCoords = null; // Stratili sme stopu
             }
         }
 
@@ -307,12 +345,6 @@ export const useAnalyticsEngine = (
             // Ak nemáme vzdialenosť, rátame aspoň jazdu
             wRides++;
         }
-
-        // --- TRANSIT CALCULATION (Tieňová logistika) ---
-        // Ak ideme z úlohy A do úlohy B, je to "empty ride"
-        // (Už sme v cykle vyššie nastavili lastCoords)
-        // Toto je len aproximácia, keďže nevieme presne poradie jázd v čase ak sa prekrývajú,
-        // ale 'sorted' je podľa completedAt, čo je dobrá aproximácia.
 
         if (task.createdAt && task.startedAt) {
           const react = task.startedAt - task.createdAt;

@@ -12,7 +12,7 @@ interface WorkplaceSectionProps {
   onBatchAddWorkplaces: (vals: string[]) => void;
   onDeleteWorkplace: (id: string) => void;
   onDeleteAllWorkplaces: () => void;
-  onAddLogisticsOperation: (val: string, time?: number, dist?: number) => void;
+  onAddLogisticsOperation: (val: string, time?: number, dist?: number, x?: number, y?: number) => void;
   onUpdateLogisticsOperation: (id: string, updates: Partial<DBItem>) => void;
   onDeleteLogisticsOperation: (id: string) => void;
   onDeleteAllLogisticsOperations: () => void;
@@ -101,7 +101,7 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo((props) => {
       setIsLogModalOpen(true);
   };
   const handleCreateLog = () => {
-      setEditingLog({ value: '', standardTime: 2.0, distancePx: 0 });
+      setEditingLog({ value: '', standardTime: 2.0, distancePx: 0, coordX: 0, coordY: 0 });
       setIsLogModalOpen(true);
   };
   const handleSaveLog = () => {
@@ -109,7 +109,7 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo((props) => {
       if (editingLog.id) {
           props.onUpdateLogisticsOperation(editingLog.id, editingLog);
       } else {
-          props.onAddLogisticsOperation(editingLog.value, editingLog.standardTime, editingLog.distancePx);
+          props.onAddLogisticsOperation(editingLog.value, editingLog.standardTime, editingLog.distancePx, editingLog.coordX, editingLog.coordY);
       }
       setIsLogModalOpen(false);
   };
@@ -203,9 +203,9 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo((props) => {
 
                         <div className="flex justify-center">
                             <div className="inline-flex items-center gap-2 text-[9px] font-mono font-bold bg-slate-950/30 px-3 py-1 rounded-full text-slate-500 border border-white/5">
-                                <span>X: {w.coordX}</span>
+                                <span>X: {w.coordX || 0}</span>
                                 <span className="text-slate-700">|</span>
-                                <span>Y: {w.coordY}</span>
+                                <span>Y: {w.coordY || 0}</span>
                             </div>
                         </div>
                     </div>
@@ -266,6 +266,10 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo((props) => {
                                     <div className="flex items-center gap-2 mt-1">
                                         <span className="text-[9px] font-mono text-slate-500 bg-slate-950 px-1.5 rounded border border-white/5">{op.distancePx}px</span>
                                         <span className="text-[9px] font-mono text-amber-500/80">Norma: {op.standardTime}m</span>
+                                        <div className="flex gap-1 text-[8px] font-mono text-slate-600">
+                                            <span>X:{op.coordX || 0}</span>
+                                            <span>Y:{op.coordY || 0}</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -422,6 +426,32 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo((props) => {
                         className={`${inputClass} border-amber-500/30 text-amber-400`}
                      />
                   </div>
+
+                  {/* SÚRADNICE PRE REŤAZENIE LOGISTIKY */}
+                  <div className="grid grid-cols-2 gap-6 pt-2 border-t border-slate-800">
+                     <div className="col-span-2 text-[10px] text-slate-500 uppercase font-bold tracking-widest mb-1 text-center">
+                        Súradnice miesta (pre reťazenie jázd)
+                     </div>
+                     <div>
+                        <label className={labelClass}>X SÚRADNICA</label>
+                        <input 
+                           type="number" 
+                           value={editingLog.coordX || 0} 
+                           onChange={e => setEditingLog({...editingLog, coordX: parseInt(e.target.value)})}
+                           className={inputClass}
+                        />
+                     </div>
+                     <div>
+                        <label className={labelClass}>Y SÚRADNICA</label>
+                        <input 
+                           type="number" 
+                           value={editingLog.coordY || 0} 
+                           onChange={e => setEditingLog({...editingLog, coordY: parseInt(e.target.value)})}
+                           className={inputClass}
+                        />
+                     </div>
+                  </div>
+
                   <div className="flex gap-3 mt-8">
                      <button onClick={() => setIsLogModalOpen(false)} className="flex-1 h-14 rounded-xl font-black uppercase tracking-widest text-slate-400 hover:bg-slate-800 transition-colors bg-transparent border-2 border-slate-700 text-xs">
                         Zrušiť
