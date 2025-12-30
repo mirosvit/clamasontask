@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import PartSearchScreen from './components/PartSearchScreen';
+import NotificationModal from './components/modals/NotificationModal';
 import { useData } from './context/DataContext';
 import { SystemConfig, PriorityLevel, Task } from './types/appTypes';
 import { db } from './firebase';
@@ -19,6 +20,29 @@ interface AppAuthenticatedProps {
 
 const AppAuthenticated: React.FC<AppAuthenticatedProps> = (props) => {
   const data = useData();
+
+  // Získanie notifikácií pre aktuálneho používateľa
+  const myNotifications = useMemo(() => {
+      if (!data || !data.notifications) return [];
+      return data.notifications
+        .filter(n => n.targetUser === props.currentUser)
+        .sort((a, b) => b.timestamp - a.timestamp); // Najnovšie prvé, ale zobrazujeme ich postupne
+  }, [data?.notifications, props.currentUser]);
+
+  // Vyberieme prvú notifikáciu v rade na zobrazenie
+  const activeNotification = myNotifications.length > 0 ? myNotifications[0] : null;
+
+  const handleConfirmNotification = () => {
+      if (activeNotification && data.onClearNotification) {
+          data.onClearNotification(activeNotification.id);
+      }
+  };
+
+  const resolveName = (username?: string | null) => {
+      if (!username) return '-';
+      const u = data?.users.find(x => x.username === username);
+      return (u?.nickname || username).toUpperCase();
+  };
 
   if (!data || !data.tasks || !data.users) {
       return (
@@ -152,6 +176,14 @@ const AppAuthenticated: React.FC<AppAuthenticatedProps> = (props) => {
           onInstallApp={props.onInstallApp}
           dbLoadWarning={false}
         />
+
+        {activeNotification && (
+            <NotificationModal 
+                notification={activeNotification}
+                onConfirm={handleConfirmNotification}
+                resolveName={resolveName}
+            />
+        )}
     </div>
   );
 };

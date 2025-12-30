@@ -39,6 +39,7 @@ interface SettingsTabProps {
   onAddLogisticsOperation?: (val: string, time?: number, dist?: number) => void;
   onUpdateLogisticsOperation?: (id: string, updates: Partial<DBItem>) => void;
   onDeleteLogisticsOperation?: (id: string) => void;
+  onDeleteAllLogisticsOperations?: () => void;
   mapSectors: MapSector[];
   onAddMapSector: (name: string, x: number, y: number) => void;
   onDeleteMapSector: (id: string) => void;
@@ -204,6 +205,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             onAddLogisticsOperation={props.onAddLogisticsOperation || (() => {})}
             onUpdateLogisticsOperation={props.onUpdateLogisticsOperation || (() => {})}
             onDeleteLogisticsOperation={props.onDeleteLogisticsOperation || (() => {})}
+            onDeleteAllLogisticsOperations={props.onDeleteAllLogisticsOperations || (() => {})}
             mapSectors={mapSectors}
             onAddMapSector={props.onAddMapSector}
             onDeleteMapSector={id => props.onDeleteMapSector(id)}

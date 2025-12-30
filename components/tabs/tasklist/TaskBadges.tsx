@@ -31,70 +31,72 @@ const TaskBadges: React.FC<TaskBadgesProps> = ({
 
   if (task.isDone && task.status !== 'incorrectly_entered') return null;
 
+  const baseBadgeClass = "w-fit px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 border shadow-sm backdrop-blur-sm transition-all";
+
   return (
-    <div className="flex flex-wrap gap-1.5 mb-2">
+    <div className="flex flex-wrap gap-2 mb-2.5">
       {task.isProduction && (
-        <div className="w-fit bg-pink-900/30 text-pink-400 border border-pink-800 text-[10px] font-bold uppercase px-2 py-0.5 rounded-md tracking-widest flex items-center gap-1 shadow-sm">
+        <div className={`${baseBadgeClass} bg-pink-500/10 text-pink-400 border-pink-500/20`}>
           <FactoryIcon className="w-3 h-3" /> {language === 'sk' ? 'VÝROBA' : 'PRODUCTION'}
         </div>
       )}
 
       {task.isLogistics && (
-        <div className="w-fit bg-indigo-600 text-white text-[10px] font-bold uppercase px-2 py-0.5 rounded-md tracking-widest flex items-center gap-1 shadow-sm">
+        <div className={`${baseBadgeClass} bg-indigo-500/10 text-indigo-400 border-indigo-500/20`}>
           <TruckIcon className="w-3 h-3" /> {t('status_logistics')}
         </div>
       )}
 
       {isSystemInventoryTask && (
-        <span className="bg-[#4169E1] text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded animate-pulse border border-[#3151b1] shadow-[0_0_10px_rgba(65,105,225,0.4)]">
+        <span className={`${baseBadgeClass} bg-blue-600/20 text-blue-300 border-blue-500/50 animate-pulse shadow-[0_0_10px_rgba(37,99,235,0.2)]`}>
           📋 {t('tab_inventory')} {task.inProgressBy ? `• ${resolveName(task.inProgressBy)}` : ''}
         </span>
       )}
 
       {!isSystemInventoryTask && task.isInProgress && (
-        <span className="bg-yellow-400 text-black text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-yellow-500 shadow-sm animate-pulse">
+        <span className={`${baseBadgeClass} bg-yellow-500/10 text-yellow-400 border-yellow-500/30 animate-pulse`}>
           👷 {language === 'sk' ? 'RIEŠI' : 'HANDLING'}: {resolveName(task.inProgressBy)}
         </span>
       )}
 
       {isAuditInProgress && (
-        <span className="bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded animate-pulse border border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.4)]">
+        <span className={`${baseBadgeClass} bg-amber-500/10 text-amber-500 border-amber-500/30 animate-pulse`}>
           ⚙️ {language === 'sk' ? 'AUDIT' : 'AUDIT'}: {resolveName(task.auditBy)}
         </span>
       )}
 
       {isUrgent && !isManualBlocked && (
-        <span className="bg-orange-600 text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded animate-pulse border border-orange-500 shadow-[0_0_10px_rgba(234,88,12,0.4)]">
+        <span className={`${baseBadgeClass} bg-orange-500/10 text-orange-500 border-orange-500/40 animate-pulse shadow-[0_0_8px_rgba(249,115,22,0.1)]`}>
           🔥 {t('status_urgent')}
         </span>
       )}
 
       {isSearchingMode && (
-        <span className="bg-gray-500 text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded animate-pulse border border-gray-400 shadow-sm">
+        <span className={`${baseBadgeClass} bg-slate-700/50 text-slate-300 border-slate-600`}>
           🔍 {language === 'sk' ? 'HĽADÁ SA TOVAR' : 'SEARCHING ITEM'}: {resolveName(task.blockedBy)}
         </span>
       )}
 
       {isManualBlocked && (
-        <span className="bg-[#1e1b4b] text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-[#312e81] shadow-sm">
+        <span className={`${baseBadgeClass} bg-slate-900 text-slate-400 border-slate-700`}>
           🚫 {t('status_blocked')}
         </span>
       )}
 
       {task.isMissing && task.missingReason && !isAuditInProgress && !isSearchingMode && (
-        <span className="bg-red-600 text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded animate-pulse border border-red-500 shadow-sm">
+        <span className={`${baseBadgeClass} bg-red-500/10 text-red-500 border-red-500/30 animate-pulse`}>
           ⚠️ {task.missingReason}
         </span>
       )}
 
       {task.searchedBy && !isSearchingMode && (
-        <span className="bg-gray-700 text-gray-300 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-gray-600 shadow-sm">
+        <span className={`${baseBadgeClass} bg-slate-800/60 text-slate-400 border-slate-700`}>
           🕵️ {language === 'sk' ? 'HLADAL' : 'SEARCHED'}: {resolveName(task.searchedBy)}
         </span>
       )}
 
       {task.status === 'incorrectly_entered' && (
-        <div className="w-fit bg-gray-800/50 text-red-400 border border-red-900/50 text-[10px] font-bold uppercase px-2 py-0.5 rounded-md tracking-widest flex items-center gap-1 shadow-sm">
+        <div className={`${baseBadgeClass} bg-red-900/10 text-red-400 border-red-800/30 opacity-70`}>
           <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>

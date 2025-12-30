@@ -1,3 +1,4 @@
+
 export interface UserData {
   id?: string;
   username: string;
@@ -10,7 +11,9 @@ export interface UserData {
 export interface DBItem {
   id: string;
   value: string;
-  standardTime?: number;
+  standardTime?: number; // Legacy / Fallback
+  setupTime?: number;    // Fixná zložka (príprava)
+  unitTime?: number;     // Variabilná zložka (na kus)
   description?: string;
   coordX?: number;
   coordY?: number;
@@ -73,6 +76,8 @@ export interface Task {
   searchExhausted?: boolean;
   searchedBy?: string | null;
   pickedFromSectorId?: string;
+  // Anti-Cheat flag pre analytiku
+  isInvalid?: boolean; 
 }
 
 export interface Notification {

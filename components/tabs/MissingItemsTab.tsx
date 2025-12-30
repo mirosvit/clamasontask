@@ -85,11 +85,21 @@ const MissingItemsTab: React.FC<MissingItemsTabProps> = ({ tasks, onDeleteMissin
         return base + "border-l-teal-500 hover:bg-teal-500/[0.04]";
     };
 
-    const formatDateShort = (ts?: number) => {
+    const formatSmartTime = (ts?: number) => {
         if (!ts) return '-';
-        const d = new Date(ts);
-        return d.toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit' }) + ' ' + 
-               d.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' });
+        const date = new Date(ts);
+        const now = new Date();
+        const isToday = date.toDateString() === now.toDateString();
+        
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const isYesterday = date.toDateString() === yesterday.toDateString();
+        
+        const timeStr = date.toLocaleTimeString(language === 'sk' ? 'sk-SK' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+        
+        if (isToday) return language === 'sk' ? `Dnes, ${timeStr}` : `Today, ${timeStr}`;
+        if (isYesterday) return language === 'sk' ? `Včera, ${timeStr}` : `Yesterday, ${timeStr}`;
+        return date.toLocaleDateString(language === 'sk' ? 'sk-SK' : 'en-US', { day: '2-digit', month: '2-digit' }) + ', ' + timeStr;
     };
 
     return (
@@ -200,12 +210,12 @@ const MissingItemsTab: React.FC<MissingItemsTabProps> = ({ tasks, onDeleteMissin
                                                                     <div className="space-y-2">
                                                                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Vytvoril (Zadal):</p>
                                                                         <p className="text-base font-black text-slate-200 uppercase truncate">{resolveName(item.createdBy)}</p>
-                                                                        <p className="text-xs text-slate-500 font-mono italic">{formatDateShort(item.createdAt)}</p>
+                                                                        <p className="text-xs text-slate-500 font-mono italic">{formatSmartTime(item.createdAt)}</p>
                                                                     </div>
                                                                     <div className="space-y-2">
                                                                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Nahlásil (Missing):</p>
                                                                         <p className="text-base font-black text-slate-200 uppercase truncate">{resolveName(item.missingReportedBy)}</p>
-                                                                        <p className="text-xs text-slate-500 font-mono italic">{formatDateShort(item.completedAt)}</p>
+                                                                        <p className="text-xs text-slate-500 font-mono italic">{formatSmartTime(item.completedAt)}</p>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -217,7 +227,7 @@ const MissingItemsTab: React.FC<MissingItemsTabProps> = ({ tasks, onDeleteMissin
                                                                             <div className="space-y-2">
                                                                                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Audítor:</p>
                                                                                 <p className="text-base font-black text-amber-400 uppercase truncate">{resolveName(item.auditedBy)}</p>
-                                                                                <p className="text-xs text-slate-500 font-mono italic">{formatDateShort(item.auditedAt || 0)}</p>
+                                                                                <p className="text-xs text-slate-500 font-mono italic">{formatSmartTime(item.auditedAt || 0)}</p>
                                                                             </div>
                                                                             <div className={`px-6 py-3 rounded-2xl border-2 font-black text-sm tracking-[0.2em] shadow-lg ${item.auditResult === 'OK' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-600/10 text-red-500 border-red-600/20'}`}>
                                                                                 AUDIT {item.auditResult}

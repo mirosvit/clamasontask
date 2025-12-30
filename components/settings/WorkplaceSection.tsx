@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, memo } from 'react';
+import { createPortal } from 'react-dom';
 import { DBItem, MapSector, SystemConfig } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 
@@ -14,6 +15,7 @@ interface WorkplaceSectionProps {
   onAddLogisticsOperation: (val: string, time?: number, dist?: number) => void;
   onUpdateLogisticsOperation: (id: string, updates: Partial<DBItem>) => void;
   onDeleteLogisticsOperation: (id: string) => void;
+  onDeleteAllLogisticsOperations: () => void;
   mapSectors: MapSector[];
   onAddMapSector: (name: string, x: number, y: number, color?: string) => void;
   onDeleteMapSector: (id: string) => void;
@@ -22,317 +24,530 @@ interface WorkplaceSectionProps {
   onUpdateSystemConfig: (config: Partial<SystemConfig>) => void;
 }
 
+// --- ICONS ---
+const Icons = {
+  Edit: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>,
+  Trash: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
+  Plus: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>,
+  Import: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>,
+  Factory: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-7h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>,
+  Truck: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" /></svg>,
+  Map: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>,
+  Time: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+};
+
 const colorOptions = [
-  { id: 'blue', label: 'Modrá', class: 'bg-blue-600' },
-  { id: 'green', label: 'Zelená', class: 'bg-green-600' },
-  { id: 'orange', label: 'Oranžová', class: 'bg-orange-600' },
-  { id: 'teal', label: 'Teal', class: 'bg-teal-600' },
-  { id: 'pink', label: 'Ružová', class: 'bg-pink-600' },
-  { id: 'red', label: 'Červená', class: 'bg-red-600' },
-  { id: 'slate', label: 'Šedá', class: 'bg-slate-700' }
+  { id: 'slate', label: 'Šedá', class: 'bg-slate-600', border: 'border-slate-500' },
+  { id: 'blue', label: 'Modrá', class: 'bg-blue-600', border: 'border-blue-500' },
+  { id: 'green', label: 'Zelená', class: 'bg-emerald-600', border: 'border-emerald-500' },
+  { id: 'orange', label: 'Oranžová', class: 'bg-orange-600', border: 'border-orange-500' },
+  { id: 'teal', label: 'Teal', class: 'bg-teal-600', border: 'border-teal-500' },
+  { id: 'pink', label: 'Ružová', class: 'bg-pink-600', border: 'border-pink-500' },
+  { id: 'red', label: 'Červená', class: 'bg-red-600', border: 'border-red-500' }
 ];
 
-const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo(({ 
-  workplaces, logisticsOperations, onAddWorkplace, onUpdateWorkplace, onBatchAddWorkplaces, onDeleteWorkplace, onDeleteAllWorkplaces, onAddLogisticsOperation, onUpdateLogisticsOperation, onDeleteLogisticsOperation,
-  mapSectors, onAddMapSector, onDeleteMapSector, onUpdateMapSector, systemConfig, onUpdateSystemConfig
-}) => {
-  const { t, language } = useLanguage();
-  const [newWorkplace, setNewWorkplace] = useState('');
-  const [newWorkplaceTime, setNewWorkplaceTime] = useState('');
-  const [newWorkplaceX, setNewWorkplaceX] = useState('');
-  const [newWorkplaceY, setNewWorkplaceY] = useState('');
+const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo((props) => {
+  const { t } = useLanguage();
   const [wpSearch, setWpSearch] = useState('');
-  const [bulkWorkplaces, setBulkWorkplaces] = useState('');
-  const [newLogOp, setNewLogOp] = useState('');
-  const [newLogOpTime, setNewLogOpTime] = useState('');
-  const [newLogOpDist, setNewLogOpDist] = useState('');
-
-  // Sektory Editácia
-  const [newSectorName, setNewSectorName] = useState('');
-  const [newSectorX, setNewSectorX] = useState('');
-  const [newSectorY, setNewSectorY] = useState('');
-  const [newSectorColor, setNewSectorColor] = useState('slate');
   
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editOrder, setEditOrder] = useState(0);
+  // Modals States
+  const [isWpModalOpen, setIsWpModalOpen] = useState(false);
+  const [editingWp, setEditingWp] = useState<Partial<DBItem> | null>(null); // null = new
+  
+  const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+  const [editingLog, setEditingLog] = useState<Partial<DBItem> | null>(null);
 
+  const [isSectorModalOpen, setIsSectorModalOpen] = useState(false);
+  const [editingSector, setEditingSector] = useState<Partial<MapSector> | null>(null);
+
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [bulkWorkplaces, setBulkWorkplaces] = useState('');
+
+  // Filtered Lists
   const filteredWPs = useMemo(() => {
       const q = wpSearch.toLowerCase();
-      if (!q) return workplaces;
-      return workplaces.filter(w => w.value.toLowerCase().includes(q));
-  }, [workplaces, wpSearch]);
-
-  const cardClass = "bg-gray-800/40 border border-slate-700/50 rounded-2xl p-6 shadow-2xl backdrop-blur-sm";
-  const inputClass = "w-full h-12 bg-slate-800/80 border border-slate-700 rounded-xl px-4 text-white text-base focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono placeholder-gray-500 uppercase";
-  const labelClass = "block text-xs font-black text-slate-500 uppercase tracking-[0.2em] mb-3";
-  const inlineInputClass = "bg-transparent border-b border-slate-700 w-12 text-center text-teal-400 focus:border-teal-500 outline-none font-mono text-sm";
-  const amberInputClass = "bg-slate-900 border-2 border-amber-600/30 text-amber-500 rounded-lg px-2 py-1 outline-none focus:border-amber-500 transition-all font-black uppercase text-sm";
-
-  const handleSaveSector = (id: string) => {
-    onUpdateMapSector(id, { name: editName.toUpperCase(), order: editOrder });
-    setEditingId(null);
-  };
+      if (!q) return props.workplaces;
+      return props.workplaces.filter(w => w.value.toLowerCase().includes(q));
+  }, [props.workplaces, wpSearch]);
 
   const sortedSectors = useMemo(() => {
-    return [...mapSectors].sort((a, b) => (a.order || 0) - (b.order || 0) || (a.name || '').localeCompare(b.name || ''));
-  }, [mapSectors]);
+    return [...props.mapSectors].sort((a, b) => (a.order || 0) - (b.order || 0) || (a.name || '').localeCompare(b.name || ''));
+  }, [props.mapSectors]);
+
+  // --- HANDLERS ---
+
+  // Workplace
+  const handleEditWorkplace = (wp: DBItem) => {
+      setEditingWp({ ...wp });
+      setIsWpModalOpen(true);
+  };
+  const handleCreateWorkplace = () => {
+      setEditingWp({ value: '', standardTime: 2.0, coordX: 0, coordY: 0 });
+      setIsWpModalOpen(true);
+  };
+  const handleSaveWorkplace = () => {
+      if (!editingWp || !editingWp.value) return;
+      if (editingWp.id) {
+          props.onUpdateWorkplace(editingWp.id, editingWp);
+      } else {
+          props.onAddWorkplace(editingWp.value, editingWp.standardTime, editingWp.coordX, editingWp.coordY);
+      }
+      setIsWpModalOpen(false);
+  };
+
+  // Logistics
+  const handleEditLog = (op: DBItem) => {
+      setEditingLog({ ...op });
+      setIsLogModalOpen(true);
+  };
+  const handleCreateLog = () => {
+      setEditingLog({ value: '', standardTime: 2.0, distancePx: 0 });
+      setIsLogModalOpen(true);
+  };
+  const handleSaveLog = () => {
+      if (!editingLog || !editingLog.value) return;
+      if (editingLog.id) {
+          props.onUpdateLogisticsOperation(editingLog.id, editingLog);
+      } else {
+          props.onAddLogisticsOperation(editingLog.value, editingLog.standardTime, editingLog.distancePx);
+      }
+      setIsLogModalOpen(false);
+  };
+
+  // Sector
+  const handleEditSector = (s: MapSector) => {
+      setEditingSector({ ...s });
+      setIsSectorModalOpen(true);
+  };
+  const handleCreateSector = () => {
+      setEditingSector({ name: '', order: (props.mapSectors.length + 1) * 10, color: 'slate', coordX: 0, coordY: 0 });
+      setIsSectorModalOpen(true);
+  };
+  const handleSaveSector = () => {
+      if (!editingSector || !editingSector.name) return;
+      if (editingSector.id) {
+          props.onUpdateMapSector(editingSector.id, editingSector);
+      } else {
+          props.onAddMapSector(editingSector.name, editingSector.coordX || 0, editingSector.coordY || 0, editingSector.color);
+      }
+      setIsSectorModalOpen(false);
+  };
+
+  // Import
+  const handleBatchImport = () => {
+      if (bulkWorkplaces) {
+          props.onBatchAddWorkplaces(bulkWorkplaces.split('\n'));
+          setBulkWorkplaces('');
+          setIsImportModalOpen(false);
+      }
+  };
+
+  // Styles
+  const cardClass = "bg-gray-800/40 border border-slate-700/50 rounded-3xl p-6 shadow-2xl backdrop-blur-sm relative overflow-hidden";
+  const labelClass = "block text-[9px] font-black text-slate-500 uppercase tracking-[0.25em] mb-2";
+  const inputClass = "w-full h-12 bg-slate-900/50 border-2 border-slate-700/50 rounded-xl px-4 text-white text-sm font-bold focus:outline-none focus:border-teal-500/50 transition-all font-mono uppercase";
+  const modalOverlayClass = "fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in";
+  const modalContentClass = "bg-slate-900 border-2 border-slate-700 rounded-3xl shadow-2xl w-full max-w-lg p-8 relative";
 
   return (
-    <div className="space-y-8">
-      <div className={cardClass}>
-        <div className="space-y-8">
-          <div className="flex justify-between items-center">
-            <h3 className="text-2xl font-black text-white uppercase tracking-tighter">PRACOVISKÁ</h3>
-            <button onClick={() => { if(window.confirm('VYMAZAŤ VŠETKO?')) onDeleteAllWorkplaces(); }} className="text-xs font-black text-red-500 bg-red-500/10 px-6 py-3 rounded-xl border-2 border-red-500/20 uppercase tracking-widest hover:bg-red-500/20">{t('delete_all')}</button>
-          </div>
-          <input value={wpSearch} onChange={e=>setWpSearch(e.target.value)} placeholder="Hľadať pracovisko..." className={inputClass} />
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 max-h-[450px] overflow-y-auto custom-scrollbar">
-            {filteredWPs.map(w => (
-              <div key={w.id} className="bg-slate-950/40 p-4 rounded-xl border border-white/5 flex flex-col gap-3 font-mono group hover:bg-slate-900 transition-colors">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-300 font-bold truncate max-w-[120px]">{w.value}</span>
-                  <button onClick={() => onDeleteWorkplace(w.id)} className="opacity-0 group-hover:opacity-100 text-red-500 font-black px-2 text-lg">×</button>
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 animate-fade-in">
+      
+      {/* --- LEFT COLUMN: PRODUCTION --- */}
+      <div className="space-y-8">
+        <div className={cardClass}>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-8">
+                <div>
+                    <h3 className="text-2xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
+                        <span className="w-2 h-8 bg-teal-500 rounded-full"></span>
+                        PRACOVISKÁ
+                    </h3>
+                    <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1 ml-5">Výroba & Normy</p>
                 </div>
-                <div className="flex flex-wrap items-center gap-4 border-t border-white/5 pt-2">
-                  <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-slate-600 font-bold uppercase">Čas:</span>
-                    <input 
-                      type="number" 
-                      value={w.standardTime || 0} 
-                      onChange={(e) => onUpdateWorkplace(w.id, { standardTime: parseInt(e.target.value) || 0 })}
-                      className={inlineInputClass}
-                    />
-                    <span className="text-slate-600 text-[10px]">m</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-slate-600 font-bold uppercase">X:</span>
-                    <input 
-                      type="number" 
-                      value={w.coordX || 0} 
-                      onChange={(e) => onUpdateWorkplace(w.id, { coordX: parseInt(e.target.value) || 0 })}
-                      className={inlineInputClass}
-                    />
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-slate-600 font-bold uppercase">Y:</span>
-                    <input 
-                      type="number" 
-                      value={w.coordY || 0} 
-                      onChange={(e) => onUpdateWorkplace(w.id, { coordY: parseInt(e.target.value) || 0 })}
-                      className={inlineInputClass}
-                    />
-                  </div>
+                <div className="flex gap-2 w-full sm:w-auto">
+                    <button onClick={() => setIsImportModalOpen(true)} className="h-10 bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 rounded-lg shadow-md transition-all flex items-center justify-center border border-slate-700" title="Importovať dávku">
+                        <Icons.Import />
+                    </button>
+                    <button onClick={handleCreateWorkplace} className="h-10 bg-teal-600 hover:bg-teal-500 text-white px-4 rounded-lg shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 font-bold uppercase text-xs tracking-wide">
+                        <Icons.Plus /> <span className="hidden sm:inline">Nové</span>
+                    </button>
                 </div>
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-slate-800">
-            <div className="space-y-4">
-              <h4 className={labelClass}>NOVÉ PRACOVISKO</h4>
-              <input value={newWorkplace} onChange={e=>setNewWorkplace(e.target.value)} placeholder="Názov" className={inputClass} />
-              <div className="grid grid-cols-3 gap-3">
-                <input type="number" value={newWorkplaceTime} onChange={e=>setNewWorkplaceTime(e.target.value)} placeholder="Std. m" className={inputClass} />
-                <input type="number" value={newWorkplaceX} onChange={e=>setNewWorkplaceX(e.target.value)} placeholder="X" className={inputClass} />
-                <input type="number" value={newWorkplaceY} onChange={e=>setNewWorkplaceY(e.target.value)} placeholder="Y" className={inputClass} />
-              </div>
-              <button onClick={() => { if(newWorkplace) { onAddWorkplace(newWorkplace, parseInt(newWorkplaceTime), parseInt(newWorkplaceX), parseInt(newWorkplaceY)); setNewWorkplace(''); setNewWorkplaceTime(''); setNewWorkplaceX(''); setNewWorkplaceY(''); } }} className="h-12 bg-teal-600 hover:bg-teal-500 text-white font-black px-6 rounded-xl uppercase tracking-widest text-xs transition-all w-full border-2 border-teal-500 shadow-lg">PRIDAŤ</button>
             </div>
-            <div className="space-y-4">
-              <h4 className={labelClass}>HROMADNÝ IMPORT</h4>
-              <textarea value={bulkWorkplaces} onChange={e=>setBulkWorkplaces(e.target.value)} placeholder="Wp1;10&#10;Wp2;15" className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono placeholder-gray-500 h-[120px] resize-none" />
-              <button onClick={() => { if(bulkWorkplaces) { onBatchAddWorkplaces(bulkWorkplaces.split('\n')); setBulkWorkplaces(''); } }} className="h-12 bg-blue-600 hover:bg-blue-500 text-white font-black px-6 rounded-xl uppercase tracking-widest text-xs transition-all w-full border-2 border-blue-500 shadow-lg">IMPORTOVAŤ DÁVKU</button>
+
+            <div className="mb-6">
+                <input 
+                    value={wpSearch} 
+                    onChange={e=>setWpSearch(e.target.value)} 
+                    placeholder="HĽADAŤ PRACOVISKO..." 
+                    className="w-full h-12 bg-slate-900/50 border border-slate-700 rounded-xl px-4 text-white uppercase font-bold focus:outline-none focus:border-teal-500 transition-all" 
+                />
             </div>
-          </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto custom-scrollbar pr-2">
+                {filteredWPs.map(w => (
+                    <div key={w.id} className="group bg-slate-900/40 hover:bg-slate-800/60 border border-white/5 hover:border-teal-500/30 rounded-2xl p-5 transition-all duration-200 relative cursor-default">
+                        <div className="flex justify-between items-start mb-4">
+                            <h4 className="font-black text-white text-lg leading-tight uppercase break-words max-w-[80%]">{w.value}</h4>
+                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity absolute top-4 right-4 bg-slate-900/80 rounded-lg p-1 backdrop-blur-sm">
+                                <button onClick={() => handleEditWorkplace(w)} className="text-slate-400 hover:text-white p-1.5 hover:bg-teal-600 rounded-md transition-colors"><Icons.Edit /></button>
+                                <button onClick={() => { if(window.confirm('Vymazať?')) props.onDeleteWorkplace(w.id); }} className="text-slate-400 hover:text-white p-1.5 hover:bg-red-600 rounded-md transition-colors"><Icons.Trash /></button>
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3 mb-3 bg-slate-950/30 p-3 rounded-xl border border-white/5">
+                            <div className="p-2 bg-amber-500/10 rounded-lg text-amber-500"><Icons.Time /></div>
+                            <div>
+                                <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest">NORMA</p>
+                                <p className="text-lg font-black text-white font-mono">{w.standardTime ?? 2.0} <span className="text-xs font-normal text-slate-500">min</span></p>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-center">
+                            <div className="inline-flex items-center gap-2 text-[9px] font-mono font-bold bg-slate-950/30 px-3 py-1 rounded-full text-slate-500 border border-white/5">
+                                <span>X: {w.coordX}</span>
+                                <span className="text-slate-700">|</span>
+                                <span>Y: {w.coordY}</span>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
         </div>
       </div>
 
-      <div className={cardClass}>
-        <div className="space-y-4">
-          <h3 className="text-lg font-black text-white uppercase tracking-tighter">KONFIGURÁCIA LOGISTIKY</h3>
-          <div className="max-w-xs">
-            <h4 className={labelClass}>PRIEMERNÁ RÝCHLOSŤ VZV (KM/H)</h4>
-            <input 
-              type="number" 
-              value={systemConfig.vzvSpeed || 8} 
-              onChange={e => onUpdateSystemConfig({ vzvSpeed: parseFloat(e.target.value) || 1 })}
-              className={inputClass}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className={cardClass}>
-        <div className="space-y-8">
-          <h3 className="text-2xl font-black text-white uppercase tracking-tighter">LOGISTICKÉ OPERÁCIE</h3>
-          <div className="flex-1 overflow-y-auto max-h-80 bg-slate-950/40 rounded-3xl p-6 space-y-3 border border-white/5 shadow-inner">
-            {logisticsOperations.map(op => (
-              <div key={op.id} className="flex justify-between items-center bg-slate-800/50 h-16 px-5 rounded-xl border border-white/5 group transition-colors hover:bg-slate-700/50">
-                <span className="text-sm font-bold text-slate-300 uppercase tracking-widest truncate max-w-[200px]">{op.value}</span>
-                <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] text-slate-600 font-bold uppercase">Čas:</span>
-                    <input 
-                      type="number" 
-                      value={op.standardTime || 0} 
-                      onChange={(e) => onUpdateLogisticsOperation(op.id, { standardTime: parseInt(e.target.value) || 0 })}
-                      className={inlineInputClass}
-                    />
-                    <span className="text-slate-600 text-[10px]">m</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] text-slate-600 font-bold uppercase">Vzd:</span>
-                    <input 
-                      type="number" 
-                      value={op.distancePx || 0} 
-                      onChange={(e) => onUpdateLogisticsOperation(op.id, { distancePx: parseInt(e.target.value) || 0 })}
-                      className={inlineInputClass.replace('w-12', 'w-16')}
-                    />
-                    <span className="text-slate-600 text-[10px]">m</span>
-                  </div>
-                  <button onClick={() => onDeleteLogisticsOperation(op.id)} className="text-slate-600 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100 font-black px-2 text-lg">×</button>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="pt-6">
-            <h4 className={labelClass}>PRIDAŤ OPERÁCIU</h4>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <input value={newLogOp} onChange={e=>setNewLogOp(e.target.value)} placeholder="Operácia" className={inputClass} />
-              <input type="number" value={newLogOpTime} onChange={e=>setNewLogOpTime(e.target.value)} placeholder="min" className={inputClass} />
-              <input type="number" value={newLogOpDist} onChange={e=>setNewLogOpDist(e.target.value)} placeholder="Vzdialenosť m" className={inputClass} />
-              <button onClick={() => { if(newLogOp) { onAddLogisticsOperation(newLogOp, parseInt(newLogOpTime), parseInt(newLogOpDist)); setNewLogOp(''); setNewLogOpTime(''); setNewLogOpDist(''); } }} className="h-12 bg-teal-600 hover:bg-teal-500 text-white font-black px-6 rounded-xl uppercase tracking-widest text-xs transition-all border-2 border-teal-500 shadow-lg">PRIDAŤ</button>
+      {/* --- RIGHT COLUMN: LOGISTICS & SECTORS --- */}
+      <div className="space-y-8">
+        
+        {/* VZV Config */}
+        <div className="bg-slate-900/40 border border-slate-700/50 rounded-2xl p-5 flex items-center justify-between shadow-lg">
+            <div>
+                <h4 className="text-xs font-black text-white uppercase tracking-widest mb-1">Rýchlosť flotily VZV</h4>
+                <p className="text-[10px] text-slate-500">Pre výpočet Travel Time</p>
             </div>
-          </div>
+            <div className="flex items-center gap-2 bg-slate-950 p-2 rounded-xl border border-slate-700">
+                <input 
+                    type="number" 
+                    value={props.systemConfig.vzvSpeed || 8}
+                    onChange={e => props.onUpdateSystemConfig({ vzvSpeed: parseFloat(e.target.value) || 1 })}
+                    className="bg-transparent text-white font-black text-lg w-12 text-center focus:outline-none border-b border-slate-600 focus:border-indigo-500"
+                />
+                <span className="text-[10px] font-black text-slate-500 pr-1">KM/H</span>
+            </div>
         </div>
+
+        {/* Logistics Operations */}
+        <div className={cardClass}>
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h3 className="text-xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
+                        <span className="w-2 h-6 bg-indigo-500 rounded-full"></span>
+                        LOGISTIKA
+                    </h3>
+                </div>
+                <button onClick={handleCreateLog} className="h-9 bg-indigo-600 hover:bg-indigo-500 text-white px-3 rounded-lg shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                    <Icons.Plus /> Pridať
+                </button>
+            </div>
+
+            <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                {props.logisticsOperations.map(op => {
+                    const isOutbound = op.value.toUpperCase().includes('NAKL') || op.value.toUpperCase().includes('OUT');
+                    const isInbound = op.value.toUpperCase().includes('VYKL') || op.value.toUpperCase().includes('IN');
+                    const statusColor = isOutbound ? 'text-sky-400' : isInbound ? 'text-green-400' : 'text-slate-300';
+                    const iconBg = isOutbound ? 'bg-sky-500/10 border-sky-500/20' : isInbound ? 'bg-green-500/10 border-green-500/20' : 'bg-slate-700/30 border-slate-600/30';
+
+                    return (
+                        <div key={op.id} className="flex justify-between items-center bg-slate-900/40 hover:bg-slate-800/60 p-3 rounded-xl border border-white/5 transition-all group">
+                            <div className="flex items-center gap-3 overflow-hidden">
+                                <div className={`p-2 rounded-lg border ${iconBg}`}>
+                                    <Icons.Truck />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className={`text-xs font-black uppercase truncate ${statusColor}`}>{op.value}</p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className="text-[9px] font-mono text-slate-500 bg-slate-950 px-1.5 rounded border border-white/5">{op.distancePx}px</span>
+                                        <span className="text-[9px] font-mono text-amber-500/80">Norma: {op.standardTime}m</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => handleEditLog(op)} className="p-1.5 text-slate-400 hover:text-white hover:bg-indigo-600 rounded"><Icons.Edit /></button>
+                                <button onClick={() => { if(window.confirm('Vymazať?')) props.onDeleteLogisticsOperation(op.id); }} className="p-1.5 text-slate-400 hover:text-white hover:bg-red-600 rounded"><Icons.Trash /></button>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+
+        {/* Map Sectors */}
+        <div className={cardClass}>
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h3 className="text-xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
+                        <span className="w-2 h-6 bg-slate-500 rounded-full"></span>
+                        SEKTORY (KYBLÍK)
+                    </h3>
+                </div>
+                <button onClick={handleCreateSector} className="h-9 bg-slate-700 hover:bg-slate-600 text-white px-3 rounded-lg shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                    <Icons.Plus /> Pridať
+                </button>
+            </div>
+
+            <div className="flex flex-wrap gap-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                {sortedSectors.map(s => {
+                    const colorObj = colorOptions.find(c => c.id === s.color) || colorOptions[0];
+                    return (
+                        <div key={s.id} className="group flex items-center gap-3 bg-slate-900/50 border border-white/5 hover:border-white/20 p-2 pr-3 rounded-xl transition-all cursor-pointer hover:shadow-lg">
+                            <div className={`w-3 h-3 rounded-full ${colorObj.class} shadow-sm ml-1`}></div>
+                            <div className="flex flex-col">
+                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">#{s.order}</span>
+                                <span className="text-xs font-bold text-slate-200 uppercase">{s.name}</span>
+                            </div>
+                            <div className="flex gap-1 ml-2 border-l border-white/10 pl-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => handleEditSector(s)} className="text-slate-400 hover:text-amber-400"><Icons.Edit /></button>
+                                <button onClick={() => { if(window.confirm('Zmazať?')) props.onDeleteMapSector(s.id); }} className="text-slate-400 hover:text-red-500"><Icons.Trash /></button>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+
       </div>
 
-      <div className={cardClass}>
-        <div className="space-y-8">
-          <h3 className="text-2xl font-black text-white uppercase tracking-tighter">LOGISTICKÉ SEKTORY (KYBLÍK)</h3>
-          <div className="flex-1 overflow-y-auto max-h-[600px] bg-slate-950/40 rounded-3xl p-6 space-y-3 border border-white/5 shadow-inner">
-            {sortedSectors.map(s => {
-              const isEditing = editingId === s.id;
-              return (
-                <div key={s.id} className={`flex flex-col sm:flex-row justify-between items-center p-4 rounded-xl border transition-all gap-4 ${isEditing ? 'bg-amber-600/10 border-amber-600/50 shadow-lg scale-[1.01]' : 'bg-slate-800/50 border-white/5 group hover:bg-slate-700/50'}`}>
-                  <div className="flex items-center gap-3 flex-1 w-full">
-                    <div className={`w-5 h-5 rounded-full flex-shrink-0 ${s.color ? colorOptions.find(c => c.id === s.color)?.class : 'bg-slate-700'}`}></div>
-                    
-                    {isEditing ? (
-                      <div className="flex flex-1 items-center gap-2">
+      {/* --- MODALS --- */}
+
+      {/* WORKPLACE MODAL */}
+      {isWpModalOpen && editingWp && createPortal(
+         <div className={modalOverlayClass} onClick={() => setIsWpModalOpen(false)}>
+            <div className={modalContentClass} onClick={e => e.stopPropagation()}>
+               <h3 className="text-2xl font-black text-white uppercase tracking-tighter mb-6">
+                  {editingWp.id ? 'UPRAVIŤ PRACOVISKO' : 'NOVÉ PRACOVISKO'}
+               </h3>
+               
+               <div className="space-y-6">
+                  <div>
+                     <label className={labelClass}>NÁZOV PRACOVISKA</label>
+                     <input 
+                        value={editingWp.value} 
+                        onChange={e => setEditingWp({...editingWp, value: e.target.value.toUpperCase()})}
+                        className={`${inputClass} text-lg`}
+                        autoFocus
+                     />
+                  </div>
+
+                  <div>
+                     <label className={`${labelClass} text-amber-500`}>NORMA NA 1 ÚKON (STANDARD TIME)</label>
+                     <div className="relative">
                         <input 
-                          type="number" 
-                          value={editOrder} 
-                          onChange={(e) => setEditOrder(parseInt(e.target.value) || 0)}
-                          className={`${amberInputClass} w-16 text-center`}
-                          placeholder="Poradie"
+                           type="number" 
+                           value={editingWp.standardTime} 
+                           onChange={e => setEditingWp({...editingWp, standardTime: parseFloat(e.target.value)})}
+                           className={`${inputClass} border-amber-500/30 focus:border-amber-500 text-amber-400`}
                         />
+                        <span className="absolute right-4 top-3 text-xs font-black text-amber-500/50">MIN</span>
+                     </div>
+                     <p className="text-[10px] text-slate-500 mt-2 font-bold uppercase">* Čas na 1 paletu alebo 1 cyklus.</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-6 pt-2 border-t border-slate-800">
+                     <div>
+                        <label className={labelClass}>X SÚRADNICA</label>
                         <input 
-                          type="text" 
-                          value={editName} 
-                          onChange={(e) => setEditName(e.target.value.toUpperCase())}
-                          className={`${amberInputClass} flex-1`}
-                          autoFocus
+                           type="number" 
+                           value={editingWp.coordX} 
+                           onChange={e => setEditingWp({...editingWp, coordX: parseInt(e.target.value)})}
+                           className={inputClass}
+                        />
+                     </div>
+                     <div>
+                        <label className={labelClass}>Y SÚRADNICA</label>
+                        <input 
+                           type="number" 
+                           value={editingWp.coordY} 
+                           onChange={e => setEditingWp({...editingWp, coordY: parseInt(e.target.value)})}
+                           className={inputClass}
+                        />
+                     </div>
+                  </div>
+
+                  <div className="flex gap-3 mt-8">
+                     <button onClick={() => setIsWpModalOpen(false)} className="flex-1 h-14 rounded-xl font-black uppercase tracking-widest text-slate-400 hover:bg-slate-800 transition-colors bg-transparent border-2 border-slate-700 text-xs">
+                        Zrušiť
+                     </button>
+                     <button onClick={handleSaveWorkplace} className="flex-1 h-14 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-black uppercase tracking-widest shadow-lg transition-all active:scale-95 text-xs border-2 border-teal-500">
+                        Uložiť
+                     </button>
+                  </div>
+               </div>
+            </div>
+         </div>,
+         document.body
+      )}
+
+      {/* LOGISTICS MODAL */}
+      {isLogModalOpen && editingLog && createPortal(
+         <div className={modalOverlayClass} onClick={() => setIsLogModalOpen(false)}>
+            <div className={modalContentClass} onClick={e => e.stopPropagation()}>
+               <h3 className="text-2xl font-black text-white uppercase tracking-tighter mb-6">
+                  {editingLog.id ? 'UPRAVIŤ OPERÁCIU' : 'NOVÁ OPERÁCIA'}
+               </h3>
+               <div className="space-y-6">
+                  <div>
+                     <label className={labelClass}>NÁZOV OPERÁCIE</label>
+                     <input 
+                        value={editingLog.value} 
+                        onChange={e => setEditingLog({...editingLog, value: e.target.value.toUpperCase()})}
+                        className={inputClass}
+                        placeholder="NAPR. VYKLÁDKA"
+                        autoFocus
+                     />
+                  </div>
+                  <div>
+                     <label className={`${labelClass} text-indigo-400`}>VZDIALENOSŤ TRASY (PX)</label>
+                     <input 
+                        type="number" 
+                        value={editingLog.distancePx} 
+                        onChange={e => setEditingLog({...editingLog, distancePx: parseInt(e.target.value)})}
+                        className={`${inputClass} border-indigo-500/30 focus:border-indigo-500 text-indigo-400`}
+                     />
+                     <p className="text-[9px] text-slate-500 mt-1 uppercase font-bold">* Pri rýchlosti {props.systemConfig.vzvSpeed} km/h to ovplyvní travel time.</p>
+                  </div>
+                  <div>
+                     <label className={`${labelClass} text-amber-500`}>NORMA NA 1 ÚKON (STANDARD TIME)</label>
+                     <input 
+                        type="number" 
+                        value={editingLog.standardTime} 
+                        onChange={e => setEditingLog({...editingLog, standardTime: parseFloat(e.target.value)})}
+                        className={`${inputClass} border-amber-500/30 text-amber-400`}
+                     />
+                  </div>
+                  <div className="flex gap-3 mt-8">
+                     <button onClick={() => setIsLogModalOpen(false)} className="flex-1 h-14 rounded-xl font-black uppercase tracking-widest text-slate-400 hover:bg-slate-800 transition-colors bg-transparent border-2 border-slate-700 text-xs">
+                        Zrušiť
+                     </button>
+                     <button onClick={handleSaveLog} className="flex-1 h-14 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-black uppercase tracking-widest shadow-lg transition-all active:scale-95 text-xs border-2 border-indigo-500">
+                        Uložiť
+                     </button>
+                  </div>
+               </div>
+            </div>
+         </div>,
+         document.body
+      )}
+
+      {/* SECTOR MODAL */}
+      {isSectorModalOpen && editingSector && createPortal(
+         <div className={modalOverlayClass} onClick={() => setIsSectorModalOpen(false)}>
+            <div className={modalContentClass} onClick={e => e.stopPropagation()}>
+               <h3 className="text-2xl font-black text-white uppercase tracking-tighter mb-6">
+                  {editingSector.id ? 'UPRAVIŤ SEKTOR' : 'NOVÝ SEKTOR'}
+               </h3>
+               <div className="space-y-6">
+                  <div className="grid grid-cols-3 gap-4">
+                      <div className="col-span-2">
+                        <label className={labelClass}>NÁZOV SEKTORA</label>
+                        <input 
+                            value={editingSector.name} 
+                            onChange={e => setEditingSector({...editingSector, name: e.target.value.toUpperCase()})}
+                            className={inputClass}
+                            placeholder="NAPR. LISOVŇA"
+                            autoFocus
                         />
                       </div>
-                    ) : (
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-xs font-black text-amber-500 font-mono w-6">{s.order || 0}.</span>
-                        <span className="text-base font-black text-slate-200 uppercase tracking-wider">{s.name}</span>
+                      <div>
+                        <label className={labelClass}>PORADIE</label>
+                        <input 
+                            type="number"
+                            value={editingSector.order} 
+                            onChange={e => setEditingSector({...editingSector, order: parseInt(e.target.value)})}
+                            className={inputClass}
+                        />
                       </div>
-                    )}
                   </div>
                   
-                  <div className="flex items-center gap-4 justify-end w-full sm:w-auto">
-                      {!isEditing && (
-                          <div className="hidden md:flex items-center gap-4 opacity-40 group-hover:opacity-100 transition-opacity">
-                            <div className="flex items-center gap-1.5 text-xs">
-                                <span className="font-bold text-slate-600">X:</span>
-                                <span className="font-mono text-slate-400">{s.coordX}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-xs">
-                                <span className="font-bold text-slate-600">Y:</span>
-                                <span className="font-mono text-slate-400">{s.coordY}</span>
-                            </div>
-                          </div>
-                      )}
-
-                      <div className="flex items-center gap-2">
-                        {isEditing ? (
-                          <>
+                  <div>
+                     <label className={labelClass}>FARBA</label>
+                     <div className="flex flex-wrap gap-3">
+                        {colorOptions.map(c => (
                             <button 
-                              onClick={() => handleSaveSector(s.id)}
-                              className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest shadow-md transition-all"
-                            >
-                              ULOŽIŤ
-                            </button>
-                            <button 
-                              onClick={() => setEditingId(null)}
-                              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-400 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all"
-                            >
-                              ZRUŠIŤ
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button 
-                              onClick={() => {
-                                setEditingId(s.id);
-                                setEditName(s.name);
-                                setEditOrder(s.order || 0);
-                              }}
-                              className="p-2.5 rounded-lg text-slate-500 hover:text-amber-500 hover:bg-amber-500/10 transition-all"
-                              title="Upraviť"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                              </svg>
-                            </button>
-                            <button 
-                              onClick={() => { if(window.confirm('Zmazať sektor?')) onDeleteMapSector(s.id); }} 
-                              className="p-2.5 text-slate-600 hover:text-red-500 transition-all font-black text-xl"
-                            >
-                              ×
-                            </button>
-                          </>
-                        )}
-                      </div>
+                                key={c.id} 
+                                onClick={() => setEditingSector({...editingSector, color: c.id})}
+                                className={`w-10 h-10 rounded-full transition-all ${c.class} ${editingSector.color === c.id ? 'ring-4 ring-white scale-110 shadow-lg' : 'opacity-60 hover:opacity-100 hover:scale-105'}`}
+                                title={c.label}
+                            />
+                        ))}
+                     </div>
                   </div>
-                </div>
-              );
-            })}
-            {mapSectors.length === 0 && (
-                <p className="text-center py-6 text-slate-600 italic text-xs uppercase tracking-widest font-bold">Žiadne sektory nie sú definované</p>
-            )}
-          </div>
-          <div className="pt-6 border-t border-slate-800">
-            <h4 className={labelClass}>PRIDAŤ NOVÝ SEKTOR</h4>
-            <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              <input value={newSectorName} onChange={e=>setNewSectorName(e.target.value)} placeholder="NÁZOV" className={inputClass} />
-              <input type="number" value={newSectorX} onChange={e=>setNewSectorX(e.target.value)} placeholder="X súradnica" className={inputClass} />
-              <input type="number" value={newSectorY} onChange={e=>setNewSectorY(e.target.value)} placeholder="Y súradnica" className={inputClass} />
-              <select 
-                value={newSectorColor} 
-                onChange={e => setNewSectorColor(e.target.value)} 
-                className={inputClass}
-              >
-                {colorOptions.map(c => <option key={c.id} value={c.id}>{c.label.toUpperCase()}</option>)}
-              </select>
-              <button 
-                onClick={() => { 
-                    if(newSectorName && newSectorX && newSectorY) { 
-                        onAddMapSector(newSectorName.toUpperCase(), parseInt(newSectorX), parseInt(newSectorY), newSectorColor); 
-                        setNewSectorName(''); setNewSectorX(''); setNewSectorY(''); setNewSectorColor('slate');
-                    } 
-                }} 
-                className="lg:col-span-2 h-12 bg-sky-600 hover:bg-sky-500 text-white font-black px-6 rounded-xl uppercase tracking-widest text-xs transition-all border-2 border-sky-500 shadow-lg"
-              >
-                PRIDAŤ SEKTOR
-              </button>
+
+                  <div className="grid grid-cols-2 gap-6 bg-slate-950/50 p-4 rounded-2xl border border-slate-800">
+                     <div>
+                        <label className={labelClass}>X SÚRADNICA</label>
+                        <input 
+                           type="number" 
+                           value={editingSector.coordX} 
+                           onChange={e => setEditingSector({...editingSector, coordX: parseInt(e.target.value)})}
+                           className={inputClass}
+                        />
+                     </div>
+                     <div>
+                        <label className={labelClass}>Y SÚRADNICA</label>
+                        <input 
+                           type="number" 
+                           value={editingSector.coordY} 
+                           onChange={e => setEditingSector({...editingSector, coordY: parseInt(e.target.value)})}
+                           className={inputClass}
+                        />
+                     </div>
+                  </div>
+
+                  <div className="flex gap-3 mt-8">
+                     <button onClick={() => setIsSectorModalOpen(false)} className="flex-1 h-14 rounded-xl font-black uppercase tracking-widest text-slate-400 hover:bg-slate-800 transition-colors bg-transparent border-2 border-slate-700 text-xs">
+                        Zrušiť
+                     </button>
+                     <button onClick={handleSaveSector} className="flex-1 h-14 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-black uppercase tracking-widest shadow-lg transition-all active:scale-95 text-xs border-2 border-slate-600">
+                        Uložiť
+                     </button>
+                  </div>
+               </div>
             </div>
-          </div>
-        </div>
-      </div>
+         </div>,
+         document.body
+      )}
+
+      {/* IMPORT MODAL */}
+      {isImportModalOpen && createPortal(
+         <div className={modalOverlayClass} onClick={() => setIsImportModalOpen(false)}>
+            <div className={modalContentClass} onClick={e => e.stopPropagation()}>
+               <h3 className="text-2xl font-black text-white uppercase tracking-tighter mb-6">
+                  HROMADNÝ IMPORT
+               </h3>
+               <div className="space-y-6">
+                  <div>
+                     <label className={labelClass}>DÁTA (Formát: Názov;Čas)</label>
+                     <textarea 
+                        value={bulkWorkplaces} 
+                        onChange={e => setBulkWorkplaces(e.target.value)}
+                        placeholder="Workplace1;2.0&#10;Workplace2;1.5" 
+                        className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono placeholder-gray-500 h-48 resize-none"
+                        autoFocus
+                     />
+                     <p className="text-[10px] text-slate-500 mt-2 italic">* Zadajte klasickú normu v minútach.</p>
+                  </div>
+                  <div className="flex gap-3 mt-8">
+                     <button onClick={() => setIsImportModalOpen(false)} className="flex-1 h-14 rounded-xl font-black uppercase tracking-widest text-slate-400 hover:bg-slate-800 transition-colors bg-transparent border-2 border-slate-700 text-xs">
+                        Zrušiť
+                     </button>
+                     <button onClick={handleBatchImport} className="flex-1 h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black uppercase tracking-widest shadow-lg transition-all active:scale-95 text-xs border-2 border-blue-500">
+                        Importovať
+                     </button>
+                  </div>
+               </div>
+            </div>
+         </div>,
+         document.body
+      )}
+
     </div>
   );
 });

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Task, PriorityLevel, DBItem } from '../../../types/appTypes';
 import { useLanguage } from '../../LanguageContext';
@@ -30,6 +31,12 @@ const SearchIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
 );
 
+const ClockIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+);
+
 const TaskCard: React.FC<TaskCardProps> = (props) => {
   const { t, language } = useLanguage();
   const { task, resolveName } = props;
@@ -39,6 +46,47 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
   const isAuditInProgress = !!task.isAuditInProgress;
   const isUrgent = task.priority === 'URGENT' && !task.isDone;
   const isNoteLockedByAudit = !!(task.auditFinalBadge && !props.hasPermission('perm_btn_audit'));
+
+  // --- SMART TIME LOGIC START ---
+  const formatTime = (ts?: number) => {
+    if (!ts) return '';
+    const now = Date.now();
+    const diff = now - ts;
+    
+    // Menej ako minúta
+    if (diff < 60000) return language === 'sk' ? 'Práve teraz' : 'Just now';
+
+    const date = new Date(ts);
+    const today = new Date();
+    const isToday = date.toDateString() === today.toDateString();
+    
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = date.toDateString() === yesterday.toDateString();
+    
+    const timeStr = date.toLocaleTimeString(language === 'sk' ? 'sk-SK' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+    
+    if (isToday) return (language === 'sk' ? 'Dnes, ' : 'Today, ') + timeStr;
+    if (isYesterday) return (language === 'sk' ? 'Včera, ' : 'Yesterday, ') + timeStr;
+    
+    // Staršie
+    return date.toLocaleDateString(language === 'sk' ? 'sk-SK' : 'en-US', { day: '2-digit', month: '2-digit' }) + ', ' + timeStr;
+  };
+
+  let displayTimeValue = task.createdAt;
+  let displayTimeLabel = language === 'sk' ? 'Vytvorené' : 'Created';
+  let timeColorClass = 'text-slate-500';
+
+  if (task.isDone && task.completedAt) {
+      displayTimeValue = task.completedAt;
+      displayTimeLabel = language === 'sk' ? 'Dokončené' : 'Completed';
+      timeColorClass = 'text-green-500';
+  } else if (task.isInProgress && task.startedAt) {
+      displayTimeValue = task.startedAt;
+      displayTimeLabel = language === 'sk' ? 'Začaté' : 'Started';
+      timeColorClass = 'text-amber-500';
+  }
+  // --- SMART TIME LOGIC END ---
 
   let bgClass = "";
   let borderClass = "";
@@ -100,25 +148,38 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
 
       <div className="flex-grow p-4 flex flex-col gap-1 min-w-0 relative">
         <div className="relative z-10">
-          {task.auditFinalBadge && (
-            <div className="mb-1.5">
-              <span className="bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-amber-500 shadow-sm inline-block">
-                📌 {task.auditFinalBadge}
-              </span>
-            </div>
-          )}
+          
+          <div className="mb-2">
+             <div className="flex flex-wrap gap-2">
+                {task.auditFinalBadge && (
+                    <span className="bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-amber-500 shadow-sm inline-block">
+                        📌 {task.auditFinalBadge}
+                    </span>
+                )}
+                <TaskBadges 
+                    task={task} 
+                    isSystemInventoryTask={props.isSystemInventoryTask} 
+                    isAuditInProgress={isAuditInProgress} 
+                    isSearchingMode={isSearchingMode} 
+                    isManualBlocked={isManualBlocked} 
+                    isUrgent={isUrgent} 
+                    resolveName={resolveName}
+                />
+             </div>
+             
+             {/* NEW TIME ROW */}
+             <div className="flex items-center gap-1.5 mt-1.5 pl-0.5 opacity-80">
+                <ClockIcon className={`w-3 h-3 ${timeColorClass}`} />
+                <span className={`text-[10px] font-black uppercase tracking-widest ${timeColorClass}`}>
+                    {displayTimeLabel}:
+                </span>
+                <span className="text-[10px] font-mono font-medium text-slate-300">
+                    {formatTime(displayTimeValue)}
+                </span>
+             </div>
+          </div>
 
-          <TaskBadges 
-            task={task} 
-            isSystemInventoryTask={props.isSystemInventoryTask} 
-            isAuditInProgress={isAuditInProgress} 
-            isSearchingMode={isSearchingMode} 
-            isManualBlocked={isManualBlocked} 
-            isUrgent={isUrgent} 
-            resolveName={resolveName}
-          />
-
-          <div className="flex justify-between items-start gap-3">
+          <div className="flex justify-between items-start gap-3 mt-1">
             <div className="flex flex-col min-w-0">
                 <h3 
                 className={`text-2xl sm:text-3xl font-bold break-words whitespace-normal leading-tight cursor-copy active:scale-[0.98] transition-transform ${textClass}`}

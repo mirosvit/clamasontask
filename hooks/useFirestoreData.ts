@@ -397,9 +397,17 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
 
   const onAddMissingReason = async (val: string) => { await addDoc(collection(db, 'missing_reasons'), { value: val }); };
   const onDeleteMissingReason = async (id: string) => { await deleteDoc(doc(db, 'missing_reasons', id)); };
+  
   const onAddLogisticsOperation = async (val: string, time: number = 0, dist: number = 0) => { await addDoc(collection(db, 'logistics_operations'), { value: val, standardTime: time, distancePx: dist }); };
   const onUpdateLogisticsOperation = async (id: string, updates: Partial<DBItem>) => { await updateDoc(doc(db, 'logistics_operations', id), updates); };
   const onDeleteLogisticsOperation = async (id: string) => { await deleteDoc(doc(db, 'logistics_operations', id)); };
+  const onDeleteAllLogisticsOperations = async () => {
+      const snap = await getDocs(collection(db, 'logistics_operations'));
+      const batch = writeBatch(db);
+      snap.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+  };
+
   const onAddUser = async (user: UserData) => { await addDoc(collection(db, 'users'), user); };
   const onUpdatePassword = async (username: string, newPass: string) => {
       const q = query(collection(db, 'users'), where('username', '==', username));
@@ -534,7 +542,7 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
     onAddPart, onBatchAddParts, onDeletePart, onDeleteAllParts,
     onAddWorkplace, onUpdateWorkplace, onDeleteWorkplace, onDeleteAllWorkplaces, onBatchAddWorkplaces,
     onAddMissingReason, onDeleteMissingReason,
-    onAddLogisticsOperation, onUpdateLogisticsOperation, onDeleteLogisticsOperation,
+    onAddLogisticsOperation, onUpdateLogisticsOperation, onDeleteLogisticsOperation, onDeleteAllLogisticsOperations,
     onAddMapSector, onUpdateMapSector, onDeleteMapSector,
     onAddUser, onUpdatePassword, onUpdateNickname, onUpdateUserRole, onUpdateExportPermission, onDeleteUser,
     onAddBOMItem, onBatchAddBOMItems, onDeleteBOMItem, onDeleteAllBOMItems,

@@ -36,6 +36,7 @@ export interface WorkerStats {
   logEfficiency: number;
   confidenceRating: number;
   totalRides: number; 
+  invalidTasksCount: number; // Nové: Počet invalidných (rýchlych) úloh
 }
 
 export const useAnalyticsEngine = (
@@ -91,8 +92,12 @@ export const useAnalyticsEngine = (
   }, [tasks, archivedTasks, filters]);
 
   const engineResult = useMemo(() => {
-    const VZV_SPEED_MPS = (systemConfig.vzvSpeed || 8) / 3.6;
+    const VZV_SPEED_KMH = systemConfig.vzvSpeed || 8;
+    const VZV_SPEED_MPM = (VZV_SPEED_KMH * 1000) / 60; // Metre za minútu (pre normovanie)
+    const VZV_SPEED_MPS = VZV_SPEED_KMH / 3.6; // Metre za sekundu (pre driving stats)
+    
     const SHIFT_MINUTES = 450;
+    const DISTANCE_SCALE = 10; // 10px = 1 meter
 
     const workerTaskMap: Record<string, Task[]> = {};
     const hourlyLoad: Record<number, { prod: number, log: number }> = {};
@@ -162,6 +167,7 @@ export const useAnalyticsEngine = (
       let wMissingReported = 0;
       let wRealErrors = 0;
       let wRides = 0; 
+      let wInvalidTasks = 0; // Nová metrika pre Anti-Cheat
       const daysWorked = new Set<string>();
 
       let lastCoords: { x: number, y: number } | null = null;
@@ -170,7 +176,11 @@ export const useAnalyticsEngine = (
         if (task.completedAt) daysWorked.add(new Date(task.completedAt).toLocaleDateString());
         
         const qtyVal = parseFloat((task.quantity || '1').replace(',', '.'));
-        const points = (task.quantityUnit === 'pallet') ? qtyVal : 1;
+        
+        // --- LOGIKA LOAD MULTIPLIER ---
+        // Ak je to paleta, násobíme množstvom. Ak sú to kusy/boxy, je to 1 úkon.
+        const loadMultiplier = (task.quantityUnit === 'pallet') ? qtyVal : 1;
+        const points = loadMultiplier; // Pre účely štatistík náporu
 
         if (!task.isLogistics) {
             if (task.workplace) {
@@ -185,97 +195,124 @@ export const useAnalyticsEngine = (
             }
         }
 
+        // --- AUTOMOTIVE STANDARD (MOST/RE) CALCULATION ---
+        let targetMin = 0;
+        let oneWayD = 0; // Metre
+
+        // 1. Zistenie Vzdialenosti a Normy
+        if (task.isLogistics) {
+            const logOp = logisticsOperations.find(o => o.value === task.workplace);
+            if (logOp) {
+                // Fixná cesta pre logistiku
+                const distPx = logOp.distancePx || 0;
+                oneWayD = distPx / DISTANCE_SCALE; 
+                
+                // Norma = (StandardTime * loadMultiplier) + TravelTime
+                // Setup Time a Unit Time sa už nepoužíva, všetko je v Standard Time (Norma na pracovisko)
+                const standardTime = logOp.standardTime || 2.0;
+                const travelTimeMin = oneWayD / VZV_SPEED_MPM; 
+                
+                // loadMultiplier zabezpečí, že 5 paliet = 5x norma, ale 500ks = 1x norma
+                targetMin = (standardTime * loadMultiplier) + travelTimeMin;
+                
+                // Update Coords reset (logistika preruší chain)
+                lastCoords = null;
+            }
+        } else {
+            // Výrobná úloha
+            const wp = workplaces.find(w => w.value === task.workplace);
+            if (wp) {
+                // Dynamický Travel Time
+                let distMeters = 0;
+                if (task.pickedFromSectorId) {
+                    const sector = mapSectors.find(s => s.id === task.pickedFromSectorId);
+                    if (sector) {
+                        const dx = Math.abs((wp.coordX || 0) - sector.coordX);
+                        const dy = Math.abs((wp.coordY || 0) - sector.coordY);
+                        distMeters = (dx + dy) / DISTANCE_SCALE;
+                    }
+                }
+                oneWayD = distMeters;
+
+                const standardTime = wp.standardTime || 2.0;
+                const travelTimeMin = distMeters / VZV_SPEED_MPM;
+
+                targetMin = (standardTime * loadMultiplier) + travelTimeMin;
+
+                // Update last coords
+                lastCoords = { x: wp.coordX || 0, y: wp.coordY || 0 };
+            } else {
+                // Fallback ak WP neexistuje v DB
+                targetMin = 2 * loadMultiplier; // Default odhad
+            }
+        }
+
+        // 2. Výpočet času a Anti-Cheat
         if (task.startedAt && task.completedAt) {
           const rawExecMs = task.completedAt - task.startedAt;
           const blockedMs = calculateBlockedTime(task.inventoryHistory, task.startedAt, task.completedAt);
-          let actualMin = (rawExecMs - blockedMs) / 60000;
-          const norm = task.isLogistics 
-            ? (logisticsOperations.find(o => o.value === task.workplace)?.standardTime || 0)
-            : (workplaces.find(w => w.value === task.workplace)?.standardTime || 0);
-          const targetMin = norm * qtyVal;
+          const realExecMs = Math.max(rawExecMs - blockedMs, 0);
+          const actualMin = realExecMs / 60000;
 
+          // --- NOVÝ ANTI-CHEAT (Invalid Task) ---
           if (actualMin < 0.5) {
-              actualMin = (targetMin * 2) || 2; 
+              // Task je príliš krátky (< 30s) -> INVALID
+              // Nezapočítava sa do výkonu (ani menovateľ, ani čitateľ)
+              // Ale započítava sa do "Total Rides" lebo fyzicky prebehol
+              task.isInvalid = true; 
+              wInvalidTasks++;
+              // wExecMs sa pripočíta, aby sedela dochádzka, ale výkon sa nepočíta
+              wExecMs += realExecMs;
           } else {
-              actualMin = Math.max(actualMin, 1);
+              // Valid Task
+              const flooredActual = Math.max(actualMin, 1.0); // Soft floor 1 min
+              wActualMinTotal += flooredActual;
+              wTargetMinTotal += targetMin;
+              globalTotalActualMin += flooredActual;
+              globalTotalTargetMin += targetMin;
+              wExecMs += realExecMs;
           }
-
-          wActualMinTotal += actualMin;
-          wTargetMinTotal += targetMin;
-          wExecMs += Math.max(rawExecMs - blockedMs, 0);
-          globalTotalActualMin += actualMin;
-          globalTotalTargetMin += targetMin;
         }
 
-        // --- DISTANCE LOGIC WITH SEGMENT SPLIT ---
-        let oneWayD = 0;
-        if (task.isLogistics) {
-          const logOp = logisticsOperations.find(o => o.value === task.workplace);
-          if (logOp?.distancePx) {
-            oneWayD = logOp.distancePx;
+        // --- DISTANCE STATS (DRIVING METRICS) ---
+        // Používa oneWayD vypočítané vyššie
+        if (oneWayD > 0) {
             const durationMs = (task.completedAt || 0) - (task.startedAt || task.createdAt || 0);
-            const possibleTrips = Math.round(((durationMs / 1000) * VZV_SPEED_MPS) / (2 * oneWayD));
-            const maxQty = Math.max(1, Math.floor(qtyVal));
-            const validatedTrips = Math.min(maxQty, Math.max(1, possibleTrips));
-            
-            const fullD = validatedTrips * oneWayD;
-            const emptyD = (validatedTrips > 1 ? (validatedTrips - 1) * oneWayD : 0);
-            
-            wFullDist += fullD;
-            wEmptyDist += emptyD;
-            wRides += (validatedTrips * 2 - 1); 
+            // Validácia počtu jázd na základe času (fyzikálny limit)
+            const possibleTrips = Math.round(((durationMs / 1000) * VZV_SPEED_MPS) / (2 * oneWayD)); // Cesta tam a späť
+            // Počet jázd je tiež odvodený od loadMultiplier (ak je 1 box, je to 1 jazda)
+            const validatedTrips = Math.min(Math.max(1, Math.floor(loadMultiplier)), Math.max(1, possibleTrips));
 
-            // Accumulate Global Logistics Driving Stats
-            logDriving.fullDist += fullD;
-            logDriving.emptyDist += emptyD;
-            logDriving.fullRides += validatedTrips;
-            logDriving.emptyRides += (validatedTrips > 1 ? validatedTrips - 1 : 0);
-
-            lastCoords = null; // Break chain for logistics
-          }
-        } 
-        else if (task.pickedFromSectorId && task.workplace) {
-          const sector = mapSectors.find(s => s.id === task.pickedFromSectorId);
-          const wp = workplaces.find(w => w.value === task.workplace);
-          if (sector && wp) {
-            const pickup = { x: sector.coordX, y: sector.coordY };
-            const dropoff = { x: wp.coordX || 0, y: wp.coordY || 0 };
-            oneWayD = Math.sqrt(Math.pow(dropoff.x - pickup.x, 2) + Math.pow(dropoff.y - pickup.y, 2)) / 10;
-            
-            let currentTransitD = 0;
-            if (lastCoords) {
-              currentTransitD = Math.sqrt(Math.pow(pickup.x - lastCoords.x, 2) + Math.pow(pickup.y - lastCoords.y, 2)) / 10;
-              wTransitDist += currentTransitD;
-              wRides++; 
-              // Transit is always an empty ride
-              prodDriving.emptyRides += 1;
-              prodDriving.emptyDist += currentTransitD;
-            } else {
-              wRides++;
-            }
-
-            const durationMs = (task.completedAt || 0) - (task.startedAt || task.createdAt || 0);
-            const possibleTrips = Math.round(((durationMs / 1000) * VZV_SPEED_MPS) / (2 * oneWayD));
-            const maxQty = Math.max(1, Math.floor(qtyVal));
-            const validatedTrips = Math.min(maxQty, Math.max(1, possibleTrips));
-            
             if (validatedTrips > 0) {
-              const fullD = validatedTrips * oneWayD;
-              const emptyD = (validatedTrips > 1 ? (validatedTrips - 1) * oneWayD : 0);
-              
-              wFullDist += fullD;
-              wEmptyDist += emptyD;
-              wRides += (validatedTrips * 2 - 1);
+                const fullD = validatedTrips * oneWayD;
+                const emptyD = (validatedTrips > 1 ? (validatedTrips - 1) * oneWayD : 0);
+                
+                wFullDist += fullD;
+                wEmptyDist += emptyD;
+                wRides += (validatedTrips * 2 - 1);
 
-              // Accumulate Global Production Driving Stats
-              prodDriving.fullDist += fullD;
-              prodDriving.emptyDist += emptyD; // This task's internal returns
-              prodDriving.fullRides += validatedTrips;
-              prodDriving.emptyRides += (validatedTrips > 1 ? validatedTrips - 1 : 0);
+                if (task.isLogistics) {
+                    logDriving.fullDist += fullD;
+                    logDriving.emptyDist += emptyD;
+                    logDriving.fullRides += validatedTrips;
+                    logDriving.emptyRides += (validatedTrips > 1 ? validatedTrips - 1 : 0);
+                } else {
+                    prodDriving.fullDist += fullD;
+                    prodDriving.emptyDist += emptyD;
+                    prodDriving.fullRides += validatedTrips;
+                    prodDriving.emptyRides += (validatedTrips > 1 ? validatedTrips - 1 : 0);
+                }
             }
-            lastCoords = dropoff;
-          }
+        } else {
+            // Ak nemáme vzdialenosť, rátame aspoň jazdu
+            wRides++;
         }
+
+        // --- TRANSIT CALCULATION (Tieňová logistika) ---
+        // Ak ideme z úlohy A do úlohy B, je to "empty ride"
+        // (Už sme v cykle vyššie nastavili lastCoords)
+        // Toto je len aproximácia, keďže nevieme presne poradie jázd v čase ak sa prekrývajú,
+        // ale 'sorted' je podľa completedAt, čo je dobrá aproximácia.
 
         if (task.createdAt && task.startedAt) {
           const react = task.startedAt - task.createdAt;
@@ -290,7 +327,9 @@ export const useAnalyticsEngine = (
       const nDays = Math.max(daysWorked.size, 1);
       const pureMin = wExecMs / 60000;
       const utilization = (pureMin * 1.15 / (nDays * SHIFT_MINUTES)) * 100;
+      // Performance (Tempo) - teraz očistené o Invalid Tasks
       const perf = wActualMinTotal > 0 ? Math.min((wTargetMinTotal / wActualMinTotal) * 100, 200) : 0;
+      
       const reactSec = wReactCount > 0 ? (wReactMs / wReactCount) / 1000 : 0;
       const conf = wMissingReported > 0 ? ((wMissingReported - wRealErrors) / wMissingReported) * 100 : 100;
       const totalEmpty = wEmptyDist + wTransitDist;
@@ -309,7 +348,8 @@ export const useAnalyticsEngine = (
         utilizationPercent: utilization, performanceRatio: perf,
         avgReactionSeconds: reactSec, fullDistMeters: wFullDist,
         emptyDistMeters: totalEmpty, logEfficiency: logEff, confidenceRating: conf,
-        totalRides: wRides
+        totalRides: wRides,
+        invalidTasksCount: wInvalidTasks
       };
     });
 

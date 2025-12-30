@@ -96,7 +96,19 @@ const LogisticsCenterTab: React.FC<LogisticsCenterTabProps> = ({ tasks, onDelete
 
     const formatTime = (ts?: number) => {
         if (!ts) return '-';
-        return new Date(ts).toLocaleString('sk-SK', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        const date = new Date(ts);
+        const now = new Date();
+        const isToday = date.toDateString() === now.toDateString();
+        
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const isYesterday = date.toDateString() === yesterday.toDateString();
+        
+        const timeStr = date.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' });
+        
+        if (isToday) return language === 'sk' ? `Dnes, ${timeStr}` : `Today, ${timeStr}`;
+        if (isYesterday) return language === 'sk' ? `Včera, ${timeStr}` : `Yesterday, ${timeStr}`;
+        return date.toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit' }) + ' ' + timeStr;
     };
 
     const getQuantityString = (task: Task) => {
@@ -246,11 +258,16 @@ const LogisticsCenterTab: React.FC<LogisticsCenterTabProps> = ({ tasks, onDelete
                                     const isInbound = op.includes('VYKLÁDKA') || op.includes('UNLOADING');
                                     const isOutbound = op.includes('NAKLÁDKA') || op.includes('LOADING');
 
+                                    const timeStr = formatTime(item.createdAt);
+                                    // Rozdelenie na čas a dátum ak to formatTime vracia (napr. "Včera, 10:00")
+                                    const datePart = timeStr.includes(',') ? timeStr.split(',')[0] : timeStr;
+                                    const timePart = timeStr.includes(',') ? timeStr.split(',')[1] : '';
+
                                     return (
                                         <tr key={item.id} className={`transition-all ${item.isDone ? 'opacity-60 bg-gray-900/10' : 'hover:bg-gray-700/30'}`}>
                                             <td className="py-4 px-6 whitespace-nowrap">
-                                                <p className="text-xs text-white font-mono">{formatTime(item.createdAt).split(',')[1]}</p>
-                                                <p className="text-[10px] text-gray-500">{formatTime(item.createdAt).split(',')[0]}</p>
+                                                <p className="text-xs text-white font-mono">{timePart || datePart}</p>
+                                                {timePart && <p className="text-[10px] text-gray-500">{datePart}</p>}
                                             </td>
                                             <td className="py-4 px-6">
                                                 <div className="flex flex-col gap-1">

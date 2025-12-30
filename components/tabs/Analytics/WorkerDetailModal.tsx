@@ -71,7 +71,9 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
       }
 
       const qtyVal = parseFloat((task.quantity || '1').replace(',', '.'));
-      const loadPoints = (task.quantityUnit === 'pallet' && !isNaN(qtyVal)) ? qtyVal : 1;
+      const loadMultiplier = (task.quantityUnit === 'pallet') ? qtyVal : 1;
+      
+      const loadPoints = loadMultiplier;
       totalLoad += loadPoints;
 
       if (task.quantityUnit === 'pallet') palCount += qtyVal;
@@ -85,7 +87,8 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
           if (lastWorkplaceCoords && !task.isLogistics && task.pickedFromSectorId) {
               const sector = mapSectors.find(s => s.id === task.pickedFromSectorId);
               if (sector) {
-                  const transitD = Math.sqrt(Math.pow(sector.coordX - lastWorkplaceCoords.x, 2) + Math.pow(sector.coordY - lastWorkplaceCoords.y, 2)) / 10;
+                  // MANHATTAN DISTANCE (Transit)
+                  const transitD = (Math.abs(sector.coordX - lastWorkplaceCoords.x) + Math.abs(sector.coordY - lastWorkplaceCoords.y)) / 10;
                   totalTransitBetweenTasksDist += transitD;
               }
           }
@@ -97,7 +100,7 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
                   oneWayD = logOp.distancePx;
                   const durationMs = (task.completedAt || 0) - (task.startedAt || task.createdAt || 0);
                   const possibleTrips = Math.round(( (durationMs / 1000) * VZV_SPEED_MPS ) / (2 * oneWayD));
-                  validatedTrips = Math.min(Math.max(1, Math.floor(qtyVal)), Math.max(1, possibleTrips));
+                  validatedTrips = Math.min(Math.max(1, Math.floor(loadMultiplier)), Math.max(1, possibleTrips));
               }
           } else if (task.pickedFromSectorId && task.workplace) {
               const sector = mapSectors.find(s => s.id === task.pickedFromSectorId);
@@ -105,10 +108,11 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
               if (sector && wp) {
                   const dx = (wp.coordX || 0) - (sector.coordX || 0);
                   const dy = (wp.coordY || 0) - (sector.coordY || 0);
-                  oneWayD = Math.sqrt(dx*dx + dy*dy) / 10;
+                  // MANHATTAN DISTANCE (Task)
+                  oneWayD = (Math.abs(dx) + Math.abs(dy)) / 10;
                   const durationMs = (task.completedAt || 0) - (task.startedAt || task.createdAt || 0);
                   const possibleTrips = Math.round(( (durationMs / 1000) * VZV_SPEED_MPS ) / (2 * oneWayD));
-                  validatedTrips = Math.min(Math.max(1, Math.floor(qtyVal)), Math.max(1, possibleTrips));
+                  validatedTrips = Math.min(Math.max(1, Math.floor(loadMultiplier)), Math.max(1, possibleTrips));
                   lastWorkplaceCoords = { x: wp.coordX || 0, y: wp.coordY || 0 };
               }
           }
@@ -130,11 +134,11 @@ const WorkerDetailModal: React.FC<WorkerDetailModalProps> = ({ name, tasks, peri
         durations.push(realDurationMs);
 
         // 2. Vyhľadanie normy
-        const norm = task.isLogistics 
+        const standardTime = task.isLogistics 
             ? (logisticsOperations.find(o => o.value === task.workplace)?.standardTime || 0)
             : (workplaces.find(w => w.value === task.workplace)?.standardTime || 0);
         
-        const targetMin = norm * qtyVal;
+        const targetMin = standardTime * loadMultiplier;
         const durationMin = realDurationMs / 60000;
 
         // 3. Adjusted Time Logic (Anti-Cheat & Floor)
