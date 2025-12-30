@@ -182,7 +182,6 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
       if (s.exists()) setBreakSchedules(s.data().data || []);
     });
 
-    // POSILNENÝ LISTENER PRE DRAFT
     const unsubDraft = onSnapshot(doc(db, 'settings', 'draft'), (s) => {
       if (s.exists()) {
         const d = s.data();
@@ -198,10 +197,36 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
     return () => { unsubParts(); unsubBOM(); unsubBreaks(); unsubDraft(); };
   }, []);
 
-  const onAddTask = async (partNumber: string, workplace: string | null, quantity: string | null, quantityUnit: string | null, priority: PriorityLevel, isLogistics: boolean = false, note: string = '', isProduction: boolean = false) => {
+  const onAddTask = async (
+      partNumber: string, 
+      workplace: string | null, 
+      quantity: string | null, 
+      quantityUnit: string | null, 
+      priority: PriorityLevel, 
+      isLogistics: boolean = false, 
+      note: string = '', 
+      isProduction: boolean = false,
+      sourceSectorId?: string, // Added
+      targetSectorId?: string  // Added
+  ) => {
     const createdBy = localStorage.getItem('app_user') || 'Unknown';
     const newTask = {
-        text: partNumber, partNumber, workplace: workplace || '', quantity: quantity || '0', quantityUnit: quantityUnit || 'pcs', priority, isLogistics, isProduction, note, isDone: false, isMissing: false, createdAt: Date.now(), createdBy, status: 'open'
+        text: partNumber, 
+        partNumber, 
+        workplace: workplace || '', 
+        quantity: quantity || '0', 
+        quantityUnit: quantityUnit || 'pcs', 
+        priority, 
+        isLogistics, 
+        isProduction, 
+        note, 
+        isDone: false, 
+        isMissing: false, 
+        createdAt: Date.now(), 
+        createdBy, 
+        status: 'open',
+        sourceSectorId: sourceSectorId || null,
+        targetSectorId: targetSectorId || null
     };
     try { await addDoc(collection(db, 'tasks'), newTask); } catch (e) { console.error("Error adding task", e); }
   };
@@ -268,7 +293,7 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
 
   const onMarkAsIncorrect = async (id: string) => {
     const user = localStorage.getItem('app_user') || 'Unknown';
-    await onUpdateTask(id, { status: 'incorrectly_entered', isDone: true, completedBy: user, completedAt: Date.now() });
+    await onUpdateTask(id, { status: 'incorrectly_entered', isDone: true, completedBy: user, completedAt: Date.now(), isInProgress: false, inProgressBy: null });
   };
 
   const onAddNote = async (id: string, note: string) => {

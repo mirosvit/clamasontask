@@ -25,7 +25,7 @@ interface PartSearchScreenProps {
   onLogout: () => void;
   tasks: Task[];
   draftTasks: Task[];
-  onAddTask: (partNumber: string, workplace: string | null, quantity: string | null, quantityUnit: string | null, priority: PriorityLevel, isLogistics?: boolean, note?: string) => void; 
+  onAddTask: (partNumber: string, workplace: string | null, quantity: string | null, quantityUnit: string | null, priority: PriorityLevel, isLogistics?: boolean, note?: string, isProduction?: boolean, sourceSectorId?: string, targetSectorId?: string) => void; 
   onUpdateTask: (id: string, updates: Partial<Task>) => void;
   onToggleTask: (id: string) => void;
   onMarkAsIncorrect: (id: string) => void;
@@ -140,9 +140,14 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
 
   const [selectedPart, setSelectedPart] = useState<string | null>(null);
   const [selectedWorkplace, setSelectedWorkplace] = useState<string | null>(null);
+  
+  // Logistics States
   const [logisticsRef, setLogisticsRef] = useState('');
   const [logisticsOp, setLogisticsOp] = useState('');
   const [logisticsPlate, setLogisticsPlate] = useState('');
+  const [sourceSector, setSourceSector] = useState<string | null>(null);
+  const [targetSector, setTargetSector] = useState<string | null>(null);
+
   const [quantity, setQuantity] = useState<string>('');
   const [quantityUnit, setQuantityUnit] = useState<'pcs' | 'boxes' | 'pallet'>('pcs');
   const [priority, setPriority] = useState<PriorityLevel>('NORMAL');
@@ -178,13 +183,26 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   const handleAdd = () => {
     if (entryMode === 'production') {
         if (!selectedPart || !selectedWorkplace || !quantity) { alert(t('fill_all_fields')); return; }
-        onAddTask(selectedPart, selectedWorkplace, quantity, quantityUnit, priority, false);
+        // Pass empty note and isProduction = true
+        onAddTask(selectedPart, selectedWorkplace, quantity, quantityUnit, priority, false, '', true);
     } else {
         if (!logisticsRef || !logisticsOp || !quantity) { alert(t('fill_all_fields')); return; }
-        onAddTask(logisticsRef, logisticsOp, quantity, quantityUnit, priority, true, logisticsPlate);
+        // Pass source/target sectors for logistics
+        onAddTask(logisticsRef, logisticsOp, quantity, quantityUnit, priority, true, logisticsPlate, false, sourceSector || undefined, targetSector || undefined);
     }
-    setSelectedPart(null); setSelectedWorkplace(null); setLogisticsRef(''); setLogisticsOp(''); setLogisticsPlate(''); setQuantity('');
-    setPriority('NORMAL'); setShowSuccessMessage(true); setTimeout(() => setShowSuccessMessage(false), 2000);
+    
+    // Reset Form
+    setSelectedPart(null); 
+    setSelectedWorkplace(null); 
+    setLogisticsRef(''); 
+    setLogisticsOp(''); 
+    setLogisticsPlate(''); 
+    setSourceSector(null);
+    setTargetSector(null);
+    setQuantity('');
+    setPriority('NORMAL'); 
+    setShowSuccessMessage(true); 
+    setTimeout(() => setShowSuccessMessage(false), 2000);
   };
 
   // LOGIKA KONTROLY SEKTORA PRED DOKONČENÍM
@@ -220,11 +238,14 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                 logisticsRef={logisticsRef} setLogisticsRef={setLogisticsRef} 
                 logisticsPlate={logisticsPlate} setLogisticsPlate={setLogisticsPlate} 
                 logisticsOp={logisticsOp} setLogisticsOp={setLogisticsOp} 
+                sourceSector={sourceSector} setSourceSector={setSourceSector}
+                targetSector={targetSector} setTargetSector={setTargetSector}
                 quantity={quantity} setQuantity={setQuantity} 
                 quantityUnit={quantityUnit} setQuantityUnit={setQuantityUnit} 
                 priority={priority} setPriority={setPriority} 
                 parts={(parts || []).map(p => p.value)} workplaces={workplaces} 
                 logisticsOperationsList={logisticsOperationsList} 
+                mapSectors={mapSectors}
                 t={t} language={language} hasPermission={hasPermission} 
                 handleAdd={handleAdd} onRequestPart={props.onRequestPart} 
                 isUnitLocked={!!unitLock} 

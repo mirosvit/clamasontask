@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import PartSearchScreen from './components/PartSearchScreen';
 import NotificationModal from './components/modals/NotificationModal';
@@ -67,7 +68,18 @@ const AppAuthenticated: React.FC<AppAuthenticatedProps> = (props) => {
   const safeOnWeeklyClosing = (data as any).onWeeklyClosing || (async () => ({ success: false, count: 0, sanon: '' }));
   const safeFetchSanons = (data as any).fetchSanons || (async () => []);
 
-  const handleCreateInventoryTask = async (partNumber: string, workplace: string | null, quantity: string | null, quantityUnit: string | null, priority: PriorityLevel, isLogistics: boolean = false, noteOrPlate: string = '', isProduction: boolean = false) => {
+  const handleCreateInventoryTask = async (
+      partNumber: string, 
+      workplace: string | null, 
+      quantity: string | null, 
+      quantityUnit: string | null, 
+      priority: PriorityLevel, 
+      isLogistics: boolean = false, 
+      noteOrPlate: string = '', 
+      isProduction: boolean = false,
+      sourceSectorId?: string,
+      targetSectorId?: string
+  ) => {
       if (partNumber === "Počítanie zásob") {
           try {
               await addDoc(collection(db, 'tasks'), {
@@ -77,7 +89,9 @@ const AppAuthenticated: React.FC<AppAuthenticatedProps> = (props) => {
       } else {
           try {
               const newTask: any = {
-                  text: partNumber, partNumber, workplace: workplace || '', quantity: quantity || '0', quantityUnit: quantityUnit || 'pcs', priority, isLogistics, isProduction, note: isLogistics ? '' : noteOrPlate, plate: isLogistics ? noteOrPlate : '', isDone: false, isMissing: false, createdAt: Date.now(), createdBy: props.currentUser, status: 'open'
+                  text: partNumber, partNumber, workplace: workplace || '', quantity: quantity || '0', quantityUnit: quantityUnit || 'pcs', priority, isLogistics, isProduction, note: isLogistics ? '' : noteOrPlate, plate: isLogistics ? noteOrPlate : '', isDone: false, isMissing: false, createdAt: Date.now(), createdBy: props.currentUser, status: 'open',
+                  sourceSectorId: sourceSectorId || null,
+                  targetSectorId: targetSectorId || null
               };
               await addDoc(collection(db, 'tasks'), newTask);
           } catch (e) { console.error("Error adding task", e); }

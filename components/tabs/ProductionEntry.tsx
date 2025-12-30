@@ -1,7 +1,7 @@
 
 import React from 'react';
 import PartNumberInput from '../PartNumberInput';
-import { DBItem, PriorityLevel } from '../../App';
+import { DBItem, PriorityLevel, MapSector } from '../../types/appTypes';
 
 interface ProductionEntryProps {
   mode: 'production' | 'logistics';
@@ -16,6 +16,10 @@ interface ProductionEntryProps {
   setLogisticsPlate: (val: string) => void;
   logisticsOp: string;
   setLogisticsOp: (val: string) => void;
+  sourceSector: string | null;
+  setSourceSector: (val: string | null) => void;
+  targetSector: string | null;
+  setTargetSector: (val: string | null) => void;
   quantity: string;
   setQuantity: (val: string) => void;
   quantityUnit: 'pcs' | 'boxes' | 'pallet';
@@ -25,6 +29,7 @@ interface ProductionEntryProps {
   parts: string[];
   workplaces: DBItem[];
   logisticsOperationsList: DBItem[];
+  mapSectors: MapSector[];
   t: (key: any, params?: any) => string;
   language: string;
   hasPermission: (perm: string) => boolean;
@@ -42,10 +47,16 @@ const PlusIcon: React.FC<{ className?: string }> = ({ className }) => (
 const ProductionEntry: React.FC<ProductionEntryProps> = ({
   mode, setMode, selectedPart, setSelectedPart, selectedWorkplace, setSelectedWorkplace,
   logisticsRef, setLogisticsRef, logisticsPlate, setLogisticsPlate, logisticsOp, setLogisticsOp, 
+  sourceSector, setSourceSector, targetSector, setTargetSector,
   quantity, setQuantity, quantityUnit, setQuantityUnit, priority, setPriority, parts, workplaces,
-  logisticsOperationsList, t, language, hasPermission, handleAdd, onRequestPart, isUnitLocked
+  logisticsOperationsList, mapSectors, t, language, hasPermission, handleAdd, onRequestPart, isUnitLocked
 }) => {
   const inputBaseClass = "w-full h-12 bg-gray-700 border border-gray-600 rounded-lg px-4 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase text-base";
+
+  const showSectorSelectors = React.useMemo(() => {
+      const op = logisticsOp.toUpperCase();
+      return op.includes('PRESUN') || op.includes('MOVE');
+  }, [logisticsOp]);
 
   return (
     <div className="h-full flex flex-col items-center animate-fade-in pb-20">
@@ -151,6 +162,42 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
                     </div>
                   </div>
                 </div>
+
+                {/* --- SECTOR SELECTORS FOR LOGISTICS MOVES --- */}
+                {showSectorSelectors && (
+                <div className="grid grid-cols-2 gap-4 bg-slate-900/50 p-4 rounded-xl border border-gray-600/50 animate-fade-in">
+                    <div>
+                        <label className="block text-gray-400 text-xs font-bold mb-2 uppercase tracking-wide">
+                            ZDROJ (ODKIAĽ)
+                        </label>
+                        <select 
+                            value={sourceSector || ''} 
+                            onChange={(e) => setSourceSector(e.target.value || null)} 
+                            className="block w-full h-10 bg-gray-800 border border-gray-600 text-white px-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors font-mono uppercase text-xs"
+                        >
+                            <option value="">- Výber -</option>
+                            {[...mapSectors].sort((a,b) => (a.order||0)-(b.order||0)).map((s) => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-gray-400 text-xs font-bold mb-2 uppercase tracking-wide">
+                            CIEĽ (KAM)
+                        </label>
+                        <select 
+                            value={targetSector || ''} 
+                            onChange={(e) => setTargetSector(e.target.value || null)} 
+                            className="block w-full h-10 bg-gray-800 border border-gray-600 text-white px-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors font-mono uppercase text-xs"
+                        >
+                            <option value="">- Výber -</option>
+                            {[...mapSectors].sort((a,b) => (a.order||0)-(b.order||0)).map((s) => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+                )}
               </>
             )}
             <div>

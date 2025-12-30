@@ -76,6 +76,9 @@ export interface Task {
   searchExhausted?: boolean;
   searchedBy?: string | null;
   pickedFromSectorId?: string;
+  // Logistické trasovanie
+  sourceSectorId?: string;
+  targetSectorId?: string;
   // Anti-Cheat flag pre analytiku
   isInvalid?: boolean; 
 }
