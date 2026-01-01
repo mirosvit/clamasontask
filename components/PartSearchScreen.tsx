@@ -11,10 +11,11 @@ import PermissionsTab from './tabs/PermissionsTab';
 import BOMScreen from './tabs/BOMScreen';
 import ProductionEntry from './tabs/ProductionEntry';
 import PartCatalogTab from './tabs/PartCatalogTab';
+import TransactionLogTab from './tabs/TransactionLogTab'; // New Import
 import SectorPickerModal from './modals/SectorPickerModal';
 import AppHeader from './AppHeader';
 import TabNavigator from './TabNavigator';
-import { UserData, DBItem, PartRequest, BreakSchedule, SystemBreak, BOMComponent, Role, Permission, Task, Notification as AppNotification, PriorityLevel, SystemConfig, MapSector, AdminNote } from '../types/appTypes';
+import { UserData, DBItem, PartRequest, BreakSchedule, SystemBreak, BOMComponent, BOMRequest, Role, Permission, Task, Notification as AppNotification, PriorityLevel, SystemConfig, MapSector, AdminNote } from '../types/appTypes';
 import { useLanguage } from './LanguageContext';
 
 declare var XLSX: any;
@@ -137,7 +138,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   } = props;
   
   const { t, language, setLanguage } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'entry' | 'tasks' | 'settings' | 'analytics' | 'bom' | 'missing' | 'logistics' | 'permissions' | 'inventory' | 'catalog'>('entry');
+  const [activeTab, setActiveTab] = useState<'entry' | 'tasks' | 'settings' | 'analytics' | 'bom' | 'missing' | 'logistics' | 'permissions' | 'inventory' | 'catalog' | 'logs'>('entry');
   const [taskSearchQuery, setTaskSearchQuery] = useState('');
   const [entryMode, setEntryMode] = useState<'production' | 'logistics'>('production');
 
@@ -232,7 +233,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
         <div className="fixed top-24 right-6 bg-green-600 text-white px-6 py-4 rounded-xl shadow-2xl z-50 animate-bounce font-black tracking-widest">✓ {t('sent_msg')}</div>
       )}
 
-      <TabNavigator activeTab={activeTab} setActiveTab={setActiveTab} hasPermission={hasPermission} t={t} counts={{ tasks: (tasks || []).filter(t=>!t.isDone).length, pendingRequests: (props.partRequests?.length || 0) + (props.bomRequests?.length || 0) }} />
+      <TabNavigator activeTab={activeTab} setActiveTab={setActiveTab} hasPermission={hasPermission} t={t} counts={{ tasks: (tasks || []).filter(t=>!t.isDone).length, pendingRequests: (props.partRequests?.length || 0) + (props.bomRequests?.length || 0) }} currentUserRole={currentUserRole} />
 
       <div className="flex-grow overflow-y-auto p-3 md:p-8 custom-scrollbar">
           <div className="max-w-7xl mx-auto w-full">
@@ -392,6 +393,17 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
           {activeTab === 'logistics' && <LogisticsCenterTab tasks={tasks} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} resolveName={resolveName} />}
           {activeTab === 'permissions' && <PermissionsTab roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={onDeleteRole} onUpdatePermission={onUpdatePermission} onVerifyAdminPassword={onVerifyAdminPassword} />}
           {activeTab === 'catalog' && <PartCatalogTab parts={parts} onSelectPart={p => { setSelectedPart(p.value); setActiveTab('entry'); }} />}
+          {/* LOGS TAB - Only Admin */}
+          {activeTab === 'logs' && currentUserRole === 'ADMIN' && (
+              <TransactionLogTab 
+                  tasks={tasks}
+                  draftTasks={draftTasks}
+                  fetchSanons={fetchSanons}
+                  users={users}
+                  mapSectors={mapSectors}
+                  resolveName={resolveName}
+              />
+          )}
           </div>
       </div>
 

@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface TabNavigatorProps {
@@ -9,6 +10,7 @@ interface TabNavigatorProps {
     tasks: number;
     pendingRequests: number;
   };
+  currentUserRole?: string; // Pridané pre kontrolu roly
 }
 
 const TabNavigator: React.FC<TabNavigatorProps> = ({
@@ -16,7 +18,8 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
   setActiveTab,
   hasPermission,
   t,
-  counts
+  counts,
+  currentUserRole
 }) => {
   return (
     <div className="bg-gray-800 border-t border-gray-700 shadow-sm z-10">
@@ -101,6 +104,18 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
               }`}
             >
               {t('tab_logistics_center')}
+            </button>
+          )}
+
+          {/* NOVÝ TAB: Transakcie (LOG) - Len pre ADMIN */}
+          {currentUserRole === 'ADMIN' && (
+            <button
+              onClick={() => setActiveTab('logs')}
+              className={`whitespace-nowrap py-3 px-1 border-b-4 font-bold text-sm transition-colors ${
+                activeTab === 'logs' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'
+              }`}
+            >
+              {t('tab_logs')}
             </button>
           )}
 
