@@ -11,7 +11,7 @@ import PermissionsTab from './tabs/PermissionsTab';
 import BOMScreen from './tabs/BOMScreen';
 import ProductionEntry from './tabs/ProductionEntry';
 import PartCatalogTab from './tabs/PartCatalogTab';
-import TransactionLogTab from './tabs/TransactionLogTab'; // New Import
+import TransactionLogTab from './tabs/TransactionLogTab';
 import SectorPickerModal from './modals/SectorPickerModal';
 import AppHeader from './AppHeader';
 import TabNavigator from './TabNavigator';
@@ -113,7 +113,6 @@ interface PartSearchScreenProps {
   onUpdateAdminKey: (oldK: string, newK: string) => Promise<void>;
   onToggleAdminLock: (val: boolean) => void;
   settings?: any;
-  // Admin Notes
   adminNotes: AdminNote[];
   onAddAdminNote: (text: string, author: string) => void;
   onDeleteAdminNote: (id: string) => void;
@@ -125,16 +124,12 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
     currentUser, currentUserRole, onLogout, tasks, draftTasks, onAddTask, onUpdateTask, roles, permissions,
     notifications, onClearNotification, installPrompt, onInstallApp, parts, workplaces,
     onToggleTask, onEditTask, onDeleteTask, onToggleMissing, onSetInProgress, onToggleManualBlock, onExhaustSearch, onMarkAsIncorrect, onAddNote, onReleaseTask, missingReasons,
-    users,
-    onApprovePartRequest, onRejectPartRequest,
-    onArchiveTasks, onDailyClosing, onWeeklyClosing, fetchSanons,
+    users, fetchSanons,
     breakSchedules,
-    bomMap, bomRequests, onApproveBOMRequest, onRejectBOMRequest,
+    bomMap,
     onAddRole, onDeleteRole, onUpdatePermission, onVerifyAdminPassword,
     systemConfig, onUpdateSystemConfig,
-    dbLoadWarning, onGetDocCount, onPurgeOldTasks, onExportTasksJSON,
-    mapSectors, settings,
-    adminNotes, onAddAdminNote, onDeleteAdminNote, onClearAdminNotes
+    mapSectors
   } = props;
   
   const { t, language, setLanguage } = useLanguage();
@@ -142,13 +137,11 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   const [taskSearchQuery, setTaskSearchQuery] = useState('');
   const [entryMode, setEntryMode] = useState<'production' | 'logistics'>('production');
 
-  // STAVY PRE SEKTOR PICKER
   const [pickingTask, setPickingTask] = useState<Task | null>(null);
 
   const [selectedPart, setSelectedPart] = useState<string | null>(null);
   const [selectedWorkplace, setSelectedWorkplace] = useState<string | null>(null);
   
-  // Logistics States
   const [logisticsRef, setLogisticsRef] = useState('');
   const [logisticsOp, setLogisticsOp] = useState('');
   const [logisticsPlate, setLogisticsPlate] = useState('');
@@ -190,15 +183,12 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   const handleAdd = () => {
     if (entryMode === 'production') {
         if (!selectedPart || !selectedWorkplace || !quantity) { alert(t('fill_all_fields')); return; }
-        // Pass empty note and isProduction = true
         onAddTask(selectedPart, selectedWorkplace, quantity, quantityUnit, priority, false, '', true);
     } else {
         if (!logisticsRef || !logisticsOp || !quantity) { alert(t('fill_all_fields')); return; }
-        // Pass source/target sectors for logistics
         onAddTask(logisticsRef, logisticsOp, quantity, quantityUnit, priority, true, logisticsPlate, false, sourceSector || undefined, targetSector || undefined);
     }
     
-    // Reset Form
     setSelectedPart(null); 
     setSelectedWorkplace(null); 
     setLogisticsRef(''); 
@@ -212,12 +202,9 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
     setTimeout(() => setShowSuccessMessage(false), 2000);
   };
 
-  // LOGIKA KONTROLY SEKTORA PRED DOKONČENÍM
   const handleCompleteWithSectorCheck = (id: string) => {
     const task = tasks.find(t => t.id === id);
     if (!task) return;
-    
-    // Ak je to výrobná úloha, ide sa dokončiť (isDone je false) a chýba priradený sektor:
     if (!task.isLogistics && !task.isDone && !task.pickedFromSectorId) {
         setPickingTask(task);
         return;
@@ -260,18 +247,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
           )}
           {activeTab === 'analytics' && (
             <AnalyticsTab 
-              tasks={tasks} 
-              draftTasks={draftTasks}
-              onFetchArchivedTasks={props.onFetchArchivedTasks} 
-              fetchSanons={fetchSanons} 
-              settings={settings} 
-              systemBreaks={props.systemBreaks} 
-              resolveName={resolveName} 
-              mapSectors={mapSectors} 
-              workplaces={workplaces} 
               systemConfig={systemConfig} 
-              logisticsOperations={logisticsOperationsList} 
-              users={users} 
               currentUser={currentUser} 
               currentUserRole={currentUserRole} 
               hasPermission={hasPermission} 
@@ -279,76 +255,14 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
           )}
           {activeTab === 'settings' && 
             <SettingsTab 
-                hasPermission={hasPermission} 
                 currentUserRole={currentUserRole} 
                 currentUser={currentUser}
-                users={users} 
-                onAddUser={props.onAddUser} 
-                onUpdatePassword={props.onUpdatePassword} 
-                onUpdateNickname={props.onUpdateNickname} 
-                onUpdateUserRole={props.onUpdateUserRole} 
-                onDeleteUser={props.onDeleteUser} 
-                onUpdateExportPermission={props.onUpdateExportPermission} 
-                parts={parts} 
-                workplaces={workplaces} 
-                missingReasons={missingReasons} 
-                onAddPart={props.onAddPart} 
-                onBatchAddParts={props.onBatchAddParts} 
-                onDeletePart={props.onDeletePart} 
-                onDeleteAllParts={props.onDeleteAllParts} 
-                onAddWorkplace={props.onAddWorkplace} 
-                onUpdateWorkplace={props.onUpdateWorkplace} 
-                onBatchAddWorkplaces={props.onBatchAddWorkplaces} 
-                onDeleteWorkplace={props.onDeleteWorkplace} 
-                onDeleteAllWorkplaces={props.onDeleteAllWorkplaces} 
-                onAddMissingReason={props.onAddMissingReason} 
-                onDeleteMissingReason={props.onDeleteMissingReason} 
-                logisticsOperations={logisticsOperationsList} 
-                onAddLogisticsOperation={props.onAddLogisticsOperation} 
-                onUpdateLogisticsOperation={props.onUpdateLogisticsOperation} 
-                onDeleteLogisticsOperation={props.onDeleteLogisticsOperation} 
-                mapSectors={mapSectors} 
-                onAddMapSector={props.onAddMapSector} 
-                onDeleteMapSector={props.onDeleteMapSector} 
-                onUpdateMapSector={props.onUpdateMapSector} 
-                partRequests={props.partRequests} 
-                onApprovePartRequest={onApprovePartRequest} 
-                onRejectPartRequest={onRejectPartRequest} 
-                onArchiveTasks={onArchiveTasks} 
-                onDailyClosing={props.onDailyClosing} 
-                onWeeklyClosing={props.onWeeklyClosing} 
-                fetchSanons={fetchSanons} 
-                breakSchedules={breakSchedules} 
-                onAddBreakSchedule={props.onAddBreakSchedule} 
-                onDeleteBreakSchedule={props.onDeleteBreakSchedule} 
-                bomMap={bomMap} 
-                bomRequests={bomRequests} 
-                onAddBOMItem={props.onAddBOMItem} 
-                onBatchAddBOMItems={props.onBatchAddBOMItems} 
-                onDeleteBOMItem={props.onDeleteBOMItem} 
-                onDeleteAllBOMItems={props.onDeleteAllBOMItems} 
-                onApproveBOMRequest={onApproveBOMRequest} 
-                onRejectBOMRequest={onRejectBOMRequest} 
-                roles={roles} 
-                permissions={permissions} 
-                onAddRole={onAddRole} 
-                onDeleteRole={onDeleteRole} 
-                onUpdatePermission={onUpdatePermission} 
                 installPrompt={null} 
                 onInstallApp={()=>{}} 
                 systemConfig={systemConfig} 
                 onUpdateSystemConfig={onUpdateSystemConfig} 
-                dbLoadWarning={dbLoadWarning} 
-                resolveName={resolveName} 
-                onGetDocCount={onGetDocCount} 
-                onPurgeOldTasks={onPurgeOldTasks} 
-                onExportTasksJSON={onExportTasksJSON} 
                 onUpdateAdminKey={props.onUpdateAdminKey} 
                 onToggleAdminLock={props.onToggleAdminLock}
-                adminNotes={adminNotes}
-                onAddAdminNote={onAddAdminNote}
-                onDeleteAdminNote={onDeleteAdminNote}
-                onClearAdminNotes={onClearAdminNotes}
             />}
           {activeTab === 'tasks' && (
             <div className="animate-fade-in pb-20">
@@ -374,7 +288,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                 onToggleMissing={onToggleMissing} 
                 onSetInProgress={onSetInProgress} 
                 onToggleBlock={props.onToggleBlock} 
-                onToggleManualBlock={onToggleManualBlock} 
+                onToggleManualBlock={props.onToggleManualBlock} 
                 onExhaustSearch={onExhaustSearch} 
                 onMarkAsIncorrect={onMarkAsIncorrect} 
                 onAddNote={onAddNote} 
@@ -393,7 +307,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
           {activeTab === 'logistics' && <LogisticsCenterTab tasks={tasks} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} resolveName={resolveName} />}
           {activeTab === 'permissions' && <PermissionsTab roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={onDeleteRole} onUpdatePermission={onUpdatePermission} onVerifyAdminPassword={onVerifyAdminPassword} />}
           {activeTab === 'catalog' && <PartCatalogTab parts={parts} onSelectPart={p => { setSelectedPart(p.value); setActiveTab('entry'); }} />}
-          {/* LOGS TAB - Only Admin */}
           {activeTab === 'logs' && currentUserRole === 'ADMIN' && (
               <TransactionLogTab 
                   tasks={tasks}

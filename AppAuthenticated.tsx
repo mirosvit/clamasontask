@@ -3,9 +3,7 @@ import React, { useMemo } from 'react';
 import PartSearchScreen from './components/PartSearchScreen';
 import NotificationModal from './components/modals/NotificationModal';
 import { useData } from './context/DataContext';
-import { SystemConfig, PriorityLevel, Task } from './types/appTypes';
-import { db } from './firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { SystemConfig } from './types/appTypes';
 
 interface AppAuthenticatedProps {
   currentUser: string;
@@ -53,10 +51,7 @@ const AppAuthenticated: React.FC<AppAuthenticatedProps> = (props) => {
       );
   }
 
-  const partsList = data.partsMap 
-    ? Object.entries(data.partsMap).map(([p, d]) => ({ id: p, value: p, description: d }))
-    : [];
-
+  // Bezpečné funkcie (fallbacky) ak by náhodou context zlyhal
   const safeGetDocCount = (data as any).onGetDocCount || (async () => 0);
   const safePurgeOldTasks = (data as any).onPurgeOldTasks || (async () => 0);
   const safeExportTasksJSON = (data as any).onExportTasksJSON || (async () => {});
@@ -74,104 +69,27 @@ const AppAuthenticated: React.FC<AppAuthenticatedProps> = (props) => {
   const safeDeleteAdminNote = (data as any).onDeleteAdminNote || (() => {});
   const safeClearAdminNotes = (data as any).onClearAdminNotes || (() => {});
 
-  const handleCreateInventoryTask = async (
-      partNumber: string, 
-      workplace: string | null, 
-      quantity: string | null, 
-      quantityUnit: string | null, 
-      priority: PriorityLevel, 
-      isLogistics: boolean = false, 
-      noteOrPlate: string = '', 
-      isProduction: boolean = false,
-      sourceSectorId?: string,
-      targetSectorId?: string
-  ) => {
-      if (partNumber === "Počítanie zásob") {
-          try {
-              await addDoc(collection(db, 'tasks'), {
-                  partNumber, workplace: workplace || '', quantity: quantity || '0', quantityUnit: quantityUnit || 'pcs', priority, isLogistics, note: noteOrPlate, text: partNumber, status: 'unpacked', isInProgress: true, inProgressBy: props.currentUser, isDone: false, isMissing: false, createdAt: Date.now(), createdBy: props.currentUser, isProduction: !!isProduction
-              });
-          } catch (e) { console.error("Failed to create inventory task", e); }
-      } else {
-          try {
-              const newTask: any = {
-                  text: partNumber, partNumber, workplace: workplace || '', quantity: quantity || '0', quantityUnit: quantityUnit || 'pcs', priority, isLogistics, isProduction, note: isLogistics ? '' : noteOrPlate, plate: isLogistics ? noteOrPlate : '', isDone: false, isMissing: false, createdAt: Date.now(), createdBy: props.currentUser, status: 'open',
-                  sourceSectorId: sourceSectorId || null,
-                  targetSectorId: targetSectorId || null
-              };
-              await addDoc(collection(db, 'tasks'), newTask);
-          } catch (e) { console.error("Error adding task", e); }
-      }
-  };
-
-  const handleUpdateTask = (id: string, updates: any) => { if (data.onUpdateTask) data.onUpdateTask(id, updates); };
-  const handleDeleteTask = (id: string) => { if (data.onDeleteTask) data.onDeleteTask(id); };
-
-  const handleToggleTask = async (id: string) => {
-      const task = data.tasks.find(t => t.id === id);
-      if (!task) return;
-      const updates: any = { isDone: !task.isDone };
-      if (task.isDone) { updates.completedAt = null; updates.completedBy = null; updates.status = 'open'; updates.isInProgress = false; updates.inProgressBy = null; }
-      else { updates.completedAt = Date.now(); updates.completedBy = props.currentUser; updates.status = 'completed'; }
-      await data.onUpdateTask(id, updates);
-  };
-  
-  const handleToggleManualBlock = async (id: string) => {
-    const task = data.tasks.find(t => t.id === id);
-    if (!task) return;
-    const newBlockedState = !task.isManualBlocked;
-    const updates: any = { isManualBlocked: newBlockedState };
-    if (newBlockedState) { updates.isInProgress = false; updates.inProgressBy = null; updates.priority = 'LOW'; }
-    else { updates.createdAt = Date.now(); }
-    await data.onUpdateTask(id, updates);
-  };
-
-  const handleMarkAsIncorrect = async (id: string) => {
-    await data.onUpdateTask(id, { isDone: true, status: 'incorrectly_entered', completedBy: props.currentUser, completedAt: Date.now(), isInProgress: false, inProgressBy: null });
-  };
-
-  const handleStartAudit = async (id: string) => {
-     await data.onUpdateTask(id, { isAuditInProgress: true, auditBy: props.currentUser, isInProgress: false, inProgressBy: null });
-  };
-
-  const handleFinishAudit = async (id: string, result: 'found' | 'missing', note: string) => {
-     const task = data.tasks.find(t => t.id === id);
-     if (!task) return;
-     const badgeText = result === 'found' ? `AUDIT (OK) - ${note}` : `AUDIT (NOK) - ${note}`;
-     const updates: any = { isAuditInProgress: false, auditFinalBadge: badgeText, auditBy: null, auditResult: result === 'found' ? 'OK' : 'NOK', auditNote: note, auditedBy: props.currentUser, auditedAt: Date.now() };
-     if (result === 'found') { updates.isMissing = false; }
-     else { updates.isDone = true; updates.status = 'audit_error'; updates.completedBy = props.currentUser; updates.completedAt = Date.now(); updates.isInProgress = false; }
-     await data.onUpdateTask(id, updates);
-     if (data.onAddNotification && task.createdBy) {
-         await data.onAddNotification({ partNumber: task.partNumber || 'Unknown', reason: `AUDIT: ${result.toUpperCase()} - ${note}`, reportedBy: props.currentUser, targetUser: task.createdBy, timestamp: Date.now() });
-     }
-  };
-
-  const handleToggleMissing = async (id: string, reason?: string) => {
-      await data.onToggleMissing(id, reason);
-      if (reason) {
-          await data.onUpdateTask(id, { isInProgress: false, inProgressBy: null });
-          if (data.onAddNotification) {
-              const task = data.tasks.find(t => t.id === id);
-              if (task) { await data.onAddNotification({ partNumber: task.partNumber || 'Unknown', reason: `CHÝBA: ${reason}`, reportedBy: props.currentUser, targetUser: task.createdBy || '', timestamp: Date.now() }); }
-          }
-      }
-  };
+  const partsList = data.partsMap 
+    ? Object.entries(data.partsMap).map(([p, d]) => ({ id: p, value: p, description: d }))
+    : [];
 
   return (
     <div className="w-full h-full">
         <PartSearchScreen
           {...(data as any)}
-          onAddTask={handleCreateInventoryTask}
-          onUpdateTask={handleUpdateTask}
-          onDeleteTask={handleDeleteTask}
-          onToggleTask={handleToggleTask}
-          onToggleManualBlock={handleToggleManualBlock}
-          onMarkAsIncorrect={handleMarkAsIncorrect}
-          onStartAudit={handleStartAudit}
-          onFinishAudit={handleFinishAudit}
-          onToggleMissing={handleToggleMissing}
-          onDeleteMissingItem={(id) => handleToggleMissing(id)}
+          // Action Hooks (priame prepojenie na useTaskData cez Context)
+          onAddTask={data.onAddTask}
+          onUpdateTask={data.onUpdateTask}
+          onDeleteTask={data.onDeleteTask}
+          onToggleTask={data.onToggleTask}
+          onToggleManualBlock={data.onToggleManualBlock}
+          onMarkAsIncorrect={data.onMarkAsIncorrect}
+          onStartAudit={data.onStartAudit}
+          onFinishAudit={data.onFinishAudit}
+          onToggleMissing={data.onToggleMissing}
+          onDeleteMissingItem={(id) => data.onToggleMissing(id)}
+          
+          // Maintenance & System
           onGetDocCount={safeGetDocCount}
           onPurgeOldTasks={safePurgeOldTasks}
           onExportTasksJSON={safeExportTasksJSON}
@@ -182,9 +100,13 @@ const AppAuthenticated: React.FC<AppAuthenticatedProps> = (props) => {
           onDailyClosing={safeOnDailyClosing}
           onWeeklyClosing={safeOnWeeklyClosing}
           fetchSanons={safeFetchSanons}
+          
+          // Data
           draftTasks={data.draftTasks || []}
           settings={{ draft: { data: data.draftTasks || [] } }}
           parts={partsList}
+          
+          // Props from Parent
           currentUser={props.currentUser}
           currentUserRole={props.currentUserRole}
           onLogout={props.onLogout}
@@ -194,6 +116,8 @@ const AppAuthenticated: React.FC<AppAuthenticatedProps> = (props) => {
           onToggleAdminLock={props.onToggleAdminLock}
           installPrompt={props.installPrompt}
           onInstallApp={props.onInstallApp}
+          
+          // Admin Notes
           dbLoadWarning={false}
           adminNotes={safeAdminNotes}
           onAddAdminNote={safeAddAdminNote}
