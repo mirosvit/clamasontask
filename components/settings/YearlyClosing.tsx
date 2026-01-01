@@ -10,15 +10,17 @@ import {
   updateDoc
 } from 'firebase/firestore';
 import { useLanguage } from '../LanguageContext';
+import { MapSector } from '../../types/appTypes';
 
 declare var XLSX: any;
 
 interface YearlyClosingProps {
   resolveName: (username?: string | null) => string;
   fetchSanons: () => Promise<any[]>;
+  mapSectors: MapSector[];
 }
 
-const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName, fetchSanons }) => {
+const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName, fetchSanons, mapSectors }) => {
   const { language } = useLanguage();
   const [isExporting, setIsExporting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
@@ -40,6 +42,13 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName, fetchSanons 
   const formatDateTime = (ts?: number) => {
     if (!ts) return '';
     return `${formatDate(ts)} ${formatTime(ts)}`;
+  };
+
+  // Helper na prevod ID sektoru na názov
+  const resolveSectorName = (sectorId?: string) => {
+      if (!sectorId) return '';
+      const sector = mapSectors.find(s => s.id === sectorId);
+      return sector ? sector.name : sectorId;
   };
 
   const fetchYearlyData = async () => {
@@ -99,6 +108,34 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName, fetchSanons 
             statusText = 'Dokončené';
         }
 
+        // --- LOGIKA ODKIAĽ / KAM ---
+        let sourceVal = '';
+        let targetVal = '';
+
+        if (item.isLogistics) {
+            const op = (item.workplace || '').toUpperCase();
+            const isUnloading = op.includes('VYKL') || op.includes('UNLOAD') || op.includes('PRÍJEM') || op.includes('INBOUND');
+            const isLoading = op.includes('NAKL') || op.includes('LOAD') || op.includes('EXPED') || op.includes('OUTBOUND');
+
+            if (isUnloading) {
+                 // Príjem: Odkiaľ = Note (ŠPZ/Dodávateľ), Kam = TargetSector alebo "PRÍJEM"
+                 sourceVal = item.note || 'EXTERNY ZDROJ';
+                 targetVal = resolveSectorName(item.targetSectorId) || 'PRÍJEM';
+            } else if (isLoading) {
+                 // Expedícia: Odkiaľ = SourceSector, Kam = Note (ŠPZ/Zákazník)
+                 sourceVal = resolveSectorName(item.sourceSectorId) || 'SKLAD';
+                 targetVal = item.note || 'EXTERNY CIEĽ';
+            } else {
+                 // Interný presun: Odkiaľ = SourceSector, Kam = TargetSector
+                 sourceVal = resolveSectorName(item.sourceSectorId) || '';
+                 targetVal = resolveSectorName(item.targetSectorId) || '';
+            }
+        } else {
+            // Výroba: Odkiaľ = PickedFromSector, Kam = Workplace
+            sourceVal = resolveSectorName(item.pickedFromSectorId) || '';
+            targetVal = item.workplace || '';
+        }
+
         return {
           'Dátum pridania': formatDate(item.createdAt),
           'Čas pridania': formatTime(item.createdAt),
@@ -122,7 +159,8 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName, fetchSanons 
           'Poznámka k auditu': item.auditNote || '',
           'Audit vykonal': resolveName(item.auditedBy) || item.auditBy || '',
           'Dátum a čas auditu': formatDateTime(item.auditedAt ?? undefined),
-          'Sektor (Odkiaľ)': item.pickedFromSectorId || '-'
+          'Odkiaľ (Zdroj)': sourceVal,
+          'Kam (Cieľ)': targetVal
         };
       });
 
@@ -132,7 +170,7 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName, fetchSanons 
         {wch: 20}, {wch: 10}, {wch: 10}, {wch: 25}, {wch: 20}, 
         {wch: 15}, {wch: 12}, {wch: 18}, {wch: 20}, {wch: 25}, 
         {wch: 15}, {wch: 20}, {wch: 18}, {wch: 15}, {wch: 35},
-        {wch: 20}, {wch: 20}, {wch: 15}
+        {wch: 20}, {wch: 20}, {wch: 20}, {wch: 20} // Updated widths
       ];
       ws['!cols'] = wscols;
 
@@ -185,10 +223,6 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName, fetchSanons 
               
               if (opCount >= 498) {
                   await batch.commit();
-                  // Nový batch sa musí vytvoriť po commite
-                  // Keďže writeBatch je factory function, toto v React komponente 
-                  // uprostred cyklu môže byť tricky, ale tu je to OK.
-                  // Pre istotu resetujeme premennú (aj keď v JS je to nový objekt)
               }
           }
           if (opCount > 0) await batch.commit();
@@ -237,7 +271,7 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName, fetchSanons 
         <div className="bg-slate-950/40 p-6 rounded-2xl border border-white/5 space-y-4">
           <h4 className="text-sm font-black text-teal-400 uppercase tracking-widest">1. KROK: EXPORT DÁT</h4>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Stiahne všetky záznamy z aktuálnych úloh aj týždenných šanónov do jedného Excel súboru s 23 stĺpcami (vrátane sektorov).
+            Stiahne všetky záznamy z aktuálnych úloh aj týždenných šanónov do jedného Excel súboru s 24 stĺpcami (vrátane sektorov Odkiaľ/Kam).
           </p>
           <button 
             onClick={fetchYearlyData}

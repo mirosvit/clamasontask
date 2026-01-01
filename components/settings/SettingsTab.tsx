@@ -263,7 +263,11 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
           />
         )}
         {activeSubTab === 'yearly' && (
-          <YearlyClosing resolveName={resolveName} fetchSanons={props.fetchSanons} />
+          <YearlyClosing 
+            resolveName={resolveName} 
+            fetchSanons={props.fetchSanons} 
+            mapSectors={props.mapSectors} // Added mapSectors prop
+          />
         )}
         {activeSubTab === 'notes' && props.currentUserRole === 'ADMIN' && (
           <AdminNotesSection 
