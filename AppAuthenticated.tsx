@@ -68,6 +68,12 @@ const AppAuthenticated: React.FC<AppAuthenticatedProps> = (props) => {
   const safeOnWeeklyClosing = (data as any).onWeeklyClosing || (async () => ({ success: false, count: 0, sanon: '' }));
   const safeFetchSanons = (data as any).fetchSanons || (async () => []);
 
+  // Admin Notes functions
+  const safeAdminNotes = (data as any).adminNotes || [];
+  const safeAddAdminNote = (data as any).onAddAdminNote || (() => {});
+  const safeDeleteAdminNote = (data as any).onDeleteAdminNote || (() => {});
+  const safeClearAdminNotes = (data as any).onClearAdminNotes || (() => {});
+
   const handleCreateInventoryTask = async (
       partNumber: string, 
       workplace: string | null, 
@@ -189,6 +195,10 @@ const AppAuthenticated: React.FC<AppAuthenticatedProps> = (props) => {
           installPrompt={props.installPrompt}
           onInstallApp={props.onInstallApp}
           dbLoadWarning={false}
+          adminNotes={safeAdminNotes}
+          onAddAdminNote={safeAddAdminNote}
+          onDeleteAdminNote={safeDeleteAdminNote}
+          onClearAdminNotes={safeClearAdminNotes}
         />
 
         {activeNotification && (

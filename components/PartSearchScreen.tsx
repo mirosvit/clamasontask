@@ -14,7 +14,7 @@ import PartCatalogTab from './tabs/PartCatalogTab';
 import SectorPickerModal from './modals/SectorPickerModal';
 import AppHeader from './AppHeader';
 import TabNavigator from './TabNavigator';
-import { UserData, DBItem, PartRequest, BreakSchedule, SystemBreak, BOMComponent, Role, Permission, Task, Notification as AppNotification, PriorityLevel, SystemConfig, MapSector } from '../types/appTypes';
+import { UserData, DBItem, PartRequest, BreakSchedule, SystemBreak, BOMComponent, Role, Permission, Task, Notification as AppNotification, PriorityLevel, SystemConfig, MapSector, AdminNote } from '../types/appTypes';
 import { useLanguage } from './LanguageContext';
 
 declare var XLSX: any;
@@ -112,6 +112,11 @@ interface PartSearchScreenProps {
   onUpdateAdminKey: (oldK: string, newK: string) => Promise<void>;
   onToggleAdminLock: (val: boolean) => void;
   settings?: any;
+  // Admin Notes
+  adminNotes: AdminNote[];
+  onAddAdminNote: (text: string, author: string) => void;
+  onDeleteAdminNote: (id: string) => void;
+  onClearAdminNotes: () => void;
 }
 
 const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
@@ -127,7 +132,8 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
     onAddRole, onDeleteRole, onUpdatePermission, onVerifyAdminPassword,
     systemConfig, onUpdateSystemConfig,
     dbLoadWarning, onGetDocCount, onPurgeOldTasks, onExportTasksJSON,
-    mapSectors, settings
+    mapSectors, settings,
+    adminNotes, onAddAdminNote, onDeleteAdminNote, onClearAdminNotes
   } = props;
   
   const { t, language, setLanguage } = useLanguage();
@@ -270,7 +276,79 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
               hasPermission={hasPermission} 
             />
           )}
-          {activeTab === 'settings' && <SettingsTab hasPermission={hasPermission} currentUserRole={currentUserRole} users={users} onAddUser={props.onAddUser} onUpdatePassword={props.onUpdatePassword} onUpdateNickname={props.onUpdateNickname} onUpdateUserRole={props.onUpdateUserRole} onDeleteUser={props.onDeleteUser} onUpdateExportPermission={props.onUpdateExportPermission} parts={parts} workplaces={workplaces} missingReasons={missingReasons} onAddPart={props.onAddPart} onBatchAddParts={props.onBatchAddParts} onDeletePart={props.onDeletePart} onDeleteAllParts={props.onDeleteAllParts} onAddWorkplace={props.onAddWorkplace} onUpdateWorkplace={props.onUpdateWorkplace} onBatchAddWorkplaces={props.onBatchAddWorkplaces} onDeleteWorkplace={props.onDeleteWorkplace} onDeleteAllWorkplaces={props.onDeleteAllWorkplaces} onAddMissingReason={props.onAddMissingReason} onDeleteMissingReason={props.onDeleteMissingReason} logisticsOperations={logisticsOperationsList} onAddLogisticsOperation={props.onAddLogisticsOperation} onUpdateLogisticsOperation={props.onUpdateLogisticsOperation} onDeleteLogisticsOperation={props.onDeleteLogisticsOperation} mapSectors={mapSectors} onAddMapSector={props.onAddMapSector} onDeleteMapSector={props.onDeleteMapSector} onUpdateMapSector={props.onUpdateMapSector} partRequests={props.partRequests} onApprovePartRequest={onApprovePartRequest} onRejectPartRequest={onRejectPartRequest} onArchiveTasks={onArchiveTasks} onDailyClosing={props.onDailyClosing} onWeeklyClosing={props.onWeeklyClosing} fetchSanons={fetchSanons} breakSchedules={breakSchedules} onAddBreakSchedule={props.onAddBreakSchedule} onDeleteBreakSchedule={props.onDeleteBreakSchedule} bomMap={bomMap} bomRequests={bomRequests} onAddBOMItem={props.onAddBOMItem} onBatchAddBOMItems={props.onBatchAddBOMItems} onDeleteBOMItem={props.onDeleteBOMItem} onDeleteAllBOMItems={props.onDeleteAllBOMItems} onApproveBOMRequest={onApproveBOMRequest} onRejectBOMRequest={onRejectBOMRequest} roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={onDeleteRole} onUpdatePermission={onUpdatePermission} installPrompt={null} onInstallApp={()=>{}} systemConfig={systemConfig} onUpdateSystemConfig={onUpdateSystemConfig} dbLoadWarning={dbLoadWarning} resolveName={resolveName} onGetDocCount={onGetDocCount} onPurgeOldTasks={onPurgeOldTasks} onExportTasksJSON={onExportTasksJSON} onUpdateAdminKey={props.onUpdateAdminKey} onToggleAdminLock={props.onToggleAdminLock} />}
+          {activeTab === 'settings' && 
+            <SettingsTab 
+                hasPermission={hasPermission} 
+                currentUserRole={currentUserRole} 
+                currentUser={currentUser}
+                users={users} 
+                onAddUser={props.onAddUser} 
+                onUpdatePassword={props.onUpdatePassword} 
+                onUpdateNickname={props.onUpdateNickname} 
+                onUpdateUserRole={props.onUpdateUserRole} 
+                onDeleteUser={props.onDeleteUser} 
+                onUpdateExportPermission={props.onUpdateExportPermission} 
+                parts={parts} 
+                workplaces={workplaces} 
+                missingReasons={missingReasons} 
+                onAddPart={props.onAddPart} 
+                onBatchAddParts={props.onBatchAddParts} 
+                onDeletePart={props.onDeletePart} 
+                onDeleteAllParts={props.onDeleteAllParts} 
+                onAddWorkplace={props.onAddWorkplace} 
+                onUpdateWorkplace={props.onUpdateWorkplace} 
+                onBatchAddWorkplaces={props.onBatchAddWorkplaces} 
+                onDeleteWorkplace={props.onDeleteWorkplace} 
+                onDeleteAllWorkplaces={props.onDeleteAllWorkplaces} 
+                onAddMissingReason={props.onAddMissingReason} 
+                onDeleteMissingReason={props.onDeleteMissingReason} 
+                logisticsOperations={logisticsOperationsList} 
+                onAddLogisticsOperation={props.onAddLogisticsOperation} 
+                onUpdateLogisticsOperation={props.onUpdateLogisticsOperation} 
+                onDeleteLogisticsOperation={props.onDeleteLogisticsOperation} 
+                mapSectors={mapSectors} 
+                onAddMapSector={props.onAddMapSector} 
+                onDeleteMapSector={props.onDeleteMapSector} 
+                onUpdateMapSector={props.onUpdateMapSector} 
+                partRequests={props.partRequests} 
+                onApprovePartRequest={onApprovePartRequest} 
+                onRejectPartRequest={onRejectPartRequest} 
+                onArchiveTasks={onArchiveTasks} 
+                onDailyClosing={props.onDailyClosing} 
+                onWeeklyClosing={props.onWeeklyClosing} 
+                fetchSanons={fetchSanons} 
+                breakSchedules={breakSchedules} 
+                onAddBreakSchedule={props.onAddBreakSchedule} 
+                onDeleteBreakSchedule={props.onDeleteBreakSchedule} 
+                bomMap={bomMap} 
+                bomRequests={bomRequests} 
+                onAddBOMItem={props.onAddBOMItem} 
+                onBatchAddBOMItems={props.onBatchAddBOMItems} 
+                onDeleteBOMItem={props.onDeleteBOMItem} 
+                onDeleteAllBOMItems={props.onDeleteAllBOMItems} 
+                onApproveBOMRequest={onApproveBOMRequest} 
+                onRejectBOMRequest={onRejectBOMRequest} 
+                roles={roles} 
+                permissions={permissions} 
+                onAddRole={onAddRole} 
+                onDeleteRole={onDeleteRole} 
+                onUpdatePermission={onUpdatePermission} 
+                installPrompt={null} 
+                onInstallApp={()=>{}} 
+                systemConfig={systemConfig} 
+                onUpdateSystemConfig={onUpdateSystemConfig} 
+                dbLoadWarning={dbLoadWarning} 
+                resolveName={resolveName} 
+                onGetDocCount={onGetDocCount} 
+                onPurgeOldTasks={onPurgeOldTasks} 
+                onExportTasksJSON={onExportTasksJSON} 
+                onUpdateAdminKey={props.onUpdateAdminKey} 
+                onToggleAdminLock={props.onToggleAdminLock}
+                adminNotes={adminNotes}
+                onAddAdminNote={onAddAdminNote}
+                onDeleteAdminNote={onDeleteAdminNote}
+                onClearAdminNotes={onClearAdminNotes}
+            />}
           {activeTab === 'tasks' && (
             <div className="animate-fade-in pb-20">
               <div className="mb-6 flex justify-center">

@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { UserData, DBItem, PartRequest, BreakSchedule, BOMComponent, BOMRequest, Role, Permission, SystemConfig, MapSector } from '../../types/appTypes';
+import { UserData, DBItem, PartRequest, BreakSchedule, BOMComponent, BOMRequest, Role, Permission, SystemConfig, MapSector, AdminNote } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 import PartRequestsSection from './PartRequestsSection';
 import UserSection from './UserSection';
@@ -11,6 +11,7 @@ import SystemSection from './SystemSection';
 import MaintenanceSection from './MaintenanceSection';
 import SetupView from './SetupView';
 import YearlyClosing from './YearlyClosing';
+import AdminNotesSection from './AdminNotesSection';
 
 interface SettingsTabProps {
   currentUserRole: string;
@@ -79,6 +80,12 @@ interface SettingsTabProps {
   resolveName: (username?: string | null) => string;
   onUpdateAdminKey: (oldK: string, newK: string) => Promise<void>;
   onToggleAdminLock: (val: boolean) => void;
+  // Admin Notes Props
+  adminNotes: AdminNote[];
+  onAddAdminNote: (text: string, author: string) => void;
+  onDeleteAdminNote: (id: string) => void;
+  onClearAdminNotes: () => void;
+  currentUser: string;
 }
 
 const Icons = {
@@ -89,7 +96,8 @@ const Icons = {
   System: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
   Archive: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>,
   Summary: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
-  Yearly: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+  Yearly: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
+  Notes: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
 };
 
 const SettingsTab: React.FC<SettingsTabProps> = (props) => {
@@ -107,8 +115,12 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
       { id: 'maint', label: 'ÚDRŽBA', icon: <Icons.Archive />, perm: 'perm_settings_maint' },
       { id: 'yearly', label: language === 'sk' ? 'UZÁVIERKA' : 'CLOSING', icon: <Icons.Yearly />, perm: 'perm_manage_roles' },
     ];
+    // Špeciálna podmienka pre Poznámky (iba Admin)
+    if (props.currentUserRole === 'ADMIN') {
+        all.push({ id: 'notes', label: 'POZNÁMKY', icon: <Icons.Notes />, perm: 'perm_view_setup' }); // Reuse perm as it's safe for Admin
+    }
     return all.filter(tile => hasPermission(tile.perm));
-  }, [language, t, hasPermission]);
+  }, [language, t, hasPermission, props.currentUserRole]);
 
   const [activeSubTab, setActiveSubTab] = useState<string | null>(navTiles[0]?.id || null);
 
@@ -146,12 +158,12 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
                 isActive 
                 ? 'bg-teal-500/10 border-teal-500 shadow-[0_0_20px_rgba(20,184,166,0.3)]' 
                 : 'bg-slate-900/40 border-slate-800 hover:border-slate-700 hover:bg-slate-800/50'
-              }`}
+              } ${tile.id === 'notes' && isActive ? '!border-amber-500 !bg-amber-500/10 !shadow-[0_0_20px_rgba(245,158,11,0.3)]' : ''}`}
             >
-              <div className={`mb-3 transition-transform group-hover:scale-110 ${isActive ? 'text-teal-400' : 'text-slate-600'}`}>
+              <div className={`mb-3 transition-transform group-hover:scale-110 ${isActive ? (tile.id === 'notes' ? 'text-amber-500' : 'text-teal-400') : 'text-slate-600'}`}>
                 {tile.icon}
               </div>
-              <span className={`text-[10px] font-black uppercase tracking-widest text-center leading-tight ${isActive ? 'text-teal-400' : 'text-slate-500'}`}>
+              <span className={`text-[10px] font-black uppercase tracking-widest text-center leading-tight ${isActive ? (tile.id === 'notes' ? 'text-amber-500' : 'text-teal-400') : 'text-slate-500'}`}>
                 {tile.label}
               </span>
             </button>
@@ -252,6 +264,16 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
         )}
         {activeSubTab === 'yearly' && (
           <YearlyClosing resolveName={resolveName} fetchSanons={props.fetchSanons} />
+        )}
+        {activeSubTab === 'notes' && props.currentUserRole === 'ADMIN' && (
+          <AdminNotesSection 
+            notes={props.adminNotes}
+            onAddNote={props.onAddAdminNote}
+            onDeleteNote={props.onDeleteAdminNote}
+            onClearNotes={props.onClearAdminNotes}
+            currentUser={props.currentUser}
+            resolveName={resolveName}
+          />
         )}
       </div>
     </div>

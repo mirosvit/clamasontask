@@ -92,6 +92,14 @@ export interface Notification {
     timestamp: number;
 }
 
+export interface AdminNote {
+    id: string;
+    text: string;
+    author: string;
+    createdAt: number;
+    color?: string;
+}
+
 export interface PartRequest {
     id: string;
     partNumber: string;

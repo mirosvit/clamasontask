@@ -18,7 +18,7 @@ import {
   writeBatch,
   getDocs
 } from 'firebase/firestore';
-import { Task, UserData, DBItem, MapSector, PartRequest, BOMRequest, BreakSchedule, SystemBreak, Role, Permission, Notification, PriorityLevel } from '../types/appTypes';
+import { Task, UserData, DBItem, MapSector, PartRequest, BOMRequest, BreakSchedule, SystemBreak, Role, Permission, Notification, PriorityLevel, AdminNote } from '../types/appTypes';
 import { PRIORITY_ORDER } from '../constants/uiConstants';
 
 const getISOWeekId = () => {
@@ -48,6 +48,7 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [draftTasks, setDraftTasks] = useState<Task[]>([]);
+  const [adminNotes, setAdminNotes] = useState<AdminNote[]>([]); // New State
   
   const isFirstLoad = useRef(true);
   const rolesRef = useRef<Role[]>([]);
@@ -194,8 +195,20 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
       setDraftTasks([]);
     });
 
-    return () => { unsubParts(); unsubBOM(); unsubBreaks(); unsubDraft(); };
+    // ADMIN NOTES LISTENER
+    const unsubAdminNotes = onSnapshot(doc(db, 'settings', 'notes'), (s) => {
+      if (s.exists()) {
+        const d = s.data();
+        setAdminNotes(Array.isArray(d.items) ? d.items : []);
+      } else {
+        setAdminNotes([]);
+      }
+    });
+
+    return () => { unsubParts(); unsubBOM(); unsubBreaks(); unsubDraft(); unsubAdminNotes(); };
   }, []);
+
+  // ... (Existing CRUD functions) ...
 
   const onAddTask = async (
       partNumber: string, 
@@ -206,8 +219,8 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
       isLogistics: boolean = false, 
       note: string = '', 
       isProduction: boolean = false,
-      sourceSectorId?: string, // Added
-      targetSectorId?: string  // Added
+      sourceSectorId?: string, 
+      targetSectorId?: string
   ) => {
     const createdBy = localStorage.getItem('app_user') || 'Unknown';
     const newTask = {
@@ -357,6 +370,37 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
         snap.forEach(d => batch.delete(d.ref));
         await batch.commit();
     } catch (e) { console.error(e); }
+  };
+
+  // ADMIN NOTES OPERATIONS (Single Doc Pattern)
+  const onAddAdminNote = async (text: string, author: string) => {
+      try {
+          const newItem: AdminNote = { 
+              id: crypto.randomUUID(), 
+              text, 
+              author, 
+              createdAt: Date.now() 
+          };
+          await setDoc(doc(db, 'settings', 'notes'), { items: arrayUnion(newItem) }, { merge: true });
+      } catch (e) { console.error("Error adding admin note", e); }
+  };
+
+  const onDeleteAdminNote = async (id: string) => {
+      try {
+          const ref = doc(db, 'settings', 'notes');
+          const snap = await getDoc(ref);
+          if (snap.exists()) {
+              const currentItems = (snap.data().items || []) as AdminNote[];
+              const newItems = currentItems.filter(i => i.id !== id);
+              await updateDoc(ref, { items: newItems });
+          }
+      } catch (e) { console.error("Error deleting admin note", e); }
+  };
+
+  const onClearAdminNotes = async () => {
+      try {
+          await updateDoc(doc(db, 'settings', 'notes'), { items: [] });
+      } catch (e) { console.error("Error clearing admin notes", e); }
   };
 
   const onAddPart = async (value: string, description: string = '') => {
@@ -559,7 +603,7 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
   return {
     tasks, users, partsMap, bomMap, workplaces, missingReasons, logisticsOperations,
     mapSectors, partRequests, bomRequests, breakSchedules, systemBreaks, isBreakActive,
-    roles, permissions, notifications, draftTasks, onClearNotification,
+    roles, permissions, notifications, draftTasks, adminNotes, onClearNotification,
     onAddTask, onUpdateTask, onDeleteTask, onToggleTask, onEditTask, onToggleMissing,
     onSetInProgress, onToggleBlock, onToggleManualBlock, onExhaustSearch, 
     onMarkAsIncorrect, onAddNote, onReleaseTask, onRequestPart, onRequestBOM,
@@ -571,6 +615,7 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
     onAddMapSector, onUpdateMapSector, onDeleteMapSector,
     onAddUser, onUpdatePassword, onUpdateNickname, onUpdateUserRole, onUpdateExportPermission, onDeleteUser,
     onAddBOMItem, onBatchAddBOMItems, onDeleteBOMItem, onDeleteAllBOMItems,
+    onAddAdminNote, onDeleteAdminNote, onClearAdminNotes,
     onUpdatePermission, onAddRole, onDeleteRole,
     onDailyClosing, onWeeklyClosing, fetchSanons
   };

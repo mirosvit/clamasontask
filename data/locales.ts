@@ -1,3 +1,4 @@
+
 export const translations = {
   sk: {
     // ... existujúce preklady
@@ -272,9 +273,11 @@ export const translations = {
     bom_req_title: "Žiadosti o BOM",
     bom_search_placeholder: "Vyhľadať BOM...",
     sect_admin_notes: "10. Poznámkový blok (Admin)",
-    admin_notes_placeholder: "Sem si môžete zapísať poznámky...",
-    admin_notes_save: "Uložiť poznámky",
-    admin_notes_saved: "Poznámky uložené!",
+    admin_notes_title: "POZNÁMKOVÝ BLOK",
+    admin_notes_add: "Pridať",
+    admin_notes_placeholder: "Sem napíšte poznámku...",
+    admin_notes_clear: "Vymazať všetko",
+    admin_notes_empty: "Žiadne poznámky.",
     sect_roles: "Autorizácia",
     role_add_btn: "Vytvoriť Rolu",
     role_add_new_title: "Pridať novú rolu",
@@ -710,10 +713,12 @@ export const translations = {
     all_bom_deleted_success: "All BOM items deleted.",
     bom_req_title: "BOM Requests",
     bom_search_placeholder: "Search BOM...",
-    sect_admin_notes: "10. Notepad (Admin)",
-    admin_notes_placeholder: "Write your notes here...",
-    admin_notes_save: "Save Notes",
-    admin_notes_saved: "Notes saved!",
+    sect_admin_notes: "10. Admin Notes",
+    admin_notes_title: "ADMIN NOTES",
+    admin_notes_add: "Add",
+    admin_notes_placeholder: "Write a note...",
+    admin_notes_clear: "Clear All",
+    admin_notes_empty: "No notes.",
     sect_roles: "Authorization",
     role_add_btn: "Create Role",
     role_add_new_title: "Add New Role",
