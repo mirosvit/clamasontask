@@ -386,7 +386,8 @@ export const useTaskData = (
   const fetchSanons = async () => {
       try {
           const snap = await getDocs(collection(db, 'sanony'));
-          return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          // Explicit cast to 'any' to avoid strict TS type inference blocking access to dynamic properties like 'tasks'
+          return snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
       } catch (e) { console.error("Error fetching sanons", e); return []; }
   };
 

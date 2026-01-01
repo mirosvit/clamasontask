@@ -187,12 +187,19 @@ export const useMasterData = () => {
         return true;
     } catch (e) { return false; }
   };
+  const onDeletePartRequest = async (id: string) => { 
+      try { await deleteDoc(doc(db, 'part_requests', id)); } catch(e) { console.error(e); }
+  };
+
   const onRequestBOM = async (parent: string) => {
     try {
         const user = localStorage.getItem('app_user') || 'Unknown';
         await addDoc(collection(db, 'bom_requests'), { parentPart: parent, requestedBy: user, requestedAt: Date.now() });
         return true;
     } catch (e) { return false; }
+  };
+  const onDeleteBOMRequest = async (id: string) => { 
+      try { await deleteDoc(doc(db, 'bom_requests', id)); } catch(e) { console.error(e); }
   };
 
   return {
@@ -202,6 +209,7 @@ export const useMasterData = () => {
     onAddMapSector, onUpdateMapSector, onDeleteMapSector,
     onAddPart, onBatchAddParts, onDeletePart, onDeleteAllParts,
     onAddBOMItem, onBatchAddBOMItems, onDeleteBOMItem, onDeleteAllBOMItems,
-    onRequestPart, onRequestBOM
+    onRequestPart, onDeletePartRequest, 
+    onRequestBOM, onDeleteBOMRequest
   };
 };

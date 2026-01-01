@@ -94,10 +94,10 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
       <PartRequestsSection 
         partRequests={data.partRequests} 
         bomRequests={data.bomRequests}
-        onApprovePartRequest={async (req) => { await data.onAddPart(req.partNumber); /* Delete request logic missing in useMasterData */ }}
-        onRejectPartRequest={(id) => { /* Delete doc logic missing in useMasterData */ }}
-        onApproveBOMRequest={async (req) => { /* BOM approval logic missing */ }}
-        onRejectBOMRequest={(id) => { /* Delete doc logic missing */ }}
+        onApprovePartRequest={async (req) => { await data.onAddPart(req.partNumber); await data.onDeletePartRequest(req.id); }}
+        onRejectPartRequest={(id) => data.onDeletePartRequest(id)}
+        onApproveBOMRequest={async (req) => { /* BOM logic needs expansion, for now just delete */ await data.onDeleteBOMRequest(req.id); }}
+        onRejectBOMRequest={(id) => data.onDeleteBOMRequest(id)}
         resolveName={resolveName}
       />
 
