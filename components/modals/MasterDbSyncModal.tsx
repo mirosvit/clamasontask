@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { db } from '../../firebase';
 import { doc, getDoc, writeBatch } from 'firebase/firestore';
@@ -70,15 +71,13 @@ const MasterDbSyncModal: React.FC<MasterDbSyncModalProps> = ({ isOpen, onClose, 
             const localPartsRef = doc(db, 'settings', 'parts');
             const currentLocal = await getDoc(localPartsRef);
             
-            // FIX: Čítame z 'items', nie 'data' (konzistencia s useFirestoreData)
+            // Čítame z 'items', nie 'data' (konzistencia s useFirestoreData)
             const currentData = currentLocal.exists() ? (currentLocal.data().items || []) : [];
             
-            // Príprava dát pre lokálny formát
-            const formattedNewParts = newParts.map((np, index) => ({
-                id: `part_sync_${Date.now()}_${index}`,
+            // Príprava dát pre lokálny formát - LEN value a description
+            const formattedNewParts = newParts.map((np) => ({
                 value: np.p.toUpperCase(),
-                description: np.d,
-                createdAt: Date.now()
+                description: np.d
             }));
 
             // Merge unikátnych dielov (podľa hodnoty value/p)
@@ -92,7 +91,6 @@ const MasterDbSyncModal: React.FC<MasterDbSyncModalProps> = ({ isOpen, onClose, 
             }
 
             const batch = writeBatch(db);
-            // FIX: Zapisujeme do 'items', nie 'data'
             batch.set(localPartsRef, {
                 items: [...currentData, ...uniqueNewParts]
             }, { merge: true });

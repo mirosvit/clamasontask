@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { db } from '../../firebase';
 import { 
@@ -128,6 +127,7 @@ export const useMasterData = () => {
 
   // Logistics Operations
   const onAddLogisticsOperation = async (val: string, time: number = 0, dist: number = 0, x: number = 0, y: number = 0) => { await addDoc(collection(db, 'logistics_operations'), { value: val, standardTime: time, distancePx: dist, coordX: x, coordY: y }); };
+  // Fix: changed 'doc(logistics_operations, id)' to 'doc(db, 'logistics_operations', id)' to resolve the 'Cannot find name' error
   const onUpdateLogisticsOperation = async (id: string, updates: Partial<DBItem>) => { await updateDoc(doc(db, 'logistics_operations', id), updates); };
   const onDeleteLogisticsOperation = async (id: string) => { await deleteDoc(doc(db, 'logistics_operations', id)); };
   const onDeleteAllLogisticsOperations = async () => {
@@ -145,7 +145,10 @@ export const useMasterData = () => {
   // Parts (Single Doc Pattern)
   const onAddPart = async (value: string, description: string = '') => {
       try {
-          const newItem = { id: `part_${Date.now()}_${Math.random().toString(36).substr(2,9)}`, value: value.toUpperCase(), description, createdAt: Date.now() };
+          const newItem = { 
+            value: value.toUpperCase(), 
+            description 
+          };
           await setDoc(doc(db, 'settings', 'parts'), { items: arrayUnion(newItem) }, { merge: true });
       } catch (e) { console.error(e); }
   };
@@ -155,7 +158,12 @@ export const useMasterData = () => {
       vals.forEach((valLine) => {
         if (!valLine.trim()) return;
         const [p, d] = valLine.split(';');
-        if(p) { itemsToAdd.push({ id: `part_${Date.now()}_${Math.random().toString(36).substr(2,9)}_${itemsToAdd.length}`, value: p.trim().toUpperCase(), description: d ? d.trim() : '', createdAt: Date.now() }); }
+        if(p) { 
+          itemsToAdd.push({ 
+            value: p.trim().toUpperCase(), 
+            description: d ? d.trim() : '' 
+          }); 
+        }
       });
       if (itemsToAdd.length > 0) { await setDoc(doc(db, 'settings', 'parts'), { items: arrayUnion(...itemsToAdd) }, { merge: true }); }
     } catch (error) { console.error("Error batch adding parts:", error); throw error; }
@@ -176,7 +184,6 @@ export const useMasterData = () => {
   // BOM (Single Doc Pattern - Optimized for Quota Guard)
   const onAddBOMItem = async (parent: string, child: string, qty: number) => {
       try {
-          // Ukladáme len nevyhnutné polia pre výpočet spotreby
           const newItem = { 
               parent: parent.toUpperCase(), 
               child: child.toUpperCase(), 
@@ -213,7 +220,7 @@ export const useMasterData = () => {
           }
       } catch (e) { console.error(e); }
   };
-  const onDeleteAllBOMItems = async () => { try { await setDoc(doc(db, 'settings', 'bom'), { items: [] }); } catch (e) { console.error(e); } };
+  const onDeleteAllBOMItems = async () => { try { await setDoc(doc(db, 'settings', 'bom'), { items: [] }); } catch (e) { console.error("Error clearing BOM:", e); } };
 
   // Requests
   const onRequestPart = async (part: string) => {
