@@ -82,8 +82,9 @@ interface PartSearchScreenProps {
   onAddMapSector: (name: string, x: number, y: number, color?: string) => void;
   onDeleteMapSector: (id: string) => void;
   onUpdateMapSector: (id: string, updates: Partial<MapSector>) => void;
-  partRequests: PartRequest[];
+  mapObstacles: any[]; // Pridané do props
   onRequestPart: (part: string) => Promise<boolean>;
+  partRequests: PartRequest[];
   onApprovePartRequest: (req: PartRequest) => void;
   onRejectPartRequest: (id: string) => void;
   breakSchedules: BreakSchedule[];
@@ -131,7 +132,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
     bomMap,
     onAddRole, onDeleteRole, onUpdatePermission, onVerifyAdminPassword,
     systemConfig, onUpdateSystemConfig,
-    mapSectors, isBreakActive
+    mapSectors, mapObstacles, isBreakActive
   } = props;
   
   const { t, language, setLanguage } = useLanguage();
@@ -333,6 +334,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                 mapSectors={mapSectors}
                 workplaces={workplaces}
                 logisticsOperations={logisticsOperationsList}
+                mapObstacles={mapObstacles}
                 systemConfig={systemConfig}
                 resolveName={resolveName}
               />

@@ -16,7 +16,7 @@ import {
   writeBatch,
   getDocs
 } from 'firebase/firestore';
-import { DBItem, MapSector, PartRequest, BOMRequest, BOMComponent } from '../../types/appTypes';
+import { DBItem, MapSector, PartRequest, BOMRequest, BOMComponent, MapObstacle } from '../../types/appTypes';
 
 export const useMasterData = () => {
   const [partsMap, setPartsMap] = useState<Record<string, string>>({});
@@ -24,6 +24,7 @@ export const useMasterData = () => {
   const [workplaces, setWorkplaces] = useState<DBItem[]>([]);
   const [logisticsOperations, setLogisticsOperations] = useState<DBItem[]>([]);
   const [mapSectors, setMapSectors] = useState<MapSector[]>([]);
+  const [mapObstacles, setMapObstacles] = useState<MapObstacle[]>([]);
   const [partRequests, setPartRequests] = useState<PartRequest[]>([]);
   const [bomRequests, setBomRequests] = useState<BOMRequest[]>([]);
 
@@ -66,13 +67,37 @@ export const useMasterData = () => {
         setBomMap(cleanMap);
     });
 
+    const unsubObstacles = onSnapshot(doc(db, 'settings', 'map_layout'), (docSnap) => {
+        if (docSnap.exists()) {
+            setMapObstacles(docSnap.data().obstacles || []);
+        } else {
+            setMapObstacles([]);
+        }
+    });
+
     return () => { 
         unsubWp(); unsubLogOps(); unsubSectors(); unsubPartReq(); unsubBomReq();
-        unsubParts(); unsubBOM();
+        unsubParts(); unsubBOM(); unsubObstacles();
     };
   }, []);
 
   // --- ACTIONS ---
+
+  // Obstacles
+  const onAddMapObstacle = async (obs: Omit<MapObstacle, 'id'>) => {
+      const id = `obs_${Date.now()}`;
+      await setDoc(doc(db, 'settings', 'map_layout'), { 
+          obstacles: arrayUnion({ ...obs, id }) 
+      }, { merge: true });
+  };
+  const onDeleteMapObstacle = async (id: string) => {
+      const ref = doc(db, 'settings', 'map_layout');
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+          const filtered = (snap.data().obstacles || []).filter((o: any) => o.id !== id);
+          await updateDoc(ref, { obstacles: filtered });
+      }
+  };
 
   // Workplaces
   const onAddWorkplace = async (val: string, time: number = 0, x: number = 0, y: number = 0) => {
@@ -214,10 +239,11 @@ export const useMasterData = () => {
   };
 
   return {
-    partsMap, bomMap, workplaces, logisticsOperations, mapSectors, partRequests, bomRequests,
+    partsMap, bomMap, workplaces, logisticsOperations, mapSectors, mapObstacles, partRequests, bomRequests,
     onAddWorkplace, onUpdateWorkplace, onDeleteWorkplace, onDeleteAllWorkplaces, onBatchAddWorkplaces,
     onAddLogisticsOperation, onUpdateLogisticsOperation, onDeleteLogisticsOperation, onDeleteAllLogisticsOperations,
     onAddMapSector, onUpdateMapSector, onDeleteMapSector,
+    onAddMapObstacle, onDeleteMapObstacle,
     onAddPart, onBatchAddParts, onDeletePart, onDeleteAllParts,
     onAddBOMItem, onBatchAddBOMItems, onDeleteBOMItem, onDeleteAllBOMItems,
     onRequestPart, onDeletePartRequest, 

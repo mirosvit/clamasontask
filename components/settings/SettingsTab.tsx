@@ -177,6 +177,9 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             onAddMapSector={data.onAddMapSector}
             onDeleteMapSector={data.onDeleteMapSector}
             onUpdateMapSector={data.onUpdateMapSector}
+            mapObstacles={data.mapObstacles}
+            onAddMapObstacle={data.onAddMapObstacle}
+            onDeleteMapObstacle={data.onDeleteMapObstacle}
             systemConfig={props.systemConfig}
             onUpdateSystemConfig={props.onUpdateSystemConfig}
           />

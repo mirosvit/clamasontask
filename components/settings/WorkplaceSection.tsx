@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, memo } from 'react';
 import { createPortal } from 'react-dom';
-import { DBItem, MapSector, SystemConfig } from '../../types/appTypes';
+import { DBItem, MapSector, SystemConfig, MapObstacle } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 
 interface WorkplaceSectionProps {
@@ -20,6 +20,9 @@ interface WorkplaceSectionProps {
   onAddMapSector: (name: string, x: number, y: number, color?: string) => void;
   onDeleteMapSector: (id: string) => void;
   onUpdateMapSector: (id: string, updates: Partial<MapSector>) => void;
+  mapObstacles: MapObstacle[];
+  onAddMapObstacle: (obs: Omit<MapObstacle, 'id'>) => void;
+  onDeleteMapObstacle: (id: string) => void;
   systemConfig: SystemConfig;
   onUpdateSystemConfig: (config: Partial<SystemConfig>) => void;
 }
@@ -33,7 +36,8 @@ const Icons = {
   Factory: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-7h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>,
   Truck: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" /></svg>,
   Map: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>,
-  Time: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+  Time: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  Stop: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
 };
 
 const colorOptions = [
@@ -52,13 +56,16 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo((props) => {
   
   // Modals States
   const [isWpModalOpen, setIsWpModalOpen] = useState(false);
-  const [editingWp, setEditingWp] = useState<Partial<DBItem> | null>(null); // null = new
+  const [editingWp, setEditingWp] = useState<Partial<DBItem> | null>(null); 
   
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [editingLog, setEditingLog] = useState<Partial<DBItem> | null>(null);
 
   const [isSectorModalOpen, setIsSectorModalOpen] = useState(false);
   const [editingSector, setEditingSector] = useState<Partial<MapSector> | null>(null);
+
+  const [isObstacleModalOpen, setIsObstacleModalOpen] = useState(false);
+  const [editingObstacle, setEditingObstacle] = useState<Partial<MapObstacle> | null>(null);
 
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [bulkWorkplaces, setBulkWorkplaces] = useState('');
@@ -75,6 +82,17 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo((props) => {
   }, [props.mapSectors]);
 
   // --- HANDLERS ---
+
+  // Obstacle
+  const handleCreateObstacle = () => {
+      setEditingObstacle({ name: 'Regál', x: 0, y: 0, w: 50, h: 20, type: 'rack' });
+      setIsObstacleModalOpen(true);
+  };
+  const handleSaveObstacle = () => {
+      if (!editingObstacle || !editingObstacle.name) return;
+      props.onAddMapObstacle(editingObstacle as Omit<MapObstacle, 'id'>);
+      setIsObstacleModalOpen(false);
+  };
 
   // Workplace
   const handleEditWorkplace = (wp: DBItem) => {
@@ -212,6 +230,43 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo((props) => {
                 ))}
             </div>
         </div>
+
+        {/* Map Obstacles - NOVO PRIDANÉ */}
+        <div className={cardClass}>
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h3 className="text-xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
+                        <span className="w-2 h-6 bg-red-600 rounded-full"></span>
+                        PREKÁŽKY MAPY
+                    </h3>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Steny, regále a prejazdy</p>
+                </div>
+                <button onClick={handleCreateObstacle} className="h-9 bg-red-700 hover:bg-red-600 text-white px-3 rounded-lg shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                    <Icons.Plus /> Pridať prekážku
+                </button>
+            </div>
+
+            <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                {(props.mapObstacles || []).map(obs => (
+                    <div key={obs.id} className="flex justify-between items-center bg-slate-950/30 p-3 rounded-xl border border-white/5 group hover:bg-slate-900 transition-colors">
+                        <div className="flex items-center gap-4">
+                            <div className={`w-8 h-8 rounded flex items-center justify-center ${obs.type === 'wall' ? 'bg-slate-700' : 'bg-red-900/30 text-red-500'}`}>
+                                <Icons.Stop />
+                            </div>
+                            <div>
+                                <p className="text-xs font-black text-white uppercase">{obs.name}</p>
+                                <p className="text-[9px] font-mono text-slate-600 uppercase">
+                                    Pos: {obs.x},{obs.y} | Size: {obs.w}x{obs.h}
+                                </p>
+                            </div>
+                        </div>
+                        <button onClick={() => { if(window.confirm('Zmazať prekážku?')) props.onDeleteMapObstacle(obs.id); }} className="text-slate-600 hover:text-red-500 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Icons.Trash />
+                        </button>
+                    </div>
+                ))}
+            </div>
+        </div>
       </div>
 
       {/* --- RIGHT COLUMN: LOGISTICS & SECTORS --- */}
@@ -320,6 +375,51 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo((props) => {
       </div>
 
       {/* --- MODALS --- */}
+
+      {/* OBSTACLE MODAL */}
+      {isObstacleModalOpen && editingObstacle && createPortal(
+          <div className={modalOverlayClass} onClick={() => setIsObstacleModalOpen(false)}>
+              <div className={modalContentClass} onClick={e => e.stopPropagation()}>
+                  <h3 className="text-2xl font-black text-white uppercase tracking-tighter mb-6">DEFINOVAŤ PREKÁŽKU</h3>
+                  <div className="space-y-6">
+                      <div className="grid grid-cols-2 gap-4">
+                          <div className="col-span-2">
+                              <label className={labelClass}>NÁZOV (NAPR. REGÁL A1)</label>
+                              <input value={editingObstacle.name} onChange={e=>setEditingObstacle({...editingObstacle, name: e.target.value})} className={inputClass} />
+                          </div>
+                          <div>
+                              <label className={labelClass}>X POZÍCIA</label>
+                              <input type="number" value={editingObstacle.x} onChange={e=>setEditingObstacle({...editingObstacle, x: parseInt(e.target.value)})} className={inputClass} />
+                          </div>
+                          <div>
+                              <label className={labelClass}>Y POZÍCIA</label>
+                              <input type="number" value={editingObstacle.y} onChange={e=>setEditingObstacle({...editingObstacle, y: parseInt(e.target.value)})} className={inputClass} />
+                          </div>
+                          <div>
+                              <label className={labelClass}>ŠÍRKA (W)</label>
+                              <input type="number" value={editingObstacle.w} onChange={e=>setEditingObstacle({...editingObstacle, w: parseInt(e.target.value)})} className={inputClass} />
+                          </div>
+                          <div>
+                              <label className={labelClass}>VÝŠKA (H)</label>
+                              <input type="number" value={editingObstacle.h} onChange={e=>setEditingObstacle({...editingObstacle, h: parseInt(e.target.value)})} className={inputClass} />
+                          </div>
+                          <div className="col-span-2">
+                              <label className={labelClass}>TYP</label>
+                              <select value={editingObstacle.type} onChange={e=>setEditingObstacle({...editingObstacle, type: e.target.value as any})} className={inputClass}>
+                                  <option value="rack">REGÁL (PRIEPUTNÝ PRE LOGIKU)</option>
+                                  <option value="wall">STENA (NEPRIEPUTNÝ BLOK)</option>
+                              </select>
+                          </div>
+                      </div>
+                      <div className="flex gap-3 mt-8">
+                        <button onClick={() => setIsObstacleModalOpen(false)} className="flex-1 h-14 rounded-xl font-black uppercase text-slate-400 bg-transparent border-2 border-slate-700 text-xs">Zrušiť</button>
+                        <button onClick={handleSaveObstacle} className="flex-1 h-14 bg-red-600 text-white rounded-xl font-black uppercase text-xs border-2 border-red-500">Uložiť Blok</button>
+                      </div>
+                  </div>
+              </div>
+          </div>,
+          document.body
+      )}
 
       {/* WORKPLACE MODAL */}
       {isWpModalOpen && editingWp && createPortal(

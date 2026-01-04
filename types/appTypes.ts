@@ -29,6 +29,16 @@ export interface MapSector {
   order?: number;
 }
 
+export interface MapObstacle {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  type: 'rack' | 'wall';
+}
+
 export type PriorityLevel = 'LOW' | 'NORMAL' | 'URGENT';
 
 export interface InventorySession {
