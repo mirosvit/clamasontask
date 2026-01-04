@@ -196,8 +196,8 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             breakSchedules={data.breakSchedules} 
             onAddMissingReason={data.onAddMissingReason} 
             onDeleteMissingReason={data.onDeleteMissingReason} 
-            onAddBreakSchedule={() => {}} // TODO: Add to useOperationsData if missing
-            onDeleteBreakSchedule={() => {}} 
+            onAddBreakSchedule={data.onAddBreakSchedule}
+            onDeleteBreakSchedule={data.onDeleteBreakSchedule} 
             onUpdateAdminKey={props.onUpdateAdminKey}
             isAdminLockEnabled={props.systemConfig.adminLockEnabled || false}
             onToggleAdminLock={props.onToggleAdminLock}

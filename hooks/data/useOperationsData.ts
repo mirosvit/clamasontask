@@ -8,7 +8,10 @@ import {
   orderBy,
   doc,
   addDoc,
-  deleteDoc
+  deleteDoc,
+  updateDoc,
+  arrayUnion,
+  getDoc
 } from 'firebase/firestore';
 import { DBItem, BreakSchedule, SystemBreak } from '../../types/appTypes';
 
@@ -51,8 +54,40 @@ export const useOperationsData = () => {
   const onAddMissingReason = async (val: string) => { await addDoc(collection(db, 'missing_reasons'), { value: val }); };
   const onDeleteMissingReason = async (id: string) => { await deleteDoc(doc(db, 'missing_reasons', id)); };
 
+  const onAddBreakSchedule = async (start: string, end: string) => {
+      try {
+          const ref = doc(db, 'settings', 'breaks');
+          const newBreak = {
+              id: `break_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+              startTime: start,
+              endTime: end,
+              name: 'Prestávka'
+          };
+          await updateDoc(ref, {
+              data: arrayUnion(newBreak)
+          });
+      } catch (e) {
+          console.error("Error adding break schedule:", e);
+      }
+  };
+
+  const onDeleteBreakSchedule = async (id: string) => {
+      try {
+          const ref = doc(db, 'settings', 'breaks');
+          const snap = await getDoc(ref);
+          if (snap.exists()) {
+              const currentData = snap.data().data || [];
+              const filteredData = currentData.filter((b: any) => b.id !== id);
+              await updateDoc(ref, { data: filteredData });
+          }
+      } catch (e) {
+          console.error("Error deleting break schedule:", e);
+      }
+  };
+
   return {
     missingReasons, breakSchedules, systemBreaks, isBreakActive,
-    onAddMissingReason, onDeleteMissingReason
+    onAddMissingReason, onDeleteMissingReason,
+    onAddBreakSchedule, onDeleteBreakSchedule
   };
 };

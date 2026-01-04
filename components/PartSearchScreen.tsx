@@ -37,6 +37,7 @@ interface PartSearchScreenProps {
   onToggleBlock: (id: string) => void; 
   onToggleManualBlock: (id: string) => void;
   onExhaustSearch: (id: string) => void;
+  onAddCodeNote?: (id: string, note: string) => void; // Renamed if needed, but not in current interface
   onAddNote: (id: string, note: string) => void;
   onDeleteMissingItem: (id: string) => void;
   onDeleteMissingReason: (id: string) => void;
@@ -129,7 +130,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
     bomMap,
     onAddRole, onDeleteRole, onUpdatePermission, onVerifyAdminPassword,
     systemConfig, onUpdateSystemConfig,
-    mapSectors
+    mapSectors, isBreakActive
   } = props;
   
   const { t, language, setLanguage } = useLanguage();
@@ -181,6 +182,11 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   const logisticsOperationsList = useMemo(() => props.logisticsOperations || [], [props.logisticsOperations]);
 
   const handleAdd = () => {
+    if (isBreakActive && currentUserRole !== 'ADMIN') {
+        alert(t('break_blocked_msg'));
+        return;
+    }
+    
     if (entryMode === 'production') {
         if (!selectedPart || !selectedWorkplace || !quantity) { alert(t('fill_all_fields')); return; }
         onAddTask(selectedPart, selectedWorkplace, quantity, quantityUnit, priority, false, '', true);
@@ -214,7 +220,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
 
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-white">
-      <AppHeader currentUser={currentUser} currentUserRole={currentUserRole} users={users} onLogout={onLogout} language={language} setLanguage={setLanguage} t={t} isFullscreen={false} onToggleFullscreen={()=>{}} installPrompt={installPrompt} onInstallApp={onInstallApp} hasPermission={hasPermission} resolveName={resolveName} />
+      <AppHeader currentUser={currentUser} currentUserRole={currentUserRole} users={users} onLogout={onLogout} language={language} setLanguage={setLanguage} t={t} isFullscreen={false} onToggleFullscreen={()=>{}} installPrompt={installPrompt} onInstallApp={onInstallApp} hasPermission={hasPermission} resolveName={resolveName} isBreakActive={isBreakActive} />
       
       {showSuccessMessage && (
         <div className="fixed top-24 right-6 bg-green-600 text-white px-6 py-4 rounded-xl shadow-2xl z-50 animate-bounce font-black tracking-widest">✓ {t('sent_msg')}</div>

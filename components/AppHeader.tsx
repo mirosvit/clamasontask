@@ -16,6 +16,7 @@ interface AppHeaderProps {
   onInstallApp: () => void;
   hasPermission: (perm: string) => boolean;
   resolveName: (username?: string | null) => string;
+  isBreakActive?: boolean;
 }
 
 const UserIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -44,7 +45,8 @@ const LogoutIcon: React.FC<{ className?: string }> = ({ className }) => (
 
 const AppHeader: React.FC<AppHeaderProps> = ({
   currentUser, currentUserRole, onLogout, language, setLanguage, t,
-  isFullscreen, onToggleFullscreen, installPrompt, onInstallApp, hasPermission, resolveName
+  isFullscreen, onToggleFullscreen, installPrompt, onInstallApp, hasPermission, resolveName,
+  isBreakActive
 }) => {
     const [isOnline, setIsOnline] = useState(navigator.onLine);
 
@@ -64,7 +66,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({
         if (savedScans) {
             try {
                 const scans = JSON.parse(savedScans);
-                // OPRAVA: Kontrola scans na null/undefined pred length
                 if (scans && scans.length > 0) {
                     const confirmMsg = language === 'sk' 
                       ? `Pozor! V Inventúre máte ${scans.length} neexportovaných položiek. Po odhlásení zostanú v pamäti tohto tabletu, ale odporúčame ich najskôr exportovať. Naozaj sa chcete odhlásiť?`
@@ -78,45 +79,60 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     };
 
     return (
-        <div className="bg-gray-900 shadow-2xl z-40 p-3 border-b border-gray-800 relative">
-            <div className="max-w-7xl mx-auto w-full flex items-center justify-between relative">
-                <div className="flex items-center gap-4 z-10">
-                    <div className="flex bg-gray-800 rounded-lg p-1 border border-gray-700 shadow-inner">
-                        <button onClick={() => setLanguage('sk')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all duration-200 ${language === 'sk' ? 'bg-teal-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>SK</button>
-                        <button onClick={() => setLanguage('en')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all duration-200 ${language === 'en' ? 'bg-teal-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>EN</button>
-                    </div>
-                    {/* Network Status Badge */}
-                    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md border ${isOnline ? 'border-green-500/30 bg-green-500/10' : 'border-red-500/30 bg-red-500/10 animate-pulse'}`}>
-                        <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`}></div>
-                        <span className={`text-[10px] font-black uppercase tracking-widest ${isOnline ? 'text-green-500' : 'text-red-500'}`}>
-                            {isOnline ? 'ONLINE' : 'OFFLINE REŽIM'}
-                        </span>
+        <div className="flex flex-col">
+            {/* Break Banner */}
+            {isBreakActive && (
+                <div className="bg-amber-600 text-white py-2 px-4 flex items-center justify-center gap-3 animate-pulse border-b border-amber-500 shadow-lg relative z-50">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-black uppercase tracking-[0.25em]">{t('break_active')}</span>
+                        <span className="hidden md:inline text-[11px] font-bold opacity-90 border-l border-white/30 pl-3 leading-none">{t('break_active_desc')}</span>
                     </div>
                 </div>
-                <div className="flex items-center gap-3 z-10">
-                    <div className="hidden sm:flex items-center gap-2 bg-gray-800 border border-gray-700 px-3 py-1.5 rounded-full shadow-sm">
-                        <UserIcon className="w-4 h-4 text-teal-400" />
-                        <div className="flex flex-col">
-                            <span className="text-xs font-black text-white leading-none truncate max-w-[120px]">{resolveName(currentUser)}</span>
-                            <span className={`text-[9px] font-bold uppercase leading-none mt-1 ${currentUserRole === 'ADMIN' ? 'text-red-400' : currentUserRole === 'LEADER' ? 'text-sky-400' : 'text-teal-500 opacity-80'}`}>
-                                {currentUserRole}
+            )}
+            
+            <div className="bg-gray-900 shadow-2xl z-40 p-3 border-b border-gray-800 relative">
+                <div className="max-w-7xl mx-auto w-full flex items-center justify-between relative">
+                    <div className="flex items-center gap-4 z-10">
+                        <div className="flex bg-gray-800 rounded-lg p-1 border border-gray-700 shadow-inner">
+                            <button onClick={() => setLanguage('sk')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all duration-200 ${language === 'sk' ? 'bg-teal-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>SK</button>
+                            <button onClick={() => setLanguage('en')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all duration-200 ${language === 'en' ? 'bg-teal-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>EN</button>
+                        </div>
+                        {/* Network Status Badge */}
+                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md border ${isOnline ? 'border-green-500/30 bg-green-500/10' : 'border-red-500/30 bg-red-500/10 animate-pulse'}`}>
+                            <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`}></div>
+                            <span className={`text-[10px] font-black uppercase tracking-widest ${isOnline ? 'text-green-500' : 'text-red-500'}`}>
+                                {isOnline ? 'ONLINE' : 'OFFLINE REŽIM'}
                             </span>
                         </div>
                     </div>
+                    <div className="flex items-center gap-3 z-10">
+                        <div className="hidden sm:flex items-center gap-2 bg-gray-800 border border-gray-700 px-3 py-1.5 rounded-full shadow-sm">
+                            <UserIcon className="w-4 h-4 text-teal-400" />
+                            <div className="flex flex-col">
+                                <span className="text-xs font-black text-white leading-none truncate max-w-[120px]">{resolveName(currentUser)}</span>
+                                <span className={`text-[9px] font-bold uppercase leading-none mt-1 ${currentUserRole === 'ADMIN' ? 'text-red-400' : currentUserRole === 'LEADER' ? 'text-sky-400' : 'text-teal-500 opacity-80'}`}>
+                                    {currentUserRole}
+                                </span>
+                            </div>
+                        </div>
 
-                    {installPrompt && hasPermission('perm_install_pwa') && (
-                        <button onClick={onInstallApp} className="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-lg transition-colors shadow-md border border-blue-500/50" title={t('pwa_install_btn')}>
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a.75.75 0 01.75.75v6.5a.75.75 0 01-1.5 0V2.75A.75.75 0 0110 2z"/><path fillRule="evenodd" d="M3.5 9.25a.75.75 0 00-1.5 0v7a2 2 0 002 2h11a2 2 0 002-2v-7a.75.75 0 00-1.5 0v7a.5.5 0 01-.5.5h-11a.5.5 0 01-.5-.5v-7z" clipRule="evenodd"/></svg>
+                        {installPrompt && hasPermission('perm_install_pwa') && (
+                            <button onClick={onInstallApp} className="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-lg transition-colors shadow-md border border-blue-500/50" title={t('pwa_install_btn')}>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a.75.75 0 01.75.75v6.5a.75.75 0 01-1.5 0V2.75A.75.75 0 0110 2z"/><path fillRule="evenodd" d="M3.5 9.25a.75.75 0 00-1.5 0v7a2 2 0 002 2h11a2 2 0 002-2v-7a.75.75 0 00-1.5 0v7a.5.5 0 01-.5.5h-11a.5.5 0 01-.5-.5v-7z" clipRule="evenodd"/></svg>
+                            </button>
+                        )}
+                        {hasPermission('perm_view_fullscreen') && (
+                            <button onClick={onToggleFullscreen} className="bg-gray-700 hover:bg-gray-600 text-teal-400 hover:text-white p-2 rounded-lg transition-all shadow-md border border-gray-600" title={isFullscreen ? t('fullscreen_off') : t('fullscreen_on')}>
+                                {isFullscreen ? <ExitFullscreenIcon className="h-5 w-5" /> : <FullscreenIcon className="h-5 w-5" />}
+                            </button>
+                        )}
+                        <button onClick={handleLogoutWithCheck} className="bg-red-600 hover:bg-red-500 text-white p-2 rounded-lg transition-all shadow-md border border-red-500/50" title={t('logout')}>
+                            <LogoutIcon className="h-5 w-5" />
                         </button>
-                    )}
-                    {hasPermission('perm_view_fullscreen') && (
-                        <button onClick={onToggleFullscreen} className="bg-gray-700 hover:bg-gray-600 text-teal-400 hover:text-white p-2 rounded-lg transition-all shadow-md border border-gray-600" title={isFullscreen ? t('fullscreen_off') : t('fullscreen_on')}>
-                            {isFullscreen ? <ExitFullscreenIcon className="h-5 w-5" /> : <FullscreenIcon className="h-5 w-5" />}
-                        </button>
-                    )}
-                    <button onClick={handleLogoutWithCheck} className="bg-red-600 hover:bg-red-500 text-white p-2 rounded-lg transition-all shadow-md border border-red-500/50" title={t('logout')}>
-                        <LogoutIcon className="h-5 w-5" />
-                    </button>
+                    </div>
                 </div>
             </div>
         </div>
