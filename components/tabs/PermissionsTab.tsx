@@ -20,7 +20,19 @@ const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, permissions, onA
     const permGroups = [
       {
           name: 'perm_group_tabs',
-          perms: ['perm_tab_entry', 'perm_tab_tasks', 'perm_tab_bom', 'perm_tab_missing', 'perm_tab_inventory', 'perm_tab_logistics_center', 'perm_tab_analytics', 'perm_tab_settings', 'perm_tab_permissions', 'perm_logistics_mode'] 
+          perms: [
+              'perm_tab_entry', 
+              'perm_tab_tasks', 
+              'perm_tab_bom', 
+              'perm_tab_missing', 
+              'perm_tab_inventory', 
+              'perm_tab_logistics_center', 
+              'perm_tab_map', // PRIDANÉ: Oprávnenie pre mapu
+              'perm_tab_analytics', 
+              'perm_tab_settings', 
+              'perm_tab_permissions', 
+              'perm_logistics_mode'
+          ] 
       },
       {
           name: 'perm_group_actions',

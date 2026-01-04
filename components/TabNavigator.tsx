@@ -107,6 +107,18 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
             </button>
           )}
 
+          {/* NOVÝ TAB: Mapa trás */}
+          {hasPermission('perm_tab_map') && (
+            <button
+              onClick={() => setActiveTab('map')}
+              className={`whitespace-nowrap py-3 px-1 border-b-4 font-bold text-sm transition-colors ${
+                activeTab === 'map' ? 'border-amber-500 text-amber-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'
+              }`}
+            >
+              {t('tab_map')}
+            </button>
+          )}
+
           {/* NOVÝ TAB: Transakcie (LOG) - Len pre ADMIN */}
           {currentUserRole === 'ADMIN' && (
             <button

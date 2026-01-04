@@ -12,6 +12,7 @@ import BOMScreen from './tabs/BOMScreen';
 import ProductionEntry from './tabs/ProductionEntry';
 import PartCatalogTab from './tabs/PartCatalogTab';
 import TransactionLogTab from './tabs/TransactionLogTab';
+import MapVisualizationTab from './tabs/MapVisualizationTab';
 import SectorPickerModal from './modals/SectorPickerModal';
 import AppHeader from './AppHeader';
 import TabNavigator from './TabNavigator';
@@ -134,7 +135,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   } = props;
   
   const { t, language, setLanguage } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'entry' | 'tasks' | 'settings' | 'analytics' | 'bom' | 'missing' | 'logistics' | 'permissions' | 'inventory' | 'catalog' | 'logs'>('entry');
+  const [activeTab, setActiveTab] = useState<'entry' | 'tasks' | 'settings' | 'analytics' | 'bom' | 'missing' | 'logistics' | 'permissions' | 'inventory' | 'catalog' | 'logs' | 'map'>('entry');
   const [taskSearchQuery, setTaskSearchQuery] = useState('');
   const [entryMode, setEntryMode] = useState<'production' | 'logistics'>('production');
 
@@ -168,7 +169,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
 
   const currentRoleId = roles.find(r => r.name === currentUserRole)?.id;
   const hasPermission = useCallback((permName: string) => {
-      if (currentUserRole === 'ADMIN' && (permName === 'perm_tab_permissions' || permName === 'perm_manage_roles' || permName === 'perm_tab_settings')) return true;
+      if (currentUserRole === 'ADMIN' && (permName === 'perm_tab_permissions' || permName === 'perm_manage_roles' || permName === 'perm_tab_settings' || permName === 'perm_tab_map')) return true;
       if (!currentRoleId) return false;
       return permissions.some(p => p.roleId === currentRoleId && p.permissionName === permName);
   }, [currentUserRole, currentRoleId, permissions]);
@@ -321,6 +322,19 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                   users={users}
                   mapSectors={mapSectors}
                   resolveName={resolveName}
+              />
+          )}
+          {activeTab === 'map' && (
+              <MapVisualizationTab 
+                tasks={tasks}
+                draftTasks={draftTasks}
+                fetchSanons={fetchSanons}
+                users={users}
+                mapSectors={mapSectors}
+                workplaces={workplaces}
+                logisticsOperations={logisticsOperationsList}
+                systemConfig={systemConfig}
+                resolveName={resolveName}
               />
           )}
           </div>

@@ -148,10 +148,15 @@ export const useMasterData = () => {
   };
   const onDeleteAllParts = async () => { try { await setDoc(doc(db, 'settings', 'parts'), { items: [] }); } catch (e) { console.error("Error clearing parts:", e); } };
 
-  // BOM (Single Doc Pattern)
+  // BOM (Single Doc Pattern - Optimized for Quota Guard)
   const onAddBOMItem = async (parent: string, child: string, qty: number) => {
       try {
-          const newItem = { id: `bom_${Date.now()}_${Math.random().toString(36).substr(2,9)}`, parent: parent.toUpperCase(), child: child.toUpperCase(), consumption: qty, createdAt: Date.now() };
+          // Ukladáme len nevyhnutné polia pre výpočet spotreby
+          const newItem = { 
+              parent: parent.toUpperCase(), 
+              child: child.toUpperCase(), 
+              consumption: qty 
+          };
           await setDoc(doc(db, 'settings', 'bom'), { items: arrayUnion(newItem) }, { merge: true });
       } catch (e) { console.error(e); }
   };
@@ -161,7 +166,13 @@ export const useMasterData = () => {
           vals.forEach(line => {
               if (!line.trim()) return;
               const [p, c, q] = line.split(';');
-              if (p && c) { itemsToAdd.push({ id: `bom_${Date.now()}_${Math.random().toString(36).substr(2,9)}_${itemsToAdd.length}`, parent: p.trim().toUpperCase(), child: c.trim().toUpperCase(), consumption: parseFloat(q?.replace(',', '.') || '0'), createdAt: Date.now() }); }
+              if (p && c) { 
+                  itemsToAdd.push({ 
+                      parent: p.trim().toUpperCase(), 
+                      child: c.trim().toUpperCase(), 
+                      consumption: parseFloat(q?.replace(',', '.') || '0') 
+                  }); 
+              }
           });
           if (itemsToAdd.length > 0) { await setDoc(doc(db, 'settings', 'bom'), { items: arrayUnion(...itemsToAdd) }, { merge: true }); }
       } catch (e) { console.error(e); }

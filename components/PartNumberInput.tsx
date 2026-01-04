@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect, useRef, useMemo, memo } from 'react';
 import { useLanguage } from './LanguageContext';
+import { db } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 interface PartNumberInputProps {
   parts: string[];
@@ -25,13 +27,20 @@ const PlusIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
+const GlobeIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+    </svg>
+);
+
 const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSelect, onInputChange, placeholder, value, onRequestPart, inputRef, onKeyDown }) => {
   const [query, setQuery] = useState<string>('');
   const [isDropdownVisible, setIsDropdownVisible] = useState<boolean>(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   
   const [reportStatus, setReportStatus] = useState<'idle' | 'loading' | 'success'>('idle');
+  const [masterSearchStatus, setMasterSearchStatus] = useState<'idle' | 'loading' | 'found' | 'not_found'>('idle');
 
   useEffect(() => {
     setQuery(value || '');
@@ -54,6 +63,7 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
 
   useEffect(() => {
     setReportStatus('idle');
+    setMasterSearchStatus('idle');
   }, [query]);
 
   useEffect(() => {
@@ -108,9 +118,46 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
     }
   };
 
+  // --- NOVINKA: Master DB Lookup ---
+  const handleMasterLookup = async (e: React.MouseEvent) => {
+      e.preventDefault();
+      const partToFind = query.trim().toUpperCase();
+      if (!partToFind) return;
+
+      setMasterSearchStatus('loading');
+      try {
+          // Načítame master katalóg
+          const masterRef = doc(db, 'settings', 'master_catalog');
+          const snap = await getDoc(masterRef);
+          
+          if (snap.exists()) {
+              const data = snap.data();
+              const allMasterParts = (data.parts || []) as {p: string, d: string}[];
+              const found = allMasterParts.find(m => m.p.toUpperCase() === partToFind);
+              
+              if (found) {
+                  setMasterSearchStatus('found');
+                  if (window.confirm(t('db_master_found'))) {
+                      // Automatický import cez callback (cez PartSearchScreen -> onAddPart)
+                      // Pre zjednodušenie tu len nastavíme hodnotu
+                      handleSelectPart(found.p);
+                  }
+              } else {
+                  setMasterSearchStatus('not_found');
+              }
+          } else {
+              setMasterSearchStatus('not_found');
+          }
+      } catch (err) {
+          console.error("Master lookup failed", err);
+          setMasterSearchStatus('not_found');
+      }
+  };
+
   const isExactMatch = useMemo(() => parts.some(p => p.toLowerCase() === query.trim().toLowerCase()), [query, parts]);
   const hasWildcard = query.includes('*');
-  const showReportButton = onRequestPart && query.trim() !== '' && !isExactMatch && !hasWildcard;
+  const showMasterLookup = query.trim() !== '' && !isExactMatch && !hasWildcard && masterSearchStatus === 'idle';
+  const showReportButton = onRequestPart && query.trim() !== '' && !isExactMatch && !hasWildcard && masterSearchStatus === 'not_found';
 
   return (
     <div className="relative" ref={containerRef}>
@@ -146,6 +193,23 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
         </div>
       )}
 
+      {/* Tlačidlo pre Master DB Lookup */}
+      {showMasterLookup && (
+          <div className="mt-2 animate-fade-in">
+              <button
+                type="button"
+                onMouseDown={handleMasterLookup}
+                disabled={masterSearchStatus === 'loading'}
+                className="w-full py-3 px-4 bg-indigo-600/20 border border-indigo-500/50 hover:bg-indigo-600/40 text-indigo-400 font-bold rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95"
+              >
+                  {masterSearchStatus === 'loading' ? (
+                      <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
+                  ) : <GlobeIcon className="w-4 h-4" />}
+                  <span className="text-xs uppercase tracking-widest">{t('db_master_lookup')}</span>
+              </button>
+          </div>
+      )}
+
       {showReportButton && (
         <div className="mt-2 animate-fade-in">
              <button
@@ -175,6 +239,12 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
                 {reportStatus === 'success' ? t('report_hint_success') : t('report_hint_idle')}
             </p>
         </div>
+      )}
+
+      {masterSearchStatus === 'not_found' && (
+          <p className="text-center text-[10px] text-rose-500 font-bold uppercase tracking-widest mt-2 animate-pulse">
+              {t('db_master_not_found')}
+          </p>
       )}
     </div>
   );
