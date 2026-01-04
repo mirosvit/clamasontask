@@ -454,6 +454,11 @@ export const translations = {
     top_missing_parts: "TOP 3 CHÝBAJÚCE DIELY",
     real_errors: "Reálne nahlásenia",
     false_alarms: "Nájdené (Falošné)",
+    map_scale_label: "10 METROV",
+    map_bottleneck_label: "BOTTLENECK (Kritický bod)",
+    map_legend_transit: "Tranzit",
+    map_legend_prod: "Výroba",
+    map_legend_log: "Logistika"
   },
   en: {
     tab_map: "Route Map",
@@ -908,5 +913,12 @@ export const translations = {
     top_missing_parts: "TOP 3 MISSING PARTS",
     real_errors: "Real Reports",
     false_alarms: "Found (False)",
+    map_scale_label: "10 METERS",
+    map_bottleneck_label: "BOTTLENECK (Critical Point)",
+    map_legend_transit: "Transit",
+    map_legend_prod: "Production",
+    map_legend_log: "Logistics"
   }
 };
+
+export type AppTranslationKey = keyof typeof translations['sk'];
