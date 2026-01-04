@@ -31,9 +31,9 @@ const SearchIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
 );
 
-const ClockIcon: React.FC<{ className?: string }> = ({ className }) => (
+const UserIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
     </svg>
 );
 
@@ -47,13 +47,12 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
   const isUrgent = task.priority === 'URGENT' && !task.isDone;
   const isNoteLockedByAudit = !!(task.auditFinalBadge && !props.hasPermission('perm_btn_audit'));
 
-  // --- SMART TIME LOGIC START ---
+  // --- SMART TIME LOGIC ---
   const formatTime = (ts?: number) => {
     if (!ts) return '';
     const now = Date.now();
     const diff = now - ts;
     
-    // Menej ako minúta
     if (diff < 60000) return language === 'sk' ? 'Práve teraz' : 'Just now';
 
     const date = new Date(ts);
@@ -69,24 +68,8 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
     if (isToday) return (language === 'sk' ? 'Dnes, ' : 'Today, ') + timeStr;
     if (isYesterday) return (language === 'sk' ? 'Včera, ' : 'Yesterday, ') + timeStr;
     
-    // Staršie
     return date.toLocaleDateString(language === 'sk' ? 'sk-SK' : 'en-US', { day: '2-digit', month: '2-digit' }) + ', ' + timeStr;
   };
-
-  let displayTimeValue = task.createdAt;
-  let displayTimeLabel = language === 'sk' ? 'Vytvorené' : 'Created';
-  let timeColorClass = 'text-slate-500';
-
-  if (task.isDone && task.completedAt) {
-      displayTimeValue = task.completedAt;
-      displayTimeLabel = language === 'sk' ? 'Dokončené' : 'Completed';
-      timeColorClass = 'text-green-500';
-  } else if (task.isInProgress && task.startedAt) {
-      displayTimeValue = task.startedAt;
-      displayTimeLabel = language === 'sk' ? 'Začaté' : 'Started';
-      timeColorClass = 'text-amber-500';
-  }
-  // --- SMART TIME LOGIC END ---
 
   let bgClass = "";
   let borderClass = "";
@@ -166,17 +149,6 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
                     resolveName={resolveName}
                 />
              </div>
-             
-             {/* NEW TIME ROW */}
-             <div className="flex items-center gap-1.5 mt-1.5 pl-0.5 opacity-80">
-                <ClockIcon className={`w-3 h-3 ${timeColorClass}`} />
-                <span className={`text-[10px] font-black uppercase tracking-widest ${timeColorClass}`}>
-                    {displayTimeLabel}:
-                </span>
-                <span className="text-[10px] font-mono font-medium text-slate-300">
-                    {formatTime(displayTimeValue)}
-                </span>
-             </div>
           </div>
 
           <div className="flex justify-between items-start gap-3 mt-1">
@@ -199,10 +171,28 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
             </div>
           </div>
           
-          <div className="flex flex-wrap gap-2 items-center mt-2">
+          <div className="flex flex-wrap gap-2 items-center mt-1">
             <span className={`text-lg font-bold uppercase tracking-wider ${task.isDone ? 'text-gray-600' : isManualBlocked ? 'text-gray-600' : props.isSystemInventoryTask ? 'text-[#4169E1]' : isAuditInProgress ? 'text-amber-500' : 'text-cyan-400'}`}>{task.workplace || "---"}</span>
             {task.note && <span className="inline-block px-2 py-0.5 rounded bg-[#fef9c3] text-gray-800 text-xs font-bold shadow-sm border border-yellow-200 leading-tight">{task.note}</span>}
           </div>
+
+          {/* NOVÁ SEKICA: INFO O POUŽÍVATEĽOCH A ČASE */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 pt-3 border-t border-white/5 opacity-80">
+              <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{language === 'sk' ? 'ZADAL:' : 'CREATED:'}</span>
+                  <span className="text-[10px] font-bold text-teal-400 uppercase">{resolveName(task.createdBy)}</span>
+                  <span className="text-[10px] font-mono text-slate-500">{formatTime(task.createdAt)}</span>
+              </div>
+              
+              {task.isDone && (
+                  <div className="flex items-center gap-1.5 sm:border-l sm:border-slate-700 sm:pl-4">
+                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{language === 'sk' ? 'VYBAVIL:' : 'DONE BY:'}</span>
+                      <span className="text-[10px] font-bold text-green-500 uppercase">{resolveName(task.completedBy)}</span>
+                      <span className="text-[10px] font-mono text-slate-500">{formatTime(task.completedAt)}</span>
+                  </div>
+              )}
+          </div>
+
         </div>
       </div>
 
