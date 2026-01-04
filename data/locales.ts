@@ -1,4 +1,3 @@
-
 export const translations = {
   sk: {
     tab_map: "Mapa trás",
@@ -363,7 +362,7 @@ export const translations = {
     filter_all: "Všetko",
     filter_today: "Dnes",
     filter_yesterday: "Včera",
-    filter_week: "Tento týždeň",
+    filter_week: "Tento týdeň",
     filter_month: "Tento mesiac",
     filter_custom: "Vlastný rozsah",
     showing_data: "Synchronizujem mapu za:",

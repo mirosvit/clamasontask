@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Task, UserData, MapSector, DBItem, SystemConfig, MapObstacle } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
@@ -20,6 +19,15 @@ interface MapVisualizationTabProps {
 
 interface Point { x: number; y: number; label: string; type: 'wp' | 'sector' | 'log'; id: string; color?: string }
 interface RouteSegment { path: {x: number, y: number}[]; worker: string; isTransit: boolean; taskType: 'prod' | 'log' }
+
+// Explicitný typ pre návratovú hodnotu useMemo na mapu
+interface MapData {
+    segments: RouteSegment[];
+    nodes: Point[];
+    obstacles: MapObstacle[];
+    viewBox: string;
+    bottleneck: { x: number, y: number } | null;
+}
 
 const MapVisualizationTab: React.FC<MapVisualizationTabProps> = ({
   tasks, draftTasks, fetchSanons, users, mapSectors, workplaces, logisticsOperations, mapObstacles = [], systemConfig, resolveName
@@ -51,7 +59,7 @@ const MapVisualizationTab: React.FC<MapVisualizationTabProps> = ({
     finally { setIsLoading(false); }
   };
 
-  const { segments, nodes, obstacles, viewBox, bottleneck } = useMemo(() => {
+  const { segments, nodes, obstacles, viewBox, bottleneck } = useMemo((): MapData => {
     const pointsMap = new Map<string, Point>();
     workplaces.forEach(w => pointsMap.set(`wp_${w.value}`, { x: w.coordX || 0, y: w.coordY || 0, label: w.value, type: 'wp', id: w.id }));
     logisticsOperations.forEach(l => pointsMap.set(`log_${l.value}`, { x: l.coordX || 0, y: l.coordY || 0, label: l.value, type: 'log', id: l.id }));
@@ -132,7 +140,13 @@ const MapVisualizationTab: React.FC<MapVisualizationTabProps> = ({
         }
     });
 
-    return { segments: workerSegments, nodes: allNodes, obstacles: mapObstacles, viewBox: `${minX} ${minY} ${maxX - minX} ${maxY - minY}`, bottleneck: bottleneckPt };
+    return { 
+        segments: workerSegments, 
+        nodes: allNodes, 
+        obstacles: mapObstacles, 
+        viewBox: `${minX} ${minY} ${maxX - minX} ${maxY - minY}`, 
+        bottleneck: bottleneckPt 
+    };
   }, [allData, selectedWorkers, workplaces, logisticsOperations, mapSectors, mapObstacles]);
 
   const generatePathData = (path: {x: number, y: number}[]) => {
