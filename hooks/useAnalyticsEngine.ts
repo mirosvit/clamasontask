@@ -1,6 +1,7 @@
 
 import { useMemo } from 'react';
-import { Task, SystemBreak, MapSector, DBItem, SystemConfig, PriorityLevel } from '../types/appTypes';
+import { Task, SystemBreak, MapSector, DBItem, SystemConfig, MapObstacle } from '../types/appTypes';
+import { calculateAStarDistance } from '../utils/pathfinding';
 
 export type FilterMode = 'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH' | 'CUSTOM';
 export type SourceFilter = 'ALL' | 'PROD' | 'LOG';
@@ -17,26 +18,26 @@ export interface AnalyticsFilters {
 export interface DrivingStats {
     fullDist: number;   // metre
     emptyDist: number;  // metre
-    fullRides: number;  // počet jázd s nákladom
-    emptyRides: number; // počet jázd naprázdno (vrátane tranzitov)
-    efficiency: number; // %
+    fullRides: number;  
+    emptyRides: number; 
+    efficiency: number; 
 }
 
 export interface WorkerStats {
   id: string;
   name: string;
-  index: number; // WPI 0-10
+  index: number;
   tasksDone: number;
   pureWorkMinutes: number;
   utilizationPercent: number;
-  performanceRatio: number; // Performance (Tempo) %
+  performanceRatio: number;
   avgReactionSeconds: number;
   fullDistMeters: number;
   emptyDistMeters: number;
   logEfficiency: number;
   confidenceRating: number;
   totalRides: number; 
-  invalidTasksCount: number; // Nové: Počet invalidných (rýchlych) úloh
+  invalidTasksCount: number;
 }
 
 export const useAnalyticsEngine = (
@@ -46,6 +47,7 @@ export const useAnalyticsEngine = (
   mapSectors: MapSector[],
   workplaces: DBItem[],
   logisticsOperations: DBItem[],
+  mapObstacles: MapObstacle[], // PRIDANÉ
   systemConfig: SystemConfig,
   filters: AnalyticsFilters,
   resolveName: (username?: string | null) => string
@@ -93,11 +95,20 @@ export const useAnalyticsEngine = (
 
   const engineResult = useMemo(() => {
     const VZV_SPEED_KMH = systemConfig.vzvSpeed || 8;
-    const VZV_SPEED_MPM = (VZV_SPEED_KMH * 1000) / 60; // Metre za minútu (pre normovanie)
-    const VZV_SPEED_MPS = VZV_SPEED_KMH / 3.6; // Metre za sekundu (pre driving stats)
+    const VZV_SPEED_MPM = (VZV_SPEED_KMH * 1000) / 60;
+    const VZV_SPEED_MPS = VZV_SPEED_KMH / 3.6;
     
     const SHIFT_MINUTES = 450;
-    const DISTANCE_SCALE = 10; // 10px = 1 meter
+
+    // --- DISTANCE MATRIX CACHE (PREVENCIA MRZNUTIA) ---
+    const distanceCache = new Map<string, number>();
+    const getCachedAStarDistance = (p1: {x: number, y: number}, p2: {x: number, y: number}, id1: string, id2: string) => {
+        const cacheKey = id1 < id2 ? `${id1}_${id2}` : `${id2}_${id1}`;
+        if (distanceCache.has(cacheKey)) return distanceCache.get(cacheKey)!;
+        const d = calculateAStarDistance(p1, p2, mapObstacles);
+        distanceCache.set(cacheKey, d);
+        return d;
+    };
 
     const workerTaskMap: Record<string, Task[]> = {};
     const hourlyLoad: Record<number, { prod: number, log: number }> = {};
@@ -114,7 +125,6 @@ export const useAnalyticsEngine = (
     let globalTotalTargetMin = 0;
     let globalTotalActualMin = 0;
 
-    // --- NEW DETAILED DRIVING STATS INITIALIZATION ---
     const prodDriving: DrivingStats = { fullDist: 0, emptyDist: 0, fullRides: 0, emptyRides: 0, efficiency: 0 };
     const logDriving: DrivingStats = { fullDist: 0, emptyDist: 0, fullRides: 0, emptyRides: 0, efficiency: 0 };
 
@@ -167,20 +177,17 @@ export const useAnalyticsEngine = (
       let wMissingReported = 0;
       let wRealErrors = 0;
       let wRides = 0; 
-      let wInvalidTasks = 0; // Nová metrika pre Anti-Cheat
+      let wInvalidTasks = 0;
       const daysWorked = new Set<string>();
 
-      let lastCoords: { x: number, y: number } | null = null;
+      let lastPoint: { x: number, y: number, id: string } | null = null;
 
       sorted.forEach(task => {
         if (task.completedAt) daysWorked.add(new Date(task.completedAt).toLocaleDateString());
         
         const qtyVal = parseFloat((task.quantity || '1').replace(',', '.'));
-        
-        // --- LOGIKA LOAD MULTIPLIER ---
-        // Ak je to paleta, násobíme množstvom. Ak sú to kusy/boxy, je to 1 úkon.
         const loadMultiplier = (task.quantityUnit === 'pallet') ? qtyVal : 1;
-        const points = loadMultiplier; // Pre účely štatistík náporu
+        const points = loadMultiplier;
 
         if (!task.isLogistics) {
             if (task.workplace) {
@@ -195,115 +202,85 @@ export const useAnalyticsEngine = (
             }
         }
 
-        // --- AUTOMOTIVE STANDARD (MOST/RE) CALCULATION ---
         let targetMin = 0;
-        let oneWayD = 0; // Metre
+        let oneWayD = 0;
 
-        // 1. Zistenie Vzdialenosti a Normy
         if (task.isLogistics) {
             const logOp = logisticsOperations.find(o => o.value === task.workplace);
             if (logOp) {
-                // A. Fixná časť (vnútorný pohyb na rampe - vzdialenosť z DB)
-                const distPx = logOp.distancePx || 0;
-                oneWayD = distPx / DISTANCE_SCALE; 
+                oneWayD = logOp.distancePx ? (logOp.distancePx / 10) : 0;
                 
-                // B. Transit (Logistika) - Príjazd k rampe
-                if (lastCoords && logOp.coordX !== undefined && logOp.coordY !== undefined) {
-                    const dx = Math.abs((logOp.coordX) - lastCoords.x);
-                    const dy = Math.abs((logOp.coordY) - lastCoords.y);
-                    const transitMeters = (dx + dy) / DISTANCE_SCALE;
+                if (lastPoint && logOp.coordX !== undefined) {
+                    // Tranzit k rampe (A*)
+                    const transitMeters = getCachedAStarDistance(
+                        { x: lastPoint.x, y: lastPoint.y },
+                        { x: logOp.coordX, y: logOp.coordY || 0 },
+                        lastPoint.id,
+                        logOp.id
+                    );
                     wTransitDist += transitMeters;
                 }
 
-                // Norma = (StandardTime * loadMultiplier) + TravelTime (Internal)
                 const standardTime = logOp.standardTime || 2.0;
                 const travelTimeMin = oneWayD / VZV_SPEED_MPM; 
-                
-                // loadMultiplier zabezpečí, že 5 paliet = 5x norma
                 targetMin = (standardTime * loadMultiplier) + travelTimeMin;
                 
-                // C. Update Coords (Reťazenie pre ďalšiu úlohu)
-                if (logOp.coordX !== undefined && logOp.coordY !== undefined) {
-                    lastCoords = { x: logOp.coordX, y: logOp.coordY };
-                } else {
-                    // Ak logistika nemá súradnice, reťaz sa pretrhne (fallback na staré správanie)
-                    lastCoords = null;
-                }
+                if (logOp.coordX !== undefined) {
+                    lastPoint = { x: logOp.coordX, y: logOp.coordY || 0, id: logOp.id };
+                } else lastPoint = null;
             }
         } else {
-            // Výrobná úloha
             const wp = workplaces.find(w => w.value === task.workplace);
             if (wp) {
-                // A. Transit (Výroba) - Príjazd od predchádzajúcej úlohy
-                // Kontrola: Ak máme lastCoords, vieme vypočítať cestu K sektorou (vyzdvihnutie)
-                // Alebo ak nie je sektor, tak priamo k pracovisku?
-                // Štandardne: lastCoords -> pickedFromSector (ak je) -> Workplace
-                
-                // V tomto modeli zjednodušene: Transit je cesta k začiatku úlohy.
-                // Ak je definovaný sektor, začiatok je sektor. Ak nie, začiatok je pracovisko.
-                let startX = wp.coordX || 0;
-                let startY = wp.coordY || 0;
-                
+                let startPoint: {x: number, y: number, id: string} | null = null;
                 if (task.pickedFromSectorId) {
                     const sector = mapSectors.find(s => s.id === task.pickedFromSectorId);
-                    if (sector) {
-                        startX = sector.coordX;
-                        startY = sector.coordY;
-                    }
+                    if (sector) startPoint = { x: sector.coordX, y: sector.coordY, id: sector.id };
                 }
 
-                if (lastCoords) {
-                    const dx = Math.abs(startX - lastCoords.x);
-                    const dy = Math.abs(startY - lastCoords.y);
-                    const transitMeters = (dx + dy) / DISTANCE_SCALE;
+                if (lastPoint && startPoint) {
+                    // Tranzit medzi pracoviskom a novým sektorom (A*)
+                    const transitMeters = getCachedAStarDistance(
+                        { x: lastPoint.x, y: lastPoint.y },
+                        { x: startPoint.x, y: startPoint.y },
+                        lastPoint.id,
+                        startPoint.id
+                    );
                     wTransitDist += transitMeters;
                 }
 
-                // B. Výkon (Práca) - Cesta zo Sektora na Pracovisko (alebo fixná)
-                let distMeters = 0;
-                if (task.pickedFromSectorId) {
-                    const sector = mapSectors.find(s => s.id === task.pickedFromSectorId);
-                    if (sector) {
-                        const dx = Math.abs((wp.coordX || 0) - sector.coordX);
-                        const dy = Math.abs((wp.coordY || 0) - sector.coordY);
-                        distMeters = (dx + dy) / DISTANCE_SCALE;
-                    }
+                if (startPoint) {
+                    // Cesta zo sektora na pracovisko (A*)
+                    oneWayD = getCachedAStarDistance(
+                        { x: startPoint.x, y: startPoint.y },
+                        { x: wp.coordX || 0, y: wp.coordY || 0 },
+                        startPoint.id,
+                        wp.id
+                    );
                 }
-                oneWayD = distMeters;
 
                 const standardTime = wp.standardTime || 2.0;
-                const travelTimeMin = distMeters / VZV_SPEED_MPM;
-
+                const travelTimeMin = oneWayD / VZV_SPEED_MPM;
                 targetMin = (standardTime * loadMultiplier) + travelTimeMin;
-
-                // C. Update last coords (Koniec úlohy je na pracovisku)
-                lastCoords = { x: wp.coordX || 0, y: wp.coordY || 0 };
+                lastPoint = { x: wp.coordX || 0, y: wp.coordY || 0, id: wp.id };
             } else {
-                // Fallback ak WP neexistuje v DB
                 targetMin = 2 * loadMultiplier; 
-                lastCoords = null; // Stratili sme stopu
+                lastPoint = null;
             }
         }
 
-        // 2. Výpočet času a Anti-Cheat
         if (task.startedAt && task.completedAt) {
           const rawExecMs = task.completedAt - task.startedAt;
           const blockedMs = calculateBlockedTime(task.inventoryHistory, task.startedAt, task.completedAt);
           const realExecMs = Math.max(rawExecMs - blockedMs, 0);
           const actualMin = realExecMs / 60000;
 
-          // --- NOVÝ ANTI-CHEAT (Invalid Task) ---
           if (actualMin < 0.5) {
-              // Task je príliš krátky (< 30s) -> INVALID
-              // Nezapočítava sa do výkonu (ani menovateľ, ani čitateľ)
-              // Ale započítava sa do "Total Rides" lebo fyzicky prebehol
               task.isInvalid = true; 
               wInvalidTasks++;
-              // wExecMs sa pripočíta, aby sedela dochádzka, ale výkon sa nepočíta
               wExecMs += realExecMs;
           } else {
-              // Valid Task
-              const flooredActual = Math.max(actualMin, 1.0); // Soft floor 1 min
+              const flooredActual = Math.max(actualMin, 1.0); 
               wActualMinTotal += flooredActual;
               wTargetMinTotal += targetMin;
               globalTotalActualMin += flooredActual;
@@ -312,13 +289,9 @@ export const useAnalyticsEngine = (
           }
         }
 
-        // --- DISTANCE STATS (DRIVING METRICS) ---
-        // Používa oneWayD vypočítané vyššie
         if (oneWayD > 0) {
             const durationMs = (task.completedAt || 0) - (task.startedAt || task.createdAt || 0);
-            // Validácia počtu jázd na základe času (fyzikálny limit)
-            const possibleTrips = Math.round(((durationMs / 1000) * VZV_SPEED_MPS) / (2 * oneWayD)); // Cesta tam a späť
-            // Počet jázd je tiež odvodený od loadMultiplier (ak je 1 box, je to 1 jazda)
+            const possibleTrips = Math.round(((durationMs / 1000) * VZV_SPEED_MPS) / (2 * oneWayD)); 
             const validatedTrips = Math.min(Math.max(1, Math.floor(loadMultiplier)), Math.max(1, possibleTrips));
 
             if (validatedTrips > 0) {
@@ -330,21 +303,16 @@ export const useAnalyticsEngine = (
                 wRides += (validatedTrips * 2 - 1);
 
                 if (task.isLogistics) {
-                    logDriving.fullDist += fullD;
-                    logDriving.emptyDist += emptyD;
+                    logDriving.fullDist += fullD; logDriving.emptyDist += emptyD;
                     logDriving.fullRides += validatedTrips;
                     logDriving.emptyRides += (validatedTrips > 1 ? validatedTrips - 1 : 0);
                 } else {
-                    prodDriving.fullDist += fullD;
-                    prodDriving.emptyDist += emptyD;
+                    prodDriving.fullDist += fullD; prodDriving.emptyDist += emptyD;
                     prodDriving.fullRides += validatedTrips;
                     prodDriving.emptyRides += (validatedTrips > 1 ? validatedTrips - 1 : 0);
                 }
             }
-        } else {
-            // Ak nemáme vzdialenosť, rátame aspoň jazdu
-            wRides++;
-        }
+        } else wRides++;
 
         if (task.createdAt && task.startedAt) {
           const react = task.startedAt - task.createdAt;
@@ -359,9 +327,7 @@ export const useAnalyticsEngine = (
       const nDays = Math.max(daysWorked.size, 1);
       const pureMin = wExecMs / 60000;
       const utilization = (pureMin * 1.15 / (nDays * SHIFT_MINUTES)) * 100;
-      // Performance (Tempo) - teraz očistené o Invalid Tasks
       const perf = wActualMinTotal > 0 ? Math.min((wTargetMinTotal / wActualMinTotal) * 100, 200) : 0;
-      
       const reactSec = wReactCount > 0 ? (wReactMs / wReactCount) / 1000 : 0;
       const conf = wMissingReported > 0 ? ((wMissingReported - wRealErrors) / wMissingReported) * 100 : 100;
       const totalEmpty = wEmptyDist + wTransitDist;
@@ -372,27 +338,22 @@ export const useAnalyticsEngine = (
       const sStd = Math.min(perf, 200) / 200 * 2.0;
       const sReac = reactSec > 0 ? (reactSec < 60 ? 1.0 : reactSec < 180 ? 0.5 : 0) : 0.5;
       const sLog = (logEff / 100) * 1.0;
-      const wpi = parseFloat((sQual + sUtil + sStd + sReac + sLog).toFixed(1));
 
       return {
-        id: uid, name: resolveName(uid), index: wpi,
+        id: uid, name: resolveName(uid), index: parseFloat((sQual + sUtil + sStd + sReac + sLog).toFixed(1)),
         tasksDone: workerTasks.length, pureWorkMinutes: pureMin,
         utilizationPercent: utilization, performanceRatio: perf,
         avgReactionSeconds: reactSec, fullDistMeters: wFullDist,
         emptyDistMeters: totalEmpty, logEfficiency: logEff, confidenceRating: conf,
-        totalRides: wRides,
-        invalidTasksCount: wInvalidTasks
+        totalRides: wRides, invalidTasksCount: wInvalidTasks
       };
     });
 
-    // --- CALCULATE FINAL EFFICIENCIES ---
     prodDriving.efficiency = (prodDriving.fullDist + prodDriving.emptyDist) > 0 ? (prodDriving.fullDist / (prodDriving.fullDist + prodDriving.emptyDist)) * 100 : 0;
     logDriving.efficiency = (logDriving.fullDist + logDriving.emptyDist) > 0 ? (logDriving.fullDist / (logDriving.fullDist + logDriving.emptyDist)) * 100 : 0;
 
     const totalFullDistGlobal = prodDriving.fullDist + logDriving.fullDist;
     const totalEmptyDistGlobal = prodDriving.emptyDist + logDriving.emptyDist;
-    const totalPhysicalRidesGlobal = workerStatsList.reduce((a, b) => a + b.totalRides, 0);
-    const globalPerformanceRatio = globalTotalActualMin > 0 ? Math.min((globalTotalTargetMin / globalTotalActualMin) * 100, 200) : 0;
 
     return {
       filteredTasks: combinedData,
@@ -402,22 +363,14 @@ export const useAnalyticsEngine = (
         totalFullDist: totalFullDistGlobal,
         totalEmptyDist: totalEmptyDistGlobal,
         globalEfficiency: (totalFullDistGlobal + totalEmptyDistGlobal) > 0 ? (totalFullDistGlobal / (totalFullDistGlobal + totalEmptyDistGlobal)) * 100 : 0,
-        globalPerformanceRatio: globalPerformanceRatio,
+        globalPerformanceRatio: globalTotalActualMin > 0 ? Math.min((globalTotalTargetMin / globalTotalActualMin) * 100, 200) : 0,
         totalVolume: combinedData.reduce((a, b) => a + (parseFloat((b.quantity || '0').replace(',', '.')) || 0), 0),
-        totalPhysicalRides: totalPhysicalRidesGlobal
+        totalPhysicalRides: workerStatsList.reduce((a, b) => a + b.totalRides, 0)
       },
-      drivingStats: {
-        production: prodDriving,
-        logistics: logDriving
-      },
+      drivingStats: { production: prodDriving, logistics: logDriving },
       workerStats: workerStatsList,
       charts: {
-        hourly: Object.entries(hourlyLoad).map(([h, d]) => ({ 
-          hour: parseInt(h), 
-          label: `${h}h`, 
-          production: d.prod, 
-          logistics: d.log 
-        })).sort((a,b) => a.hour - b.hour),
+        hourly: Object.entries(hourlyLoad).map(([h, d]) => ({ hour: parseInt(h), label: `${h}h`, production: d.prod, logistics: d.log })).sort((a,b) => a.hour - b.hour),
         highRunners: Object.entries(highRunnerLoad).map(([k, v]) => ({ partNumber: k, ...v, totalTasks: v.req, taskRequests: v.req })).sort((a,b) => b.load - a.load).slice(0, 3),
         workplaces: Object.entries(workplaceLoad).map(([k, v]) => ({ workplace: k, ...v, totalTasks: v.req, taskRequests: v.req })).sort((a,b) => b.load - a.load).slice(0, 3)
       },
@@ -428,7 +381,7 @@ export const useAnalyticsEngine = (
         topMissingParts: Object.entries(missingPartsMap).map(([p, c]) => ({ partNumber: p, count: c })).sort((a,b) => b.count - a.count).slice(0, 3)
       }
     };
-  }, [combinedData, systemBreaks, mapSectors, workplaces, logisticsOperations, systemConfig, resolveName]);
+  }, [combinedData, systemBreaks, mapSectors, workplaces, logisticsOperations, mapObstacles, systemConfig, resolveName]);
 
   return engineResult;
 };
