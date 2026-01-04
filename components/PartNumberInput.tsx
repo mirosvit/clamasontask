@@ -37,7 +37,7 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
   const [query, setQuery] = useState<string>('');
   const [isDropdownVisible, setIsDropdownVisible] = useState<boolean>(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   
   const [reportStatus, setReportStatus] = useState<'idle' | 'loading' | 'success'>('idle');
   const [masterSearchStatus, setMasterSearchStatus] = useState<'idle' | 'loading' | 'found' | 'not_found'>('idle');
@@ -156,8 +156,18 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
 
   const isExactMatch = useMemo(() => parts.some(p => p.toLowerCase() === query.trim().toLowerCase()), [query, parts]);
   const hasWildcard = query.includes('*');
-  const showMasterLookup = query.trim() !== '' && !isExactMatch && !hasWildcard && masterSearchStatus === 'idle';
-  const showReportButton = onRequestPart && query.trim() !== '' && !isExactMatch && !hasWildcard && masterSearchStatus === 'not_found';
+
+  // Booleans for state to avoid TS2367 errors due to narrowing in JSX
+  const masterIsIdle = masterSearchStatus === 'idle';
+  const masterIsLoading = masterSearchStatus === 'loading';
+  const masterIsNotFound = masterSearchStatus === 'not_found';
+
+  const reportIsIdle = reportStatus === 'idle';
+  const reportIsLoading = reportStatus === 'loading';
+  const reportIsSuccess = reportStatus === 'success';
+
+  const showMasterLookup = query.trim() !== '' && !isExactMatch && !hasWildcard && (masterIsIdle || masterIsLoading);
+  const showReportButton = onRequestPart && query.trim() !== '' && !isExactMatch && !hasWildcard && (masterIsNotFound || !reportIsIdle);
 
   return (
     <div className="relative" ref={containerRef}>
@@ -199,10 +209,10 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
               <button
                 type="button"
                 onMouseDown={handleMasterLookup}
-                disabled={masterSearchStatus === 'loading'}
+                disabled={masterIsLoading}
                 className="w-full py-3 px-4 bg-indigo-600/20 border border-indigo-500/50 hover:bg-indigo-600/40 text-indigo-400 font-bold rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95"
               >
-                  {masterSearchStatus === 'loading' ? (
+                  {masterIsLoading ? (
                       <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
                   ) : <GlobeIcon className="w-4 h-4" />}
                   <span className="text-xs uppercase tracking-widest">{t('db_master_lookup')}</span>
@@ -215,18 +225,18 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
              <button
                 type="button"
                 onMouseDown={handleRequestClick}
-                disabled={reportStatus !== 'idle'}
+                disabled={!reportIsIdle}
                 className={`w-full py-4 px-4 font-bold rounded-lg shadow-md flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.01] ${
-                    reportStatus === 'success' 
+                    reportIsSuccess 
                     ? 'bg-green-600 border border-green-500 text-white cursor-default' 
-                    : reportStatus === 'loading'
+                    : reportIsLoading
                     ? 'bg-yellow-800 border border-yellow-700 text-yellow-200 cursor-wait'
                     : 'bg-yellow-700 hover:bg-yellow-600 border border-yellow-500 text-white'
                 }`}
             >
-                {reportStatus === 'loading' ? (
+                {reportIsLoading ? (
                      <span className="text-base">{t('report_btn_loading')}</span>
-                ) : reportStatus === 'success' ? (
+                ) : reportIsSuccess ? (
                      <span className="text-base">{t('report_btn_success')}</span>
                 ) : (
                     <>
@@ -236,12 +246,12 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
                 )}
             </button>
             <p className="text-center text-sm text-gray-500 mt-2">
-                {reportStatus === 'success' ? t('report_hint_success') : t('report_hint_idle')}
+                {reportIsSuccess ? t('report_hint_success') : t('report_hint_idle')}
             </p>
         </div>
       )}
 
-      {masterSearchStatus === 'not_found' && (
+      {masterSearchStatus === 'not_found' && reportIsIdle && (
           <p className="text-center text-[10px] text-rose-500 font-bold uppercase tracking-widest mt-2 animate-pulse">
               {t('db_master_not_found')}
           </p>
