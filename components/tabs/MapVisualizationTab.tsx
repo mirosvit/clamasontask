@@ -20,8 +20,7 @@ interface MapVisualizationTabProps {
 interface Point { x: number; y: number; label: string; type: 'wp' | 'sector' | 'log'; id: string; color?: string }
 interface RouteSegment { path: {x: number, y: number}[]; worker: string; isTransit: boolean; taskType: 'prod' | 'log' }
 
-// --- PATHFINDING UTILITIES (A*) ---
-const GRID_SIZE = 20; // 2 metre
+const GRID_SIZE = 20; // 1 mriežka = 20px (cca 2 metre v realite)
 
 const MapVisualizationTab: React.FC<MapVisualizationTabProps> = ({
   tasks, draftTasks, fetchSanons, users, mapSectors, workplaces, logisticsOperations, mapObstacles = [], systemConfig, resolveName
@@ -56,7 +55,7 @@ const MapVisualizationTab: React.FC<MapVisualizationTabProps> = ({
     finally { setIsLoading(false); }
   };
 
-  // Trajektórie s rešpektovaním prekážok
+  // --- PATHFINDING ENGINE (A* MANHATTAN) ---
   const { segments, nodes, obstacles, viewBox } = useMemo(() => {
     const pointsMap = new Map<string, Point>();
     workplaces.forEach(w => pointsMap.set(`wp_${w.value}`, { x: w.coordX || 0, y: w.coordY || 0, label: w.value, type: 'wp', id: w.id }));
@@ -64,45 +63,80 @@ const MapVisualizationTab: React.FC<MapVisualizationTabProps> = ({
     mapSectors.forEach(s => pointsMap.set(`sector_${s.id}`, { x: s.coordX || 0, y: s.coordY || 0, label: s.name, type: 'sector', id: s.id, color: s.color }));
 
     const allNodes = Array.from(pointsMap.values());
-    // Ak nemáme žiadne body ani prekážky, vrátime defaultný viewBox
     if (allNodes.length === 0 && mapObstacles.length === 0) {
         return { segments: [], nodes: [], obstacles: [], viewBox: "0 0 1000 1000" };
     }
 
-    // Bezpečný výpočet hraníc mapy
     const nodeXs = allNodes.length > 0 ? allNodes.map(p => p.x) : [0, 1000];
     const nodeYs = allNodes.length > 0 ? allNodes.map(p => p.y) : [0, 1000];
     const obsXs = mapObstacles.length > 0 ? mapObstacles.flatMap(o => [o.x, o.x + o.w]) : [];
     const obsYs = mapObstacles.length > 0 ? mapObstacles.flatMap(o => [o.y, o.y + o.h]) : [];
 
-    const minX = Math.min(...nodeXs, ...obsXs) - 200;
-    const minY = Math.min(...nodeYs, ...obsYs) - 200;
-    const maxX = Math.max(...nodeXs, ...obsXs) + 200;
-    const maxY = Math.max(...nodeYs, ...obsYs) + 200;
+    const minX = Math.min(...nodeXs, ...obsXs) - 100;
+    const minY = Math.min(...nodeYs, ...obsYs) - 100;
+    const maxX = Math.max(...nodeXs, ...obsXs) + 100;
+    const maxY = Math.max(...nodeYs, ...obsYs) + 100;
 
-    // --- Pathfinding Logic (Obstacle Aware) ---
-    const isBlocked = (x: number, y: number) => {
-        return mapObstacles.some(o => x >= o.x && x <= o.x + o.w && y >= o.y && y <= o.y + o.h);
+    const isBlocked = (px: number, py: number) => {
+        return (mapObstacles || []).some(o => px >= o.x && px < o.x + o.w && py >= o.y && py < o.y + o.h);
     };
 
-    const findPath = (from: {x: number, y: number}, to: {x: number, y: number}) => {
-        const path = [{x: from.x, y: from.y}];
-        const pivot = { x: to.x, y: from.y };
-        
-        if (!isBlocked(pivot.x, pivot.y)) {
-            path.push(pivot);
-        } else {
-            const pivot2 = { x: from.x, y: to.y };
-            if (!isBlocked(pivot2.x, pivot2.y)) {
-                path.push(pivot2);
-            } else {
-                path.push({ x: from.x, y: from.y - 40 });
-                path.push({ x: to.x, y: from.y - 40 });
+    const findAStarPath = (start: {x: number, y: number}, end: {x: number, y: number}) => {
+        const startG = { x: Math.round(start.x / GRID_SIZE), y: Math.round(start.y / GRID_SIZE) };
+        const endG = { x: Math.round(end.x / GRID_SIZE), y: Math.round(end.y / GRID_SIZE) };
+
+        if (startG.x === endG.x && startG.y === endG.y) return [start, end];
+
+        const openSet = [{ ...startG, g: 0, f: Math.abs(startG.x - endG.x) + Math.abs(startG.y - endG.y), path: [start] }];
+        const closedSet = new Set<string>();
+
+        let steps = 0;
+        const maxSteps = 2000;
+
+        while (openSet.length > 0 && steps < maxSteps) {
+            steps++;
+            openSet.sort((a, b) => a.f - b.f);
+            const current = openSet.shift()!;
+
+            if (current.x === endG.x && current.y === endG.y) {
+                return [...current.path, end];
+            }
+
+            closedSet.add(`${current.x},${current.y}`);
+
+            const neighbors = [
+                { x: current.x + 1, y: current.y },
+                { x: current.x - 1, y: current.y },
+                { x: current.x, y: current.y + 1 },
+                { x: current.x, y: current.y - 1 }
+            ];
+
+            for (const n of neighbors) {
+                if (closedSet.has(`${n.x},${n.y}`)) continue;
+                
+                const realX = n.x * GRID_SIZE;
+                const realY = n.y * GRID_SIZE;
+                
+                // Kontrola prekážky
+                if (isBlocked(realX, realY)) continue;
+
+                const g = current.g + 1;
+                const h = Math.abs(n.x - endG.x) + Math.abs(n.y - endG.y);
+                const f = g + h;
+
+                const existing = openSet.find(o => o.x === n.x && o.y === n.y);
+                if (existing && existing.g <= g) continue;
+
+                if (!existing) {
+                    openSet.push({ ...n, g, f, path: [...current.path, { x: realX, y: realY }] });
+                } else {
+                    existing.g = g;
+                    existing.f = f;
+                    existing.path = [...current.path, { x: realX, y: realY }];
+                }
             }
         }
-        
-        path.push({x: to.x, y: to.y});
-        return path;
+        return [start, end]; // Fallback
     };
 
     const workerSegments: RouteSegment[] = [];
@@ -122,24 +156,24 @@ const MapVisualizationTab: React.FC<MapVisualizationTabProps> = ({
         let prevEnd: Point | null = null;
 
         sorted.forEach(task => {
-            let startNode: Point | null = null;
-            let endNode: Point | null = null;
+            let startPoint: Point | null = null;
+            let endPoint: Point | null = null;
 
             if (task.isLogistics) {
                 const op = pointsMap.get(`log_${task.workplace}`);
-                startNode = pointsMap.get(`sector_${task.sourceSectorId}`) || op || null;
-                endNode = pointsMap.get(`sector_${task.targetSectorId}`) || op || null;
+                startPoint = pointsMap.get(`sector_${task.sourceSectorId}`) || op || null;
+                endPoint = pointsMap.get(`sector_${task.targetSectorId}`) || op || null;
             } else {
-                startNode = pointsMap.get(`sector_${task.pickedFromSectorId}`) || null;
-                endNode = pointsMap.get(`wp_${task.workplace}`) || null;
+                startPoint = pointsMap.get(`sector_${task.pickedFromSectorId}`) || null;
+                endPoint = pointsMap.get(`wp_${task.workplace}`) || null;
             }
 
-            if (startNode && endNode) {
+            if (startPoint && endPoint) {
                 if (prevEnd) {
-                    workerSegments.push({ path: findPath(prevEnd, startNode), worker, isTransit: true, taskType: task.isLogistics ? 'log' : 'prod' });
+                    workerSegments.push({ path: findAStarPath(prevEnd, startPoint), worker, isTransit: true, taskType: task.isLogistics ? 'log' : 'prod' });
                 }
-                workerSegments.push({ path: findPath(startNode, endNode), worker, isTransit: false, taskType: task.isLogistics ? 'log' : 'prod' });
-                prevEnd = endNode;
+                workerSegments.push({ path: findAStarPath(startPoint, endPoint), worker, isTransit: false, taskType: task.isLogistics ? 'log' : 'prod' });
+                prevEnd = endPoint;
             }
         });
     });
@@ -154,7 +188,20 @@ const MapVisualizationTab: React.FC<MapVisualizationTabProps> = ({
 
   const generatePathData = (path: {x: number, y: number}[]) => {
       if (path.length === 0) return "";
-      return `M ${path[0].x} ${path[0].y} ` + path.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ');
+      // Vyhladenie Manhattan trasy (spájanie rovných úsekov)
+      const simplified = [path[0]];
+      for (let i = 1; i < path.length - 1; i++) {
+          const prev = path[i-1];
+          const curr = path[i];
+          const next = path[i+1];
+          // Ak nie je bod na priamke, ponecháme ho (bod zlomu)
+          if (!((prev.x === curr.x && curr.x === next.x) || (prev.y === curr.y && curr.y === next.y))) {
+              simplified.push(curr);
+          }
+      }
+      if (path.length > 1) simplified.push(path[path.length - 1]);
+      
+      return `M ${simplified[0].x} ${simplified[0].y} ` + simplified.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ');
   };
 
   const toggleWorker = (id: string) => {
@@ -223,8 +270,8 @@ const MapVisualizationTab: React.FC<MapVisualizationTabProps> = ({
                         <pattern id="grid5m" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M 50 0 L 0 0 0 50" fill="none" stroke="white" strokeWidth="1" strokeOpacity="0.05" /></pattern>
                         <pattern id="grid1m" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="white" strokeWidth="0.5" strokeOpacity="0.02" /></pattern>
                         <pattern id="hatch" patternUnits="userSpaceOnUse" width="10" height="10"><path d="M-1,1 l2,-2 M0,10 l10,-10 M9,11 l2,-2" stroke="white" strokeWidth="1" strokeOpacity="0.1" /></pattern>
-                        <filter id="glow-teal"><feGaussianBlur stdDeviation="2.5" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-                        <filter id="glow-sky"><feGaussianBlur stdDeviation="2.5" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                        <filter id="glow-teal"><feGaussianBlur stdDeviation="3" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                        <filter id="glow-sky"><feGaussianBlur stdDeviation="3" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
                     </defs>
                     
                     <rect width="10000" height="10000" x="-5000" y="-5000" fill="url(#grid1m)" />
@@ -235,17 +282,20 @@ const MapVisualizationTab: React.FC<MapVisualizationTabProps> = ({
                         <g key={o.id || idx}>
                             <rect x={o.x} y={o.y} width={o.w} height={o.h} fill="#1e293b" stroke="#334155" strokeWidth="2" rx="4" />
                             <rect x={o.x} y={o.y} width={o.w} height={o.h} fill="url(#hatch)" rx="4" />
+                            {o.w > 40 && (
+                                <text x={o.x + o.w/2} y={o.y + o.h/2} textAnchor="middle" dominantBaseline="middle" className="fill-slate-600 text-[10px] font-black uppercase tracking-widest pointer-events-none select-none">{o.name}</text>
+                            )}
                         </g>
                     ))}
 
                     {/* ROUTES - Transit (Layer 1) */}
                     {segments.filter(s => s.isTransit).map((s, i) => (
-                        <path key={`transit-${i}`} d={generatePathData(s.path)} fill="none" stroke="#475569" strokeWidth="1.2" strokeDasharray="5 5" strokeOpacity="0.5" />
+                        <path key={`transit-${i}`} d={generatePathData(s.path)} fill="none" stroke="#475569" strokeWidth="1.5" strokeDasharray="6 4" strokeOpacity="0.4" />
                     ))}
 
                     {/* ROUTES - Work (Layer 2) */}
                     {segments.filter(s => !s.isTransit).map((s, i) => (
-                        <path key={`ride-${i}`} d={generatePathData(s.path)} fill="none" stroke={s.taskType === 'prod' ? '#14b8a6' : '#0ea5e9'} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" strokeOpacity="0.8" filter={s.taskType === 'prod' ? 'url(#glow-teal)' : 'url(#glow-sky)'} className="hover:stroke-white hover:strokeOpacity-100 transition-all" />
+                        <path key={`ride-${i}`} d={generatePathData(s.path)} fill="none" stroke={s.taskType === 'prod' ? '#14b8a6' : '#0ea5e9'} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" strokeOpacity="0.8" filter={s.taskType === 'prod' ? 'url(#glow-teal)' : 'url(#glow-sky)'} className="hover:stroke-white hover:strokeOpacity-100 transition-all duration-300" />
                     ))}
 
                     {/* NODES - Workplaces & Sectors (Layer 3) */}
@@ -255,20 +305,20 @@ const MapVisualizationTab: React.FC<MapVisualizationTabProps> = ({
                         return (
                             <g key={node.id} transform={`translate(${node.x}, ${node.y})`} className="group/node">
                                 {isSector ? (
-                                    <rect x="-12" y="-12" width="24" height="24" rx="6" fill="currentColor" className={`text-${colorValue} opacity-20 border-2 border-current group-hover/node:opacity-40 transition-opacity`} />
+                                    <rect x="-14" y="-14" width="28" height="28" rx="8" fill="currentColor" className={`text-${colorValue} opacity-20 border-2 border-current group-hover/node:opacity-50 transition-all cursor-help`} />
                                 ) : (
-                                    <circle r="9" fill="#0f172a" stroke={node.type === 'wp' ? '#3b82f6' : '#0ea5e9'} strokeWidth="2.5" className="group-hover/node:stroke-white transition-colors" />
+                                    <circle r="10" fill="#0f172a" stroke={node.type === 'wp' ? '#3b82f6' : '#0ea5e9'} strokeWidth="3" className="group-hover/node:stroke-white transition-all cursor-help shadow-lg" />
                                 )}
-                                <text y={isSector ? -28 : -22} textAnchor="middle" fill="white" className="text-[9px] font-black uppercase tracking-widest opacity-0 group-hover/node:opacity-100 transition-opacity pointer-events-none drop-shadow-md">{node.label}</text>
+                                <text y={isSector ? -32 : -25} textAnchor="middle" fill="white" className="text-[10px] font-black uppercase tracking-widest opacity-0 group-hover/node:opacity-100 transition-opacity pointer-events-none drop-shadow-md bg-black/50 px-1">{node.label}</text>
                             </g>
                         );
                     })}
                 </svg>
 
-                <div className="absolute bottom-6 right-6 bg-slate-900/60 backdrop-blur-md border border-slate-700 p-3 rounded-xl pointer-events-none shadow-2xl">
+                <div className="absolute bottom-6 right-6 bg-slate-900/60 backdrop-blur-md border border-slate-700 p-4 rounded-2xl pointer-events-none shadow-2xl">
                      <div className="flex flex-col items-center gap-2">
-                        <div className="flex items-center gap-0 w-[100px] h-3 border-x border-slate-400 relative">
-                            <div className="absolute top-1/2 left-0 right-0 h-px bg-slate-400 -translate-y-1/2"></div>
+                        <div className="flex items-center gap-0 w-[100px] h-3 border-x-2 border-slate-400 relative">
+                            <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-400 -translate-y-1/2"></div>
                         </div>
                         <span className="text-[10px] font-black text-white uppercase tracking-widest">10 METROV</span>
                      </div>
