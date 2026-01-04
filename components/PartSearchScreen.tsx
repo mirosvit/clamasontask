@@ -156,6 +156,27 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   const [priority, setPriority] = useState<PriorityLevel>('NORMAL');
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
+  // --- FULLSCREEN LOGIKA ---
+  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
+
+  const handleToggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
+
   const unitLock = useMemo(() => {
     if (entryMode === 'logistics' || !selectedPart) return null;
     const partData = parts.find(p => p.value === selectedPart);
@@ -222,7 +243,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
 
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-white">
-      <AppHeader currentUser={currentUser} currentUserRole={currentUserRole} users={users} onLogout={onLogout} language={language} setLanguage={setLanguage} t={t} isFullscreen={false} onToggleFullscreen={()=>{}} installPrompt={installPrompt} onInstallApp={onInstallApp} hasPermission={hasPermission} resolveName={resolveName} isBreakActive={isBreakActive} />
+      <AppHeader currentUser={currentUser} currentUserRole={currentUserRole} users={users} onLogout={onLogout} language={language} setLanguage={setLanguage} t={t} isFullscreen={isFullscreen} onToggleFullscreen={handleToggleFullscreen} installPrompt={installPrompt} onInstallApp={onInstallApp} hasPermission={hasPermission} resolveName={resolveName} isBreakActive={isBreakActive} />
       
       {showSuccessMessage && (
         <div className="fixed top-24 right-6 bg-green-600 text-white px-6 py-4 rounded-xl shadow-2xl z-50 animate-bounce font-black tracking-widest">✓ {t('sent_msg')}</div>
