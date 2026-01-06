@@ -41,23 +41,16 @@ export const useAppSecurity = (currentUserRole: string, isAuthenticated: boolean
 
   useEffect(() => {
       const configRef = doc(db, 'system_data', 'config');
+      
+      // STRIKTNÝ READ-ONLY LISTENER
       return onSnapshot(configRef, (docSnap) => {
           if (docSnap.exists()) {
               const data = docSnap.data() as SystemConfig;
-              const updates: Partial<SystemConfig> = {};
-              let needed = false;
-              if (!data.adminKey) { updates.adminKey = '1234'; needed = true; }
-              if (data.adminLockEnabled === undefined) { updates.adminLockEnabled = true; needed = true; }
-              if (data.mapOriginX === undefined) { updates.mapOriginX = 0; needed = true; }
-              if (data.mapOriginY === undefined) { updates.mapOriginY = 0; needed = true; }
-              if (data.vzvSpeed === undefined) { updates.vzvSpeed = 8; needed = true; }
-              
-              if (needed) {
-                  updateDoc(configRef, updates);
-              }
               setSystemConfig(data);
           } else {
-              setDoc(configRef, { maintenanceMode: false, allowedIPs: [], ipCheckEnabled: false, adminKey: '1234', adminLockEnabled: true, mapOriginX: 0, mapOriginY: 0, vzvSpeed: 8 });
+              // Ak dokument v DB neexistuje, logujeme chybu, ale NIKDY nezapisujeme default heslo z klienta.
+              // Dokument musí vytvoriť admin manuálne alebo cez handleUpdateSystemConfig.
+              console.error("KRITICKÁ CHYBA: Konfiguračný dokument v DB chýba!");
           }
       });
   }, []);
@@ -74,7 +67,24 @@ export const useAppSecurity = (currentUserRole: string, isAuthenticated: boolean
   const handleUpdateAdminKey = async (oldKey: string, newKey: string) => {
     const configRef = doc(db, 'system_data', 'config');
     const snap = await getDoc(configRef);
-    if (snap.exists() && snap.data().adminKey === oldKey) {
+    
+    if (!snap.exists()) {
+        // Ak dokument neexistuje, vytvoríme ho prvýkrát s novým kľúčom
+        await setDoc(configRef, { 
+            adminKey: newKey,
+            maintenanceMode: false,
+            allowedIPs: [],
+            ipCheckEnabled: false,
+            adminLockEnabled: true,
+            mapOriginX: 0,
+            mapOriginY: 0,
+            vzvSpeed: 8
+        });
+        alert('Systém inicializovaný s novým kľúčom.');
+        return;
+    }
+
+    if (snap.data().adminKey === oldKey) {
         await updateDoc(configRef, { adminKey: newKey });
         alert('Bezpečnostný kľúč bol úspešne zmenený.');
     } else {
@@ -85,6 +95,7 @@ export const useAppSecurity = (currentUserRole: string, isAuthenticated: boolean
 
   const handleUpdateSystemConfig = async (newConfig: Partial<SystemConfig>) => {
     const configRef = doc(db, 'system_data', 'config');
+    // Používame merge, aby sme neprepísali adminKey ak tam už je
     await setDoc(configRef, newConfig, { merge: true });
   };
 

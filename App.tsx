@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import LoginScreen from './components/LoginScreen';
 import AppAuthenticated from './AppAuthenticated';
 import { useAppSecurity } from './hooks/useAppSecurity';
@@ -34,11 +34,13 @@ const AppContent = ({
   // SERVICE MODE WATCHER: Okamžité vyhodenie ne-adminov pri zapnutí údržby
   useEffect(() => {
     if (isAuthenticated && currentUserRole !== 'ADMIN') {
-      const now = new Date();
-      const currentISO = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
-      const isScheduled = systemConfig.maintenanceStart && systemConfig.maintenanceEnd && 
-                         currentISO >= systemConfig.maintenanceStart && 
-                         currentISO <= systemConfig.maintenanceEnd;
+      const nowMs = Date.now();
+      
+      // Prevod plánovaných časov na milisekundy pre presné porovnanie
+      const startMs = systemConfig.maintenanceStart ? new Date(systemConfig.maintenanceStart).getTime() : null;
+      const endMs = systemConfig.maintenanceEnd ? new Date(systemConfig.maintenanceEnd).getTime() : null;
+      
+      const isScheduled = startMs && endMs && nowMs >= startMs && nowMs <= endMs;
       
       if (systemConfig.maintenanceMode || isScheduled) {
         onLogout();
@@ -142,7 +144,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleLogout = () => { 
+  const handleLogout = useCallback(() => { 
     setIsAuthenticated(false); 
     setIsUnlocked(false);
     setCurrentUser(''); 
@@ -150,7 +152,7 @@ const App: React.FC = () => {
     localStorage.removeItem('app_user'); 
     localStorage.removeItem('app_role'); 
     sessionStorage.removeItem('app_unlocked');
-  };
+  }, [setIsUnlocked]);
 
   // PWA Logic
   const [installPrompt, setInstallPrompt] = useState<any>(null);
