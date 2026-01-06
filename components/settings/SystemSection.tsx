@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { DBItem, BreakSchedule, SystemConfig } from '../../App';
 import { useLanguage } from '../LanguageContext';
+import { useData } from '../../context/DataContext';
 
 interface SystemSectionProps {
   missingReasons: DBItem[];
@@ -26,6 +27,8 @@ const SystemSection: React.FC<SystemSectionProps> = ({
   isAdminLockEnabled, onToggleAdminLock, systemConfig, onUpdateSystemConfig
 }) => {
   const { t, language } = useLanguage();
+  const { migratePermissionsToRoles } = useData() as any; // Prístup k migračnej funkcii
+  
   const [newMissingReason, setNewMissingReason] = useState('');
   const [newBreakStart, setNewBreakStart] = useState('');
   const [newBreakEnd, setNewBreakEnd] = useState('');
@@ -35,6 +38,7 @@ const SystemSection: React.FC<SystemSectionProps> = ({
   const [newKey, setNewKey] = useState('');
   const [confirmKey, setConfirmKey] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isMigrating, setIsMigrating] = useState(false);
 
   const handleUpdateKey = async () => {
     if (!isAdminLockEnabled) return;
@@ -59,12 +63,43 @@ const SystemSection: React.FC<SystemSectionProps> = ({
     }
   };
 
+  const handleMigration = async () => {
+      if (!window.confirm("Naozaj spustiť migráciu oprávnení do rolí? Táto akcia presunie dáta zo starej kolekcie permissions.")) return;
+      setIsMigrating(true);
+      try {
+          const result = await migratePermissionsToRoles();
+          alert(result);
+      } catch (e) {
+          alert("Migrácia zlyhala.");
+      } finally {
+          setIsMigrating(false);
+      }
+  };
+
   const cardClass = "bg-gray-800/40 border border-slate-700/50 rounded-2xl p-6 shadow-2xl backdrop-blur-sm";
   const inputClass = "w-full h-12 bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono";
   const labelClass = "block text-xs font-black text-slate-500 uppercase tracking-[0.2em] mb-3";
 
   return (
     <div className="space-y-8">
+      
+      {/* OPTIMALIZÁCIA OPRÁVNENÍ (MIGRATION) */}
+      <div className="bg-amber-900/10 border-2 border-amber-500/30 rounded-2xl p-6 shadow-xl">
+          <div className="flex justify-between items-center">
+              <div>
+                  <h3 className="text-xl font-black text-amber-500 uppercase tracking-tighter">OPTIMALIZÁCIA DB (Quata Guard)</h3>
+                  <p className="text-xs text-slate-400 mt-1 max-w-md">Kliknutím prenesiete oprávnenia zo starej štruktúry (separate docs) do novej (embedded arrays). Zníži to počet čítaní na Firebase.</p>
+              </div>
+              <button 
+                  onClick={handleMigration}
+                  disabled={isMigrating}
+                  className="bg-amber-600 hover:bg-amber-500 text-white font-black py-3 px-6 rounded-xl uppercase tracking-widest text-xs transition-all border-2 border-amber-500 shadow-lg"
+              >
+                  {isMigrating ? 'MIGRUJEM...' : 'MIGROVAŤ OPRÁVNENIA DO ROLÍ'}
+              </button>
+          </div>
+      </div>
+
       <div className={cardClass}>
         <div className="space-y-8">
           <h3 className="text-2xl font-black text-white uppercase tracking-tighter">DÔVODY PRESTOJOV</h3>

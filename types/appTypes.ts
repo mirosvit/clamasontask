@@ -149,8 +149,10 @@ export interface Role {
     parentId?: string;
     rank?: number;
     isSystem?: boolean;
+    permissions?: string[]; // NOVÉ: Vnorené oprávnenia pre optimalizáciu
 }
 
+// Legacy type - používa sa len pri migrácii
 export interface Permission {
     id: string;
     roleId: string;

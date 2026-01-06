@@ -2,7 +2,7 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useFirestoreData } from '../hooks/useFirestoreData';
 
-// Týmto získame kompletný typ toho, čo vracia hook useFirestoreData (dáta aj CRUD funkcie)
+// Týmto získame kompletný typ toho, čo vracia hook useFirestoreData
 type UseFirestoreDataReturn = ReturnType<typeof useFirestoreData>;
 
 const DataContext = createContext<UseFirestoreDataReturn | undefined>(undefined);

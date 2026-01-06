@@ -16,7 +16,7 @@ import MapVisualizationTab from './tabs/MapVisualizationTab';
 import SectorPickerModal from './modals/SectorPickerModal';
 import AppHeader from './AppHeader';
 import TabNavigator from './TabNavigator';
-import { UserData, DBItem, PartRequest, BreakSchedule, SystemBreak, BOMComponent, BOMRequest, Role, Permission, Task, Notification as AppNotification, PriorityLevel, SystemConfig, MapSector, AdminNote } from '../types/appTypes';
+import { UserData, DBItem, PartRequest, BreakSchedule, SystemBreak, BOMComponent, BOMRequest, Role, Task, Notification as AppNotification, PriorityLevel, SystemConfig, MapSector, AdminNote } from '../types/appTypes';
 import { useLanguage } from './LanguageContext';
 
 declare var XLSX: any;
@@ -38,7 +38,7 @@ interface PartSearchScreenProps {
   onToggleBlock: (id: string) => void; 
   onToggleManualBlock: (id: string) => void;
   onExhaustSearch: (id: string) => void;
-  onAddCodeNote?: (id: string, note: string) => void; // Renamed if needed, but not in current interface
+  onAddCodeNote?: (id: string, note: string) => void; 
   onAddNote: (id: string, note: string) => void;
   onDeleteMissingItem: (id: string) => void;
   onDeleteMissingReason: (id: string) => void;
@@ -82,7 +82,7 @@ interface PartSearchScreenProps {
   onAddMapSector: (name: string, x: number, y: number, color?: string) => void;
   onDeleteMapSector: (id: string) => void;
   onUpdateMapSector: (id: string, updates: Partial<MapSector>) => void;
-  mapObstacles: any[]; // Pridané do props
+  mapObstacles: any[];
   onRequestPart: (part: string) => Promise<boolean>;
   partRequests: PartRequest[];
   onApprovePartRequest: (req: PartRequest) => void;
@@ -102,7 +102,7 @@ interface PartSearchScreenProps {
   onApproveBOMRequest: (req: any) => void;
   onRejectBOMRequest: (id: string) => void;
   roles: Role[];
-  permissions: Permission[];
+  // permissions: Permission[]; // REMOVED
   onAddRole: (name: string) => void;
   onDeleteRole: (id: string) => void;
   onUpdatePermission: (permissionId: string, roleName: string, hasPermission: boolean) => void;
@@ -124,7 +124,7 @@ interface PartSearchScreenProps {
 
 const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
   const { 
-    currentUser, currentUserRole, onLogout, tasks, draftTasks, onAddTask, onUpdateTask, roles, permissions,
+    currentUser, currentUserRole, onLogout, tasks, draftTasks, onAddTask, onUpdateTask, roles,
     notifications, onClearNotification, installPrompt, onInstallApp, parts, workplaces,
     onToggleTask, onEditTask, onDeleteTask, onToggleMissing, onSetInProgress, onToggleManualBlock, onExhaustSearch, onMarkAsIncorrect, onAddNote, onReleaseTask, missingReasons,
     users, fetchSanons,
@@ -189,12 +189,16 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
 
   useEffect(() => { if (unitLock) setQuantityUnit(unitLock); }, [unitLock]);
 
-  const currentRoleId = roles.find(r => r.name === currentUserRole)?.id;
+  // OPTIMALIZOVANÝ HASPERMISSION
   const hasPermission = useCallback((permName: string) => {
       if (currentUserRole === 'ADMIN' && (permName === 'perm_tab_permissions' || permName === 'perm_manage_roles' || permName === 'perm_tab_settings' || permName === 'perm_tab_map')) return true;
-      if (!currentRoleId) return false;
-      return permissions.some(p => p.roleId === currentRoleId && p.permissionName === permName);
-  }, [currentUserRole, currentRoleId, permissions]);
+      
+      const currentRole = roles.find(r => r.name === currentUserRole);
+      if (!currentRole) return false;
+      
+      // Kontrola v poli stringov (vnorené oprávnenia)
+      return currentRole.permissions ? currentRole.permissions.includes(permName) : false;
+  }, [currentUserRole, roles]);
 
   const resolveName = useCallback((username?: string | null) => {
       if (!username) return '-';
@@ -334,7 +338,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
           {activeTab === 'missing' && <MissingItemsTab tasks={tasks} onDeleteMissingItem={props.onDeleteMissingItem} hasPermission={hasPermission} resolveName={resolveName} />}
           {activeTab === 'inventory' && <InventoryTab currentUser={currentUser} tasks={tasks} onAddTask={onAddTask} onUpdateTask={onUpdateTask} onToggleTask={onToggleTask} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} parts={(parts || []).map(p=>p.value)} onRequestPart={props.onRequestPart} resolveName={resolveName} />}
           {activeTab === 'logistics' && <LogisticsCenterTab tasks={tasks} onDeleteTask={props.onDeleteTask} hasPermission={hasPermission} resolveName={resolveName} />}
-          {activeTab === 'permissions' && <PermissionsTab roles={roles} permissions={permissions} onAddRole={onAddRole} onDeleteRole={onDeleteRole} onUpdatePermission={onUpdatePermission} onVerifyAdminPassword={onVerifyAdminPassword} />}
+          {activeTab === 'permissions' && <PermissionsTab roles={roles} onAddRole={onAddRole} onDeleteRole={onDeleteRole} onUpdatePermission={onUpdatePermission} onVerifyAdminPassword={onVerifyAdminPassword} />}
           {activeTab === 'catalog' && <PartCatalogTab parts={parts} onSelectPart={p => { setSelectedPart(p.value); setActiveTab('entry'); }} />}
           {activeTab === 'logs' && currentUserRole === 'ADMIN' && (
               <TransactionLogTab 

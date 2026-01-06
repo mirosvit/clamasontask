@@ -86,6 +86,9 @@ const TransactionLogTab: React.FC<TransactionLogTabProps> = ({
     const combined = Array.from(unique.values());
 
     return combined.filter(task => {
+        // 0. Iba dokončené úlohy (Striktná podmienka)
+        if (!task.isDone) return false;
+
         // 1. Dátum
         const taskTime = task.completedAt || task.createdAt || 0;
         if (taskTime < startTs || taskTime > endTs) return false;

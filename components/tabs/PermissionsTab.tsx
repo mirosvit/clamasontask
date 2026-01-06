@@ -1,18 +1,18 @@
 
 import React, { useState } from 'react';
-import { Role, Permission } from '../../App'; 
+import { Role } from '../../App'; 
 import { useLanguage } from '../LanguageContext';
 
 interface PermissionsTabProps {
     roles: Role[];
-    permissions: Permission[];
+    // permissions: Permission[]; // REMOVED - už nie je potrebné
     onAddRole: (name: string, parentId?: string, rank?: number) => void;
     onDeleteRole: (id: string) => void;
     onUpdatePermission: (permissionId: string, roleName: string, hasPermission: boolean) => void;
     onVerifyAdminPassword: (password: string) => boolean;
 }
 
-const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, permissions, onAddRole, onDeleteRole, onUpdatePermission, onVerifyAdminPassword }) => {
+const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, onAddRole, onDeleteRole, onUpdatePermission, onVerifyAdminPassword }) => {
     const { t, language } = useLanguage();
     const [newRoleName, setNewRoleName] = useState('');
     const [selectedParentId, setSelectedParentId] = useState('');
@@ -27,7 +27,7 @@ const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, permissions, onA
               'perm_tab_missing', 
               'perm_tab_inventory', 
               'perm_tab_logistics_center', 
-              'perm_tab_map', // PRIDANÉ: Oprávnenie pre mapu
+              'perm_tab_map',
               'perm_tab_analytics', 
               'perm_tab_settings', 
               'perm_tab_permissions', 
@@ -48,8 +48,8 @@ const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, permissions, onA
       }
     ];
 
-    const hasPermission = (roleId: string, permName: string) => {
-        return permissions?.some(p => p.roleId === roleId && p.permissionName === permName) || false;
+    const hasPermission = (role: Role, permName: string) => {
+        return role.permissions ? role.permissions.includes(permName) : false;
     };
 
     const handleCreateRole = () => {
@@ -139,7 +139,7 @@ const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, permissions, onA
                                              <td key={`${role.id}-${perm}`} className="py-5 px-5 text-center">
                                                  <input 
                                                     type="checkbox" 
-                                                    checked={hasPermission(role.id, perm)} 
+                                                    checked={hasPermission(role, perm)} 
                                                     onChange={(e) => onUpdatePermission && onUpdatePermission(perm, role.name, e.target.checked)} 
                                                     className="w-6 h-6 text-orange-500 bg-gray-700 border-gray-600 rounded cursor-pointer transition-transform active:scale-110" 
                                                  />
