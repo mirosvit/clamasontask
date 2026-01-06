@@ -31,6 +31,21 @@ const AppContent = ({
   const { users } = useData(); 
   const [unlockKey, setUnlockKey] = useState("");
 
+  // SERVICE MODE WATCHER: Okamžité vyhodenie ne-adminov pri zapnutí údržby
+  useEffect(() => {
+    if (isAuthenticated && currentUserRole !== 'ADMIN') {
+      const now = new Date();
+      const currentISO = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+      const isScheduled = systemConfig.maintenanceStart && systemConfig.maintenanceEnd && 
+                         currentISO >= systemConfig.maintenanceStart && 
+                         currentISO <= systemConfig.maintenanceEnd;
+      
+      if (systemConfig.maintenanceMode || isScheduled) {
+        onLogout();
+      }
+    }
+  }, [systemConfig.maintenanceMode, systemConfig.maintenanceStart, systemConfig.maintenanceEnd, isAuthenticated, currentUserRole, onLogout]);
+
   if (!isAuthenticated) {
     return (
       <LoginScreen 
