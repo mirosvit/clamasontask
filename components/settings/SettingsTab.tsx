@@ -1,11 +1,11 @@
 
 import React, { useState, useMemo } from 'react';
-import { useData } from '../../context/DataContext'; // Context hook
+import { useData } from '../../context/DataContext'; 
 import { SystemConfig } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 import PartRequestsSection from './PartRequestsSection';
 import UserSection from './UserSection';
-import PartsSection from './PartsSection';
+import ReactSection from './PartsSection';
 import BOMSection from './BOMSection';
 import WorkplaceSection from './WorkplaceSection';
 import SystemSection from './SystemSection';
@@ -13,6 +13,7 @@ import MaintenanceSection from './MaintenanceSection';
 import SetupView from './SetupView';
 import YearlyClosing from './YearlyClosing';
 import AdminNotesSection from './AdminNotesSection';
+import PartsSection from './PartsSection';
 
 interface SettingsTabProps {
   currentUser: string;
@@ -38,22 +39,21 @@ const Icons = {
 };
 
 const SettingsTab: React.FC<SettingsTabProps> = (props) => {
-  const data = useData(); // ACCESS TO ALL DATA
+  const data = useData(); 
   const { t, language } = useLanguage();
 
-  // Helper for name resolution
   const resolveName = (username?: string | null) => {
       if (!username) return '-';
       const u = data.users.find(x => x.username === username);
       return (u?.nickname || username).toUpperCase();
   };
 
-  // Helper for permission check
+  // OPTIMALIZOVANÝ CHECK: Už nie data.permissions.some, ale role.permissions.includes
   const hasPermission = (permName: string) => {
       if (props.currentUserRole === 'ADMIN') return true;
       const roleObj = data.roles.find(r => r.name === props.currentUserRole);
       if (!roleObj) return false;
-      return data.permissions.some(p => p.roleId === roleObj.id && p.permissionName === permName);
+      return roleObj.permissions ? roleObj.permissions.includes(permName) : false;
   };
   
   const navTiles = useMemo(() => {
@@ -71,7 +71,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
         all.push({ id: 'notes', label: 'POZNÁMKY', icon: <Icons.Notes />, perm: 'perm_view_setup' });
     }
     return all.filter(tile => hasPermission(tile.perm));
-  }, [language, t, props.currentUserRole, data.permissions, data.roles]);
+  }, [language, t, props.currentUserRole, data.roles]); // data.permissions odstránené zo závislostí
 
   const [activeSubTab, setActiveSubTab] = useState<string | null>(navTiles[0]?.id || null);
 
@@ -84,7 +84,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
       );
   }
 
-  // Parts list transformation for sub-components
   const partsList = data.partsMap 
     ? Object.entries(data.partsMap).map(([p, d]) => ({ id: p, value: p, description: d }))
     : [];
@@ -96,12 +95,11 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
         bomRequests={data.bomRequests}
         onApprovePartRequest={async (req) => { await data.onAddPart(req.partNumber); await data.onDeletePartRequest(req.id); }}
         onRejectPartRequest={(id) => data.onDeletePartRequest(id)}
-        onApproveBOMRequest={async (req) => { /* BOM logic needs expansion, for now just delete */ await data.onDeleteBOMRequest(req.id); }}
+        onApproveBOMRequest={async (req) => { await data.onDeleteBOMRequest(req.id); }}
         onRejectBOMRequest={(id) => data.onDeleteBOMRequest(id)}
         resolveName={resolveName}
       />
 
-      {/* TILE NAVIGATION */}
       <div className={`grid gap-3 mb-8 ${navTiles.length <= 4 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-4 lg:grid-cols-8'}`}>
         {navTiles.map(tile => {
           const isActive = activeSubTab === tile.id;
@@ -212,12 +210,12 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
           <MaintenanceSection 
             systemConfig={props.systemConfig} 
             onUpdateSystemConfig={props.onUpdateSystemConfig} 
-            onArchiveTasks={async () => ({ success: true })} // Placeholder if not in hook
+            onArchiveTasks={async () => ({ success: true })} 
             onDailyClosing={data.onDailyClosing}
             onWeeklyClosing={data.onWeeklyClosing}
-            onGetDocCount={async () => 0} // Placeholder
-            onPurgeOldTasks={async () => 0} // Placeholder
-            onExportTasksJSON={async () => {}} // Placeholder
+            onGetDocCount={async () => 0} 
+            onPurgeOldTasks={async () => 0} 
+            onExportTasksJSON={async () => {}} 
           />
         )}
         {activeSubTab === 'yearly' && (

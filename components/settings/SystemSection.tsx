@@ -26,14 +26,13 @@ const SystemSection: React.FC<SystemSectionProps> = ({
   missingReasons, breakSchedules, onAddMissingReason, onDeleteMissingReason, onAddBreakSchedule, onDeleteBreakSchedule, onUpdateAdminKey,
   isAdminLockEnabled, onToggleAdminLock, systemConfig, onUpdateSystemConfig
 }) => {
-  const { t, language } = useLanguage();
-  const { migratePermissionsToRoles } = useData() as any; // Prístup k migračnej funkcii
+  const { language } = useLanguage();
+  const { migratePermissionsToRoles } = useData() as any; 
   
   const [newMissingReason, setNewMissingReason] = useState('');
   const [newBreakStart, setNewBreakStart] = useState('');
   const [newBreakEnd, setNewBreakEnd] = useState('');
 
-  // States for Admin Security
   const [oldKey, setOldKey] = useState('');
   const [newKey, setNewKey] = useState('');
   const [confirmKey, setConfirmKey] = useState('');
@@ -64,7 +63,7 @@ const SystemSection: React.FC<SystemSectionProps> = ({
   };
 
   const handleMigration = async () => {
-      if (!window.confirm("Naozaj spustiť migráciu oprávnení do rolí? Táto akcia presunie dáta zo starej kolekcie permissions.")) return;
+      if (!window.confirm("Naozaj spustiť migráciu oprávnení do rolí? Táto akcia presunie dáta zo starej kolekcie permissions a výrazne zníži počet čítaní z DB.")) return;
       setIsMigrating(true);
       try {
           const result = await migratePermissionsToRoles();
@@ -83,19 +82,19 @@ const SystemSection: React.FC<SystemSectionProps> = ({
   return (
     <div className="space-y-8">
       
-      {/* OPTIMALIZÁCIA OPRÁVNENÍ (MIGRATION) */}
+      {/* OPTIMALIZÁCIA DB */}
       <div className="bg-amber-900/10 border-2 border-amber-500/30 rounded-2xl p-6 shadow-xl">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
               <div>
-                  <h3 className="text-xl font-black text-amber-500 uppercase tracking-tighter">OPTIMALIZÁCIA DB (Quata Guard)</h3>
-                  <p className="text-xs text-slate-400 mt-1 max-w-md">Kliknutím prenesiete oprávnenia zo starej štruktúry (separate docs) do novej (embedded arrays). Zníži to počet čítaní na Firebase.</p>
+                  <h3 className="text-xl font-black text-amber-500 uppercase tracking-tighter">OPTIMALIZÁCIA DB (Quota Guard)</h3>
+                  <p className="text-xs text-slate-400 mt-1 max-w-md">Presuňte oprávnenia zo starej kolekcie priamo do rolí. Zrýchli to načítanie aplikácie a ušetrí denné limity čítania.</p>
               </div>
               <button 
                   onClick={handleMigration}
                   disabled={isMigrating}
                   className="bg-amber-600 hover:bg-amber-500 text-white font-black py-3 px-6 rounded-xl uppercase tracking-widest text-xs transition-all border-2 border-amber-500 shadow-lg"
               >
-                  {isMigrating ? 'MIGRUJEM...' : 'MIGROVAŤ OPRÁVNENIA DO ROLÍ'}
+                  {isMigrating ? 'MIGRUJEM...' : 'MIGROVAŤ OPRÁVNENIA'}
               </button>
           </div>
       </div>
@@ -144,11 +143,9 @@ const SystemSection: React.FC<SystemSectionProps> = ({
         </div>
       </div>
 
-      {/* KALIBRÁCIA MAPY */}
       <div className={cardClass}>
         <div className="space-y-8">
           <h3 className="text-2xl font-black text-white uppercase tracking-tighter">KALIBRÁCIA MAPY</h3>
-          <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Definujte východiskový bod (0,0) pre mapové podklady</p>
           <div className="grid grid-cols-2 gap-4">
              <div>
                 <h4 className={labelClass}>GLOBÁLNY ORIGIN X</h4>
@@ -172,7 +169,6 @@ const SystemSection: React.FC<SystemSectionProps> = ({
         </div>
       </div>
 
-      {/* ADMIN BEZPEČNOSŤ SECTION */}
       <div className={cardClass}>
         <div className="space-y-8">
           <div className="flex justify-between items-center">
@@ -234,14 +230,6 @@ const SystemSection: React.FC<SystemSectionProps> = ({
               {isUpdating ? 'AKTUALIZUJEM...' : 'AKTUALIZOVAŤ BEZPEČNOSTNÝ KĽÚČ'}
             </button>
           </div>
-          
-          {!isAdminLockEnabled && (
-            <div className="bg-amber-900/20 border border-amber-500/30 p-4 rounded-xl">
-              <p className="text-[10px] font-bold text-amber-400 uppercase text-center leading-relaxed">
-                ⚠️ UPOZORNENIE: Ak je zámok vypnutý, administrátori majú okamžitý prístup do aplikácie bez zadávania kódu.
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>
