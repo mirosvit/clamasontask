@@ -116,19 +116,16 @@ export const useSystemData = () => {
     } catch (e) { console.error("Error updating permission", e); }
   };
 
-  // --- MIGRATION TOOL (OPRAVENÝ) ---
   const migratePermissionsToRoles = async () => {
       try {
           const oldPermsSnap = await getDocs(collection(db, 'permissions'));
           if (oldPermsSnap.empty) return "Žiadne staré dáta na migráciu.";
 
-          // 1. Získame ID všetkých aktuálne existujúcich rolí
           const existingRoleIds = new Set(roles.map(r => r.id));
           
           const permsByRole: Record<string, string[]> = {};
           oldPermsSnap.forEach(docSnap => {
               const d = docSnap.data();
-              // Iba ak rola skutočne existuje v systéme
               if (d.roleId && d.permissionName && existingRoleIds.has(d.roleId)) {
                   if (!permsByRole[d.roleId]) permsByRole[d.roleId] = [];
                   permsByRole[d.roleId].push(d.permissionName);
@@ -140,16 +137,15 @@ export const useSystemData = () => {
 
           for (const [roleId, newPerms] of Object.entries(permsByRole)) {
               const roleRef = doc(db, 'roles', roleId);
-              // arrayUnion zabezpečí, že nepridáme duplikáty, ak by niekto spustil migráciu 2x
               batch.update(roleRef, { permissions: arrayUnion(...newPerms) });
               updateCount++;
           }
 
           if (updateCount > 0) {
               await batch.commit();
-              return `Migrácia úspešná! Aktualizovaných ${updateCount} rolí. Osirelé permisie boli ignorované.`;
+              return `Migrácia úspešná! Aktualizovaných ${updateCount} rolí.`;
           }
-          return "Žiadne platné zmeny neboli potrebné (roly možno už dáta majú alebo súbor s permisiami je prázdny).";
+          return "Žiadne platné zmeny neboli potrebné.";
       } catch (e: any) {
           console.error("Migration failed", e);
           return `Chyba pri migrácii: ${e.message}`;
@@ -163,6 +159,33 @@ export const useSystemData = () => {
 
   const onClearNotification = async (id: string) => {
     try { await deleteDoc(doc(db, 'notifications', id)); } catch (e) { console.error("Error clearing notification", e); }
+  };
+
+  // NOVÉ: Hromadné rozosielanie správ všetkým užívateľom
+  const onBroadcastNotification = async (text: string, author: string) => {
+    if (!text.trim() || users.length === 0) return;
+    
+    try {
+        const batch = writeBatch(db);
+        const timestamp = Date.now();
+        
+        users.forEach(user => {
+            const notifRef = doc(collection(db, 'notifications'));
+            batch.set(notifRef, {
+                partNumber: 'SYSTÉMOVÁ SPRÁVA',
+                reason: text.trim(),
+                reportedBy: author,
+                targetUser: user.username,
+                timestamp: timestamp
+            });
+        });
+        
+        await batch.commit();
+        return true;
+    } catch (e) {
+        console.error("Broadcast failed:", e);
+        return false;
+    }
   };
 
   const onAddAdminNote = async (text: string, author: string) => {
@@ -199,7 +222,7 @@ export const useSystemData = () => {
     users, roles, notifications, adminNotes,
     onAddUser, onUpdatePassword, onUpdateNickname, onUpdateUserRole, onUpdateExportPermission, onDeleteUser,
     onAddRole, onDeleteRole, onUpdatePermission,
-    onAddNotification, onClearNotification,
+    onAddNotification, onClearNotification, onBroadcastNotification,
     onAddAdminNote, onDeleteAdminNote, onClearAdminNotes,
     migratePermissionsToRoles
   };

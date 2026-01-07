@@ -1,6 +1,8 @@
+
 import React, { useState } from 'react';
 import { DBItem, BreakSchedule, SystemConfig } from '../../App';
 import { useLanguage } from '../LanguageContext';
+import { useData } from '../../context/DataContext';
 
 interface SystemSectionProps {
   missingReasons: DBItem[];
@@ -17,7 +19,8 @@ interface SystemSectionProps {
 }
 
 const Icons = {
-  Trash: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+  Trash: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
+  Mega: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>
 };
 
 const SystemSection: React.FC<SystemSectionProps> = ({ 
@@ -25,6 +28,7 @@ const SystemSection: React.FC<SystemSectionProps> = ({
   isAdminLockEnabled, onToggleAdminLock, systemConfig, onUpdateSystemConfig
 }) => {
   const { language } = useLanguage();
+  const { onBroadcastNotification } = useData();
   
   const [newMissingReason, setNewMissingReason] = useState('');
   const [newBreakStart, setNewBreakStart] = useState('');
@@ -34,6 +38,27 @@ const SystemSection: React.FC<SystemSectionProps> = ({
   const [newKey, setNewKey] = useState('');
   const [confirmKey, setConfirmKey] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+
+  // Broadcast state
+  const [broadcastText, setBroadcastText] = useState('');
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+
+  const handleBroadcast = async () => {
+      if (!broadcastText.trim()) return;
+      if (!window.confirm(language === 'sk' ? 'Odoslať túto správu všetkým užívateľom?' : 'Send this message to all users?')) return;
+      
+      setIsBroadcasting(true);
+      const currentUser = localStorage.getItem('app_user') || 'ADMIN';
+      const success = await onBroadcastNotification(broadcastText, currentUser);
+      
+      if (success) {
+          setBroadcastText('');
+          alert(language === 'sk' ? 'Správa bola úspešne rozoslaná.' : 'Message sent successfully.');
+      } else {
+          alert('Error sending message.');
+      }
+      setIsBroadcasting(false);
+  };
 
   const handleUpdateKey = async () => {
     if (!isAdminLockEnabled) return;
@@ -65,6 +90,40 @@ const SystemSection: React.FC<SystemSectionProps> = ({
   return (
     <div className="space-y-8">
       
+      {/* Hromadná správa */}
+      <div className={`${cardClass} border-amber-500/30 ring-1 ring-amber-500/10`}>
+          <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-amber-500/10 rounded-lg text-amber-500">
+                  <Icons.Mega />
+              </div>
+              <h3 className="text-2xl font-black text-white uppercase tracking-tighter">HROMADNÁ SPRÁVA (BROADCAST)</h3>
+          </div>
+          <div className="space-y-4">
+              <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                  {language === 'sk' 
+                    ? 'Táto správa sa okamžite zobrazí ako vyskakovacie okno všetkým prihláseným užívateľom v systéme.' 
+                    : 'This message will immediately appear as a popup to all logged-in users in the system.'}
+              </p>
+              <textarea 
+                value={broadcastText}
+                onChange={e => setBroadcastText(e.target.value)}
+                placeholder={language === 'sk' ? "Zadajte text správy..." : "Enter message text..."}
+                className="w-full h-24 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:border-amber-500 outline-none transition-all resize-none"
+              />
+              <button 
+                onClick={handleBroadcast}
+                disabled={isBroadcasting || !broadcastText.trim()}
+                className={`w-full py-4 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg transition-all active:scale-95 border-2 ${
+                    isBroadcasting || !broadcastText.trim() 
+                    ? 'bg-gray-700 border-gray-600 text-gray-500 cursor-not-allowed' 
+                    : 'bg-amber-600 hover:bg-amber-500 text-white border-amber-500'
+                }`}
+              >
+                {isBroadcasting ? 'ODOSIELAM...' : '📢 ODOSLAŤ VŠETKÝM UŽÍVATEĽOM'}
+              </button>
+          </div>
+      </div>
+
       <div className={cardClass}>
         <div className="space-y-8">
           <h3 className="text-2xl font-black text-white uppercase tracking-tighter">DÔVODY PRESTOJOV</h3>
