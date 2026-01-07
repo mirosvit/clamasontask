@@ -18,6 +18,8 @@ export interface DBItem {
   coordX?: number;
   coordY?: number;
   distancePx?: number;
+  defaultSourceSectorId?: string;
+  defaultTargetSectorId?: string;
 }
 
 export interface MapSector {

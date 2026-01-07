@@ -12,7 +12,7 @@ interface WorkplaceSectionProps {
   onBatchAddWorkplaces: (vals: string[]) => void;
   onDeleteWorkplace: (id: string) => void;
   onDeleteAllWorkplaces: () => void;
-  onAddLogisticsOperation: (val: string, time?: number, dist?: number, x?: number, y?: number) => void;
+  onAddLogisticsOperation: (val: string, time?: number, dist?: number, x?: number, y?: number, defaultSource?: string, defaultTarget?: string) => void;
   onUpdateLogisticsOperation: (id: string, updates: Partial<DBItem>) => void;
   onDeleteLogisticsOperation: (id: string) => void;
   onDeleteAllLogisticsOperations: () => void;
@@ -119,7 +119,7 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo((props) => {
       setIsLogModalOpen(true);
   };
   const handleCreateLog = () => {
-      setEditingLog({ value: '', standardTime: 2.0, distancePx: 0, coordX: 0, coordY: 0 });
+      setEditingLog({ value: '', standardTime: 2.0, distancePx: 0, coordX: 0, coordY: 0, defaultSourceSectorId: '', defaultTargetSectorId: '' });
       setIsLogModalOpen(true);
   };
   const handleSaveLog = () => {
@@ -127,7 +127,7 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo((props) => {
       if (editingLog.id) {
           props.onUpdateLogisticsOperation(editingLog.id, editingLog);
       } else {
-          props.onAddLogisticsOperation(editingLog.value, editingLog.standardTime, editingLog.distancePx, editingLog.coordX, editingLog.coordY);
+          props.onAddLogisticsOperation(editingLog.value, editingLog.standardTime, editingLog.distancePx, editingLog.coordX, editingLog.coordY, editingLog.defaultSourceSectorId, editingLog.defaultTargetSectorId);
       }
       setIsLogModalOpen(false);
   };
@@ -317,7 +317,7 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo((props) => {
                                     <Icons.Truck />
                                 </div>
                                 <div className="min-w-0">
-                                    <p className={`text-xs font-black uppercase truncate ${statusColor}`}>{op.value}</p>
+                                    <p className={`text-xs font-black uppercase tracking-tighter truncate ${statusColor}`}>{op.value}</p>
                                     <div className="flex items-center gap-2 mt-1">
                                         <span className="text-[9px] font-mono text-slate-500 bg-slate-950 px-1.5 rounded border border-white/5">{op.distancePx}px</span>
                                         <span className="text-[9px] font-mono text-amber-500/80">Norma: {op.standardTime}m</span>
@@ -326,6 +326,12 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo((props) => {
                                             <span>Y:{op.coordY || 0}</span>
                                         </div>
                                     </div>
+                                    {(op.defaultSourceSectorId || op.defaultTargetSectorId) && (
+                                        <div className="flex gap-2 mt-1">
+                                            {op.defaultSourceSectorId && <span className="text-[7px] bg-slate-800 text-slate-400 px-1 rounded uppercase">Predv. Zdroj</span>}
+                                            {op.defaultTargetSectorId && <span className="text-[7px] bg-slate-800 text-slate-400 px-1 rounded uppercase">Predv. Cieľ</span>}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -515,7 +521,6 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo((props) => {
                         onChange={e => setEditingLog({...editingLog, distancePx: parseInt(e.target.value)})}
                         className={`${inputClass} border-indigo-500/30 focus:border-indigo-500 text-indigo-400`}
                      />
-                     <p className="text-[9px] text-slate-500 mt-1 uppercase font-bold">* Pri rýchlosti {props.systemConfig.vzvSpeed} km/h to ovplyvní travel time.</p>
                   </div>
                   <div>
                      <label className={`${labelClass} text-amber-500`}>NORMA NA 1 ÚKON (STANDARD TIME)</label>
@@ -525,6 +530,32 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo((props) => {
                         onChange={e => setEditingLog({...editingLog, standardTime: parseFloat(e.target.value)})}
                         className={`${inputClass} border-amber-500/30 text-amber-400`}
                      />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 border-t border-slate-800 pt-4">
+                     <div className="col-span-2 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Predvolené Sektory (Automatické plnenie)</div>
+                     <div>
+                        <label className={labelClass}>ZDROJ (ODKIAĽ)</label>
+                        <select 
+                            value={editingLog.defaultSourceSectorId || ''} 
+                            onChange={e => setEditingLog({...editingLog, defaultSourceSectorId: e.target.value})}
+                            className={inputClass}
+                        >
+                            <option value="">-- Žiadny --</option>
+                            {props.mapSectors.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                     </div>
+                     <div>
+                        <label className={labelClass}>CIEĽ (KAM)</label>
+                        <select 
+                            value={editingLog.defaultTargetSectorId || ''} 
+                            onChange={e => setEditingLog({...editingLog, defaultTargetSectorId: e.target.value})}
+                            className={inputClass}
+                        >
+                            <option value="">-- Žiadny --</option>
+                            {props.mapSectors.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                     </div>
                   </div>
 
                   {/* SÚRADNICE PRE REŤAZENIE LOGISTIKY */}

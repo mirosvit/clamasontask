@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { db } from '../../firebase';
 import { 
@@ -126,9 +127,20 @@ export const useMasterData = () => {
   };
 
   // Logistics Operations
-  const onAddLogisticsOperation = async (val: string, time: number = 0, dist: number = 0, x: number = 0, y: number = 0) => { await addDoc(collection(db, 'logistics_operations'), { value: val, standardTime: time, distancePx: dist, coordX: x, coordY: y }); };
-  // Fix: changed 'doc(logistics_operations, id)' to 'doc(db, 'logistics_operations', id)' to resolve the 'Cannot find name' error
-  const onUpdateLogisticsOperation = async (id: string, updates: Partial<DBItem>) => { await updateDoc(doc(db, 'logistics_operations', id), updates); };
+  const onAddLogisticsOperation = async (val: string, time: number = 0, dist: number = 0, x: number = 0, y: number = 0, defaultSource?: string, defaultTarget?: string) => { 
+      await addDoc(collection(db, 'logistics_operations'), { 
+          value: val, 
+          standardTime: time, 
+          distancePx: dist, 
+          coordX: x, 
+          coordY: y,
+          defaultSourceSectorId: defaultSource || null,
+          defaultTargetSectorId: defaultTarget || null
+      }); 
+  };
+  const onUpdateLogisticsOperation = async (id: string, updates: Partial<DBItem>) => { 
+      await updateDoc(doc(db, 'logistics_operations', id), updates); 
+  };
   const onDeleteLogisticsOperation = async (id: string) => { await deleteDoc(doc(db, 'logistics_operations', id)); };
   const onDeleteAllLogisticsOperations = async () => {
       const snap = await getDocs(collection(db, 'logistics_operations'));

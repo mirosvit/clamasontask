@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import PartNumberInput from '../PartNumberInput';
 import { DBItem, PriorityLevel, MapSector } from '../../types/appTypes';
 
@@ -55,8 +55,19 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
 
   const showSectorSelectors = React.useMemo(() => {
       const op = logisticsOp.toUpperCase();
-      return op.includes('PRESUN') || op.includes('MOVE');
+      return op.includes('PRESUN') || op.includes('MOVE') || op.includes('NAKL') || op.includes('VYKL') || op.includes('LOAD') || op.includes('UNLOAD');
   }, [logisticsOp]);
+
+  // AUTOMATICKÉ DOPĹŇANIE SEKTOROV PRI ZMENE OPERÁCIE
+  useEffect(() => {
+      if (mode === 'logistics' && logisticsOp) {
+          const selectedOpData = logisticsOperationsList.find(op => op.value === logisticsOp);
+          if (selectedOpData) {
+              if (selectedOpData.defaultSourceSectorId) setSourceSector(selectedOpData.defaultSourceSectorId);
+              if (selectedOpData.defaultTargetSectorId) setTargetSector(selectedOpData.defaultTargetSectorId);
+          }
+      }
+  }, [logisticsOp, mode, logisticsOperationsList, setSourceSector, setTargetSector]);
 
   return (
     <div className="h-full flex flex-col items-center animate-fade-in pb-20">
