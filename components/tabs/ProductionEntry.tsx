@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import PartNumberInput from '../PartNumberInput';
 import { DBItem, PriorityLevel, MapSector } from '../../types/appTypes';
@@ -52,11 +51,6 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
   logisticsOperationsList, mapSectors, t, language, hasPermission, handleAdd, onRequestPart, isUnitLocked
 }) => {
   const inputBaseClass = "w-full h-12 bg-gray-700 border border-gray-600 rounded-lg px-4 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase text-base";
-
-  const showSectorSelectors = React.useMemo(() => {
-      const op = logisticsOp.toUpperCase();
-      return op.includes('PRESUN') || op.includes('MOVE') || op.includes('NAKL') || op.includes('VYKL') || op.includes('LOAD') || op.includes('UNLOAD');
-  }, [logisticsOp]);
 
   // AUTOMATICKÉ DOPĹŇANIE SEKTOROV PRI ZMENE OPERÁCIE
   useEffect(() => {
@@ -174,8 +168,7 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
                   </div>
                 </div>
 
-                {/* --- SECTOR SELECTORS FOR LOGISTICS MOVES --- */}
-                {showSectorSelectors && (
+                {/* --- SECTOR SELECTORS FOR ALL LOGISTICS OPERATIONS --- */}
                 <div className="grid grid-cols-2 gap-4 bg-slate-900/50 p-4 rounded-xl border border-gray-600/50 animate-fade-in">
                     <div>
                         <label className="block text-gray-400 text-xs font-bold mb-2 uppercase tracking-wide">
@@ -208,7 +201,6 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
                         </select>
                     </div>
                 </div>
-                )}
               </>
             )}
             <div>

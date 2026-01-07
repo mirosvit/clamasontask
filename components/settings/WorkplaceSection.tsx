@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { DBItem, MapSector, SystemConfig, MapObstacle } from '../../types/appTypes';
