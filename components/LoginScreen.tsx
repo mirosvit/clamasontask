@@ -186,7 +186,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, users, system
               className={`group relative w-full flex justify-center py-3 px-4 border border-teal-400/50 text-sm font-medium rounded-md text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-teal-500 
                   ${systemConfig.ipCheckEnabled && !isIpAllowed 
                     ? 'bg-gray-600 cursor-not-allowed opacity-50' 
-                    : 'bg-teal-700 hover:bg-teal-600 shadow-[0_0_15px_rgba(15,118,110,0.4)]'
+                    : 'bg-teal-600 hover:bg-teal-500 shadow-[0_0_15px_rgba(20,184,166,0.4)]'
                   }`}
             >
               {t('login_btn')}
