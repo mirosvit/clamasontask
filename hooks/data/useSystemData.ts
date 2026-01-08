@@ -116,42 +116,6 @@ export const useSystemData = () => {
     } catch (e) { console.error("Error updating permission", e); }
   };
 
-  const migratePermissionsToRoles = async () => {
-      try {
-          const oldPermsSnap = await getDocs(collection(db, 'permissions'));
-          if (oldPermsSnap.empty) return "Žiadne staré dáta na migráciu.";
-
-          const existingRoleIds = new Set(roles.map(r => r.id));
-          
-          const permsByRole: Record<string, string[]> = {};
-          oldPermsSnap.forEach(docSnap => {
-              const d = docSnap.data();
-              if (d.roleId && d.permissionName && existingRoleIds.has(d.roleId)) {
-                  if (!permsByRole[d.roleId]) permsByRole[d.roleId] = [];
-                  permsByRole[d.roleId].push(d.permissionName);
-              }
-          });
-
-          const batch = writeBatch(db);
-          let updateCount = 0;
-
-          for (const [roleId, newPerms] of Object.entries(permsByRole)) {
-              const roleRef = doc(db, 'roles', roleId);
-              batch.update(roleRef, { permissions: arrayUnion(...newPerms) });
-              updateCount++;
-          }
-
-          if (updateCount > 0) {
-              await batch.commit();
-              return `Migrácia úspešná! Aktualizovaných ${updateCount} rolí.`;
-          }
-          return "Žiadne platné zmeny neboli potrebné.";
-      } catch (e: any) {
-          console.error("Migration failed", e);
-          return `Chyba pri migrácii: ${e.message}`;
-      }
-  };
-
   const onAddNotification = async (notification: Partial<Notification>) => {
     try { await addDoc(collection(db, 'notifications'), { ...notification, timestamp: Date.now() }); }
     catch (e) { console.error("Error adding notification", e); }
@@ -161,30 +125,22 @@ export const useSystemData = () => {
     try { await deleteDoc(doc(db, 'notifications', id)); } catch (e) { console.error("Error clearing notification", e); }
   };
 
-  // NOVÉ: Hromadné rozosielanie správ všetkým užívateľom
-  const onBroadcastNotification = async (text: string, author: string) => {
-    if (!text.trim() || users.length === 0) return;
-    
+  const onBroadcastNotification = async (message: string, author: string) => {
     try {
-        const batch = writeBatch(db);
-        const timestamp = Date.now();
-        
-        users.forEach(user => {
-            const notifRef = doc(collection(db, 'notifications'));
-            batch.set(notifRef, {
-                partNumber: 'SYSTÉMOVÁ SPRÁVA',
-                reason: text.trim(),
-                reportedBy: author,
-                targetUser: user.username,
-                timestamp: timestamp
-            });
+      const batch = writeBatch(db);
+      users.forEach(user => {
+        const notifRef = doc(collection(db, 'notifications'));
+        batch.set(notifRef, {
+          partNumber: 'SYSTÉMOVÁ SPRÁVA',
+          reason: message,
+          reportedBy: author,
+          targetUser: user.username,
+          timestamp: Date.now()
         });
-        
-        await batch.commit();
-        return true;
+      });
+      await batch.commit();
     } catch (e) {
-        console.error("Broadcast failed:", e);
-        return false;
+      console.error("Broadcast failed", e);
     }
   };
 
@@ -223,7 +179,6 @@ export const useSystemData = () => {
     onAddUser, onUpdatePassword, onUpdateNickname, onUpdateUserRole, onUpdateExportPermission, onDeleteUser,
     onAddRole, onDeleteRole, onUpdatePermission,
     onAddNotification, onClearNotification, onBroadcastNotification,
-    onAddAdminNote, onDeleteAdminNote, onClearAdminNotes,
-    migratePermissionsToRoles
+    onAddAdminNote, onDeleteAdminNote, onClearAdminNotes
   };
 };

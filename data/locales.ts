@@ -1,3 +1,4 @@
+
 export const translations = {
   sk: {
     tab_map: "Mapa trás",
