@@ -30,7 +30,6 @@ export const useSystemData = () => {
     const unsubRoles = onSnapshot(collection(db, 'roles'), s => setRoles(s.docs.map(d => ({id:d.id, ...d.data()} as Role))));
     const unsubNotifications = onSnapshot(collection(db, 'notifications'), s => setNotifications(s.docs.map(d => ({id:d.id, ...d.data()} as Notification))));
     
-    // Admin Notes
     const unsubAdminNotes = onSnapshot(doc(db, 'settings', 'notes'), (s) => {
       if (s.exists()) {
         const d = s.data();
@@ -44,8 +43,6 @@ export const useSystemData = () => {
         unsubUsers(); unsubRoles(); unsubNotifications(); unsubAdminNotes();
     };
   }, []);
-
-  // --- ACTIONS ---
 
   const onAddUser = async (user: UserData) => { await addDoc(collection(db, 'users'), user); };
   
@@ -125,10 +122,15 @@ export const useSystemData = () => {
     try { await deleteDoc(doc(db, 'notifications', id)); } catch (e) { console.error("Error clearing notification", e); }
   };
 
-  const onBroadcastNotification = async (message: string, author: string) => {
+  const onBroadcastNotification = async (message: string, author: string, targetUsernames?: string[]) => {
     try {
       const batch = writeBatch(db);
-      users.forEach(user => {
+      // Ak targetUsernames nie sú definované, odošleme všetkým
+      const recipients = targetUsernames && targetUsernames.length > 0 
+        ? users.filter(u => targetUsernames.includes(u.username))
+        : users;
+
+      recipients.forEach(user => {
         const notifRef = doc(collection(db, 'notifications'));
         batch.set(notifRef, {
           partNumber: 'SYSTÉMOVÁ SPRÁVA',

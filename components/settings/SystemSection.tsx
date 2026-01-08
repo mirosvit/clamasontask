@@ -20,7 +20,8 @@ interface SystemSectionProps {
 
 const Icons = {
   Trash: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
-  Megaphone: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>
+  Megaphone: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>,
+  UserGroup: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
 };
 
 const SystemSection: React.FC<SystemSectionProps> = ({ 
@@ -28,7 +29,7 @@ const SystemSection: React.FC<SystemSectionProps> = ({
   isAdminLockEnabled, onToggleAdminLock, systemConfig, onUpdateSystemConfig
 }) => {
   const { language } = useLanguage();
-  const { onBroadcastNotification } = useData();
+  const { onBroadcastNotification, users } = useData();
   
   const [newMissingReason, setNewMissingReason] = useState('');
   const [newBreakStart, setNewBreakStart] = useState('');
@@ -42,6 +43,21 @@ const SystemSection: React.FC<SystemSectionProps> = ({
   // Broadcast State
   const [broadcastMsg, setBroadcastMsg] = useState('');
   const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [selectedRecipients, setSelectedRecipients] = useState<string[]>([]);
+  const [selectAll, setSelectAll] = useState(true);
+
+  const toggleRecipient = (username: string) => {
+    setSelectAll(false);
+    setSelectedRecipients(prev => 
+      prev.includes(username) ? prev.filter(u => u !== username) : [...prev, username]
+    );
+  };
+
+  const handleToggleAll = () => {
+    const newState = !selectAll;
+    setSelectAll(newState);
+    if (newState) setSelectedRecipients([]);
+  };
 
   const handleUpdateKey = async () => {
     if (!isAdminLockEnabled) return;
@@ -69,11 +85,21 @@ const SystemSection: React.FC<SystemSectionProps> = ({
 
   const handleBroadcast = async () => {
     if (!broadcastMsg.trim()) return;
-    if (!window.confirm(language === 'sk' ? 'Odoslať túto správu všetkým užívateľom?' : 'Send this message to all users?')) return;
+    
+    const recipientCount = selectAll ? users.length : selectedRecipients.length;
+    if (recipientCount === 0) {
+        alert(language === 'sk' ? 'Vyberte aspoň jedného príjemcu.' : 'Select at least one recipient.');
+        return;
+    }
+
+    if (!window.confirm(language === 'sk' ? `Odoslať túto správu ${recipientCount} užívateľom?` : `Send this message to ${recipientCount} users?`)) return;
     
     setIsBroadcasting(true);
     const author = localStorage.getItem('app_user') || 'ADMIN';
-    await onBroadcastNotification(broadcastMsg, author);
+    
+    // Ak je selectAll true, posielame undefined (v hooku ošetríme ako všetkých)
+    await onBroadcastNotification(broadcastMsg, author, selectAll ? undefined : selectedRecipients);
+    
     setBroadcastMsg('');
     setIsBroadcasting(false);
     alert(language === 'sk' ? 'Správa bola rozoslaná.' : 'Message broadcasted.');
@@ -94,23 +120,56 @@ const SystemSection: React.FC<SystemSectionProps> = ({
               </div>
               <div>
                   <h3 className="text-xl font-black text-white uppercase tracking-tighter">HROMADNÁ SPRÁVA</h3>
-                  <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">Odoslať notifikáciu všetkým prihláseným</p>
+                  <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">Odoslať notifikáciu vybraným užívateľom</p>
               </div>
           </div>
-          <div className="flex gap-3">
-              <textarea 
-                  value={broadcastMsg}
-                  onChange={(e) => setBroadcastMsg(e.target.value)}
-                  placeholder="ZADAJTE TEXT SPRÁVY..."
-                  className="w-full bg-slate-950 border border-indigo-500/30 rounded-2xl px-5 py-4 text-white text-sm focus:outline-none focus:border-indigo-500 transition-all font-medium placeholder-slate-700 resize-none h-24"
-              />
-              <button 
-                  onClick={handleBroadcast}
-                  disabled={isBroadcasting || !broadcastMsg.trim()}
-                  className="w-32 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-2xl font-black shadow-lg transition-all active:scale-95 border-2 border-indigo-500 uppercase tracking-widest text-[10px]"
-              >
-                  {isBroadcasting ? '...' : 'ODOSLAŤ'}
-              </button>
+
+          <div className="space-y-6">
+              {/* Recipient Selector UI */}
+              <div className="bg-slate-950/50 p-4 rounded-2xl border border-indigo-500/20">
+                  <div className="flex items-center justify-between mb-4 px-2">
+                      <div className="flex items-center gap-2 text-[10px] font-black text-indigo-400 uppercase tracking-widest">
+                          <Icons.UserGroup />
+                          PRÍJEMCOVIA
+                      </div>
+                      <button 
+                        onClick={handleToggleAll}
+                        className={`text-[10px] font-black px-3 py-1 rounded-full border transition-all ${selectAll ? 'bg-indigo-500 text-white border-indigo-400 shadow-md' : 'bg-slate-800 text-slate-500 border-slate-700'}`}
+                      >
+                        VŠETCI PRIHLÁSENÍ
+                      </button>
+                  </div>
+                  
+                  {!selectAll && (
+                      <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar p-1 animate-fade-in">
+                          {users.map(u => (
+                              <button
+                                  key={u.username}
+                                  onClick={() => toggleRecipient(u.username)}
+                                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wide border transition-all ${selectedRecipients.includes(u.username) ? 'bg-teal-600/20 border-teal-500 text-teal-400' : 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-700'}`}
+                              >
+                                  {u.nickname || u.username}
+                              </button>
+                          ))}
+                      </div>
+                  )}
+              </div>
+
+              <div className="flex gap-3">
+                  <textarea 
+                      value={broadcastMsg}
+                      onChange={(e) => setBroadcastMsg(e.target.value)}
+                      placeholder="ZADAJTE TEXT SPRÁVY..."
+                      className="w-full bg-slate-950 border border-indigo-500/30 rounded-2xl px-5 py-4 text-white text-sm focus:outline-none focus:border-indigo-500 transition-all font-medium placeholder-slate-700 resize-none h-24"
+                  />
+                  <button 
+                      onClick={handleBroadcast}
+                      disabled={isBroadcasting || !broadcastMsg.trim() || (!selectAll && selectedRecipients.length === 0)}
+                      className="w-32 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-2xl font-black shadow-lg transition-all active:scale-95 border-2 border-indigo-500 uppercase tracking-widest text-[10px]"
+                  >
+                      {isBroadcasting ? '...' : 'ODOSLAŤ'}
+                  </button>
+              </div>
           </div>
       </div>
 
