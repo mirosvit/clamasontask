@@ -1,3 +1,4 @@
+
 export interface UserData {
   id?: string;
   username: string;
@@ -70,6 +71,7 @@ export interface Task {
   startedAt?: number; 
   completedAt?: number; 
   note?: string;
+  plate?: string;
   isBlocked?: boolean; 
   blockedBy?: string | null; 
   isManualBlocked?: boolean; 
