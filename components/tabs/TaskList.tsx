@@ -1,18 +1,19 @@
-
 import React, { useState, useMemo } from 'react';
-import { Task, PriorityLevel, DBItem } from '../../types/appTypes';
+import { Task, PriorityLevel, DBItem, MapSector } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 import TaskCard from './tasklist/TaskCard';
 import TaskModals from './tasklist/TaskModals';
 import SearchConfirmModal from '../modals/SearchConfirmModal';
 import AuditModal from '../modals/AuditModal';
+import SectorPickerModal from '../modals/SectorPickerModal';
 
 interface TaskListProps {
   currentUser: 'ADMIN' | 'USER' | 'LEADER';
   currentUserName: string;
   tasks: Task[];
   missingReasons: DBItem[];
-  onToggleTask: (id: string) => void;
+  mapSectors: MapSector[];
+  onToggleTask: (id: string, sectorId?: string) => void;
   onEditTask: (id: string, updates: Partial<Task>) => void;
   onDeleteTask: (id: string) => void;
   onToggleMissing: (id: string, reason?: string) => void;
@@ -42,6 +43,7 @@ const TaskList: React.FC<TaskListProps> = (props) => {
   
   const [searchConfirmTask, setSearchConfirmTask] = useState<Task | null>(null);
   const [auditTask, setAuditTask] = useState<Task | null>(null);
+  const [pendingCompleteTask, setPendingCompleteTask] = useState<Task | null>(null);
 
   // --- LOKÁLNA FILTRÁCIA ---
   const filteredTasks = useMemo(() => {
@@ -63,6 +65,32 @@ const TaskList: React.FC<TaskListProps> = (props) => {
     const task = props.tasks.find(t => t.id === id);
     if (task) props.onEditTask(id, { priority: newPriority });
     setPriorityEditId(null);
+  };
+
+  const handleToggleTaskWithCheck = (id: string) => {
+      const task = props.tasks.find(t => t.id === id);
+      if (!task) return;
+
+      // Ak je úloha hotová, vrátime ju (re-open) bez otázky na sektor
+      if (task.isDone) {
+          props.onToggleTask(id);
+          return;
+      }
+
+      // Ak ide o VÝROBNÚ úlohu a nie je ešte hotová, pýtame sa skladníka odkiaľ ju vzal
+      if (task.isProduction) {
+          setPendingCompleteTask(task);
+      } else {
+          // Pre logistiku alebo iné typy uzavrieme okamžite
+          props.onToggleTask(id);
+      }
+  };
+
+  const confirmSectorPick = (sectorId: string) => {
+      if (pendingCompleteTask) {
+          props.onToggleTask(pendingCompleteTask.id, sectorId);
+          setPendingCompleteTask(null);
+      }
   };
 
   const handleSearchClick = (task: Task) => {
@@ -167,13 +195,6 @@ const TaskList: React.FC<TaskListProps> = (props) => {
             </button>
           )}
         </div>
-        {searchTerm && (
-          <div className="mt-2 ml-2">
-            <span className="text-[10px] font-black text-teal-500 uppercase tracking-widest bg-teal-500/10 px-2 py-1 rounded border border-teal-500/20">
-              Nájdených: {filteredTasks.length} výsledkov
-            </span>
-          </div>
-        )}
       </div>
 
       {filteredTasks.length === 0 && (
@@ -201,7 +222,7 @@ const TaskList: React.FC<TaskListProps> = (props) => {
             copiedId={copiedId}
             hasPermission={props.hasPermission}
             onSetInProgress={props.onSetInProgress}
-            onToggleTask={props.onToggleTask}
+            onToggleTask={() => handleToggleTaskWithCheck(task.id)}
             onToggleBlock={() => handleSearchClick(task)}
             onToggleManualBlock={props.onToggleManualBlock}
             onExhaustSearch={props.onExhaustSearch}
@@ -252,6 +273,15 @@ const TaskList: React.FC<TaskListProps> = (props) => {
             props.onFinishAudit?.(id, res, note);
             setAuditTask(null);
           }} 
+        />
+      )}
+
+      {pendingCompleteTask && (
+        <SectorPickerModal 
+          task={pendingCompleteTask}
+          mapSectors={props.mapSectors}
+          onClose={() => setPendingCompleteTask(null)}
+          onConfirm={confirmSectorPick}
         />
       )}
     </div>

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { db } from '../../firebase';
 import { 
@@ -101,7 +100,7 @@ export const useTaskData = (
 
   // --- ACTIONS ---
 
-  // Inteligentné pridanie úlohy (rozlišuje Inventúru vs Bežnú úlohu)
+  // Inteligentné pridanie úlohy
   const onAddTask = async (
       partNumber: string, 
       workplace: string | null, 
@@ -172,21 +171,26 @@ export const useTaskData = (
     try { await deleteDoc(doc(db, 'tasks', id)); } catch(e) { console.error(e); }
   };
 
-  const onToggleTask = async (id: string) => {
+  const onToggleTask = async (id: string, sectorId?: string) => {
       const task = tasks.find(t => t.id === id);
       if(!task) return;
       const currentUser = localStorage.getItem('app_user') || 'Unknown';
       const updates: any = { isDone: !task.isDone };
+      
       if (!task.isDone) { 
           updates.completedAt = Date.now(); 
           updates.completedBy = currentUser; 
           updates.status = 'completed'; 
+          if (sectorId) {
+              updates.pickedFromSectorId = sectorId;
+          }
       } else { 
           updates.completedAt = null; 
           updates.completedBy = null; 
           updates.status = 'open'; 
           updates.isInProgress = false; 
           updates.inProgressBy = null; 
+          updates.pickedFromSectorId = null;
       }
       await onUpdateTask(id, updates);
   };
@@ -386,7 +390,6 @@ export const useTaskData = (
   const fetchSanons = async () => {
       try {
           const snap = await getDocs(collection(db, 'sanony'));
-          // Explicit cast to 'any' to avoid strict TS type inference blocking access to dynamic properties like 'tasks'
           return snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
       } catch (e) { console.error("Error fetching sanons", e); return []; }
   };
@@ -396,7 +399,7 @@ export const useTaskData = (
     onAddTask, onUpdateTask, onDeleteTask, onToggleTask, onEditTask, onToggleMissing,
     onSetInProgress, onToggleBlock, onToggleManualBlock, onExhaustSearch, 
     onMarkAsIncorrect, onAddNote, onReleaseTask,
-    onStartAudit, onFinishAudit, // New exports
+    onStartAudit, onFinishAudit,
     onDailyClosing, onWeeklyClosing, fetchSanons
   };
 };

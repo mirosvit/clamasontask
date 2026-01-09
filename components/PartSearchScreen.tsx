@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLanguage } from './LanguageContext';
 import AppHeader from './AppHeader';
@@ -15,7 +14,6 @@ import AnalyticsTab from './tabs/Analytics/AnalyticsTab';
 import SettingsTab from './settings/SettingsTab';
 import PermissionsTab from './tabs/PermissionsTab';
 import PartCatalogTab from './tabs/PartCatalogTab';
-import SectorPickerModal from './modals/SectorPickerModal';
 import { Task, PriorityLevel, DBItem, Role, SystemConfig, MapSector, MapObstacle, BOMComponent, PartRequest, BOMRequest, AdminNote } from '../types/appTypes';
 
 // --- MAIN DASHBOARD COMPONENT ---
@@ -45,7 +43,7 @@ interface PartSearchScreenProps {
     onAddTask: (partNumber: string, workplace: string | null, quantity: string | null, quantityUnit: string | null, priority: PriorityLevel, isLogistics?: boolean, noteOrPlate?: string, isProduction?: boolean, sourceSectorId?: string | null, targetSectorId?: string | null) => Promise<void>;
     onUpdateTask: (id: string, updates: Partial<Task>) => Promise<void>;
     onDeleteTask: (id: string) => Promise<void>;
-    onToggleTask: (id: string) => Promise<void>;
+    onToggleTask: (id: string, sectorId?: string) => Promise<void>;
     onSetInProgress: (id: string) => Promise<void>;
     onToggleBlock: (id: string) => Promise<void>;
     onToggleManualBlock: (id: string) => Promise<void>;
@@ -140,9 +138,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
     const [sourceSector, setSourceSector] = useState<string | null>(null);
     const [targetSector, setTargetSector] = useState<string | null>(null);
 
-    // Sector picking step for Production tasks
-    const [pendingTaskForSector, setPendingTaskForSector] = useState<any>(null);
-
     // Fullscreen handling
     const toggleFullscreen = () => {
         if (!document.fullscreenElement) {
@@ -188,15 +183,18 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                 alert(t('fill_all_fields'));
                 return;
             }
-            // Trigger sector picker for production tasks
-            setPendingTaskForSector({
-                partNumber: selectedPart,
-                workplace: selectedWorkplace,
+            // OKAMŽITÉ PRIDANIE - Modal sa zobrazí až pri dokončení skladníkom
+            await props.onAddTask(
+                selectedPart,
+                selectedWorkplace,
                 quantity,
                 quantityUnit,
                 priority,
-                isProduction: true
-            });
+                false,
+                '',
+                true
+            );
+            resetEntry();
         } else {
             if (!logisticsRef || !logisticsOp || !quantity) {
                 alert(t('fill_all_fields'));
@@ -214,24 +212,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                 sourceSector,
                 targetSector
             );
-            resetEntry();
-        }
-    };
-
-    const confirmSectorPick = async (sectorId: string) => {
-        if (pendingTaskForSector) {
-            await props.onAddTask(
-                pendingTaskForSector.partNumber,
-                pendingTaskForSector.workplace,
-                pendingTaskForSector.quantity,
-                pendingTaskForSector.quantityUnit,
-                pendingTaskForSector.priority,
-                false,
-                '',
-                true,
-                sectorId
-            );
-            setPendingTaskForSector(null);
             resetEntry();
         }
     };
@@ -316,6 +296,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                             currentUserName={props.currentUser}
                             tasks={props.tasks}
                             missingReasons={props.missingReasons}
+                            mapSectors={props.mapSectors}
                             onToggleTask={props.onToggleTask}
                             onEditTask={props.onUpdateTask}
                             onDeleteTask={props.onDeleteTask}
@@ -448,16 +429,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                     )}
                 </div>
             </main>
-
-            {/* Modal for pick-up location selection */}
-            {pendingTaskForSector && (
-                <SectorPickerModal 
-                    task={pendingTaskForSector}
-                    mapSectors={props.mapSectors}
-                    onClose={() => setPendingTaskForSector(null)}
-                    onConfirm={confirmSectorPick}
-                />
-            )}
         </div>
     );
 };
