@@ -282,7 +282,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                             setQuantityUnit={setQuantityUnit}
                             priority={priority}
                             setPriority={setPriority}
-                            parts={props.parts.map(p => p.value)}
+                            parts={props.parts}
                             workplaces={props.workplaces}
                             logisticsOperationsList={props.logisticsOperations}
                             mapSectors={props.mapSectors}

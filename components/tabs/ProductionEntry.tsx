@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+
+import React, { useEffect, useMemo } from 'react';
 import PartNumberInput from '../PartNumberInput';
 import { DBItem, PriorityLevel, MapSector } from '../../types/appTypes';
 
@@ -25,7 +26,7 @@ interface ProductionEntryProps {
   setQuantityUnit: (val: 'pcs' | 'boxes' | 'pallet') => void;
   priority: PriorityLevel;
   setPriority: (val: PriorityLevel) => void;
-  parts: string[];
+  parts: DBItem[]; // Zmenené zo string[] na DBItem[]
   workplaces: DBItem[];
   logisticsOperationsList: DBItem[];
   mapSectors: MapSector[];
@@ -51,6 +52,27 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
   logisticsOperationsList, mapSectors, t, language, hasPermission, handleAdd, onRequestPart, isUnitLocked
 }) => {
   const inputBaseClass = "w-full h-12 bg-gray-700 border border-gray-600 rounded-lg px-4 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono uppercase text-base";
+
+  // LOGIKA ZAMYKANIA JEDNOTIEK PODĽA POPISU (Substring matching)
+  const packagingLogic = useMemo(() => {
+    if (mode !== 'production' || !selectedPart) return { forceUnit: null, label: null };
+    
+    const partObj = parts.find(p => p.value === selectedPart);
+    const desc = (partObj?.description || '').trim().toUpperCase();
+
+    if (desc.includes('S0001S')) return { forceUnit: 'pcs' as const, label: 'LEN KUSY (S0001S)' };
+    if (desc.includes('S0002S')) return { forceUnit: 'boxes' as const, label: 'LEN BOXY (S0002S)' };
+    if (desc.includes('S0003S')) return { forceUnit: 'pallet' as const, label: 'LEN PALETA (S0003S)' };
+
+    return { forceUnit: null, label: null };
+  }, [selectedPart, mode, parts]);
+
+  // Automatické prepnutie jednotky pri zmene dielu ak existuje forceUnit
+  useEffect(() => {
+    if (packagingLogic.forceUnit) {
+      setQuantityUnit(packagingLogic.forceUnit);
+    }
+  }, [packagingLogic.forceUnit, setQuantityUnit]);
 
   // AUTOMATICKÉ DOPĹŇANIE SEKTOROV PRI ZMENE OPERÁCIE
   useEffect(() => {
@@ -97,12 +119,18 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
                     {t('part_number')} <span className="text-teal-500">*</span>
                   </label>
                   <PartNumberInput 
-                    parts={parts} 
+                    parts={parts.map(p => p.value)} 
                     onPartSelect={setSelectedPart} 
                     placeholder={t('part_placeholder')} 
                     value={selectedPart} 
                     onRequestPart={onRequestPart} 
                   />
+                  {packagingLogic.label && (
+                    <div className="mt-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-1.5 flex items-center gap-2 animate-fade-in">
+                       <span className="text-amber-500 text-[10px] animate-pulse">🔒</span>
+                       <span className="text-amber-500 text-[10px] font-black uppercase tracking-widest">{packagingLogic.label}</span>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">
@@ -220,22 +248,22 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
                 <div className="flex w-full sm:w-1/2 h-12 bg-gray-700 rounded-lg p-1.5 border border-gray-600">
                   <button 
                     onClick={() => setQuantityUnit('pcs')} 
-                    disabled={mode === 'logistics' || isUnitLocked} 
-                    className={`flex-1 rounded-md text-xs font-black uppercase transition-all ${quantityUnit === 'pcs' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'} ${mode === 'logistics' ? 'opacity-10 cursor-not-allowed grayscale' : ''} ${isUnitLocked && quantityUnit !== 'pcs' ? 'opacity-20 cursor-not-allowed' : ''}`}
+                    disabled={mode === 'logistics' || isUnitLocked || (packagingLogic.forceUnit !== null && packagingLogic.forceUnit !== 'pcs')} 
+                    className={`flex-1 rounded-md text-xs font-black uppercase transition-all ${quantityUnit === 'pcs' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'} ${mode === 'logistics' ? 'opacity-10 cursor-not-allowed grayscale' : ''} ${isUnitLocked && quantityUnit !== 'pcs' ? 'opacity-20 cursor-not-allowed' : ''} ${(packagingLogic.forceUnit !== null && packagingLogic.forceUnit !== 'pcs') ? 'opacity-20 cursor-not-allowed' : ''}`}
                   >
                     {t('unit_pcs_short')}
                   </button>
                   <button 
                     onClick={() => setQuantityUnit('boxes')} 
-                    disabled={isUnitLocked}
-                    className={`flex-1 rounded-md text-xs font-black uppercase transition-all ${quantityUnit === 'boxes' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'} ${isUnitLocked && quantityUnit !== 'boxes' ? 'opacity-20 cursor-not-allowed' : ''}`}
+                    disabled={isUnitLocked || (packagingLogic.forceUnit !== null && packagingLogic.forceUnit !== 'boxes')}
+                    className={`flex-1 rounded-md text-xs font-black uppercase transition-all ${quantityUnit === 'boxes' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'} ${isUnitLocked && quantityUnit !== 'boxes' ? 'opacity-20 cursor-not-allowed' : ''} ${(packagingLogic.forceUnit !== null && packagingLogic.forceUnit !== 'boxes') ? 'opacity-20 cursor-not-allowed' : ''}`}
                   >
                     {t('unit_boxes_short')}
                   </button>
                   <button 
                     onClick={() => setQuantityUnit('pallet')} 
-                    disabled={isUnitLocked}
-                    className={`flex-1 rounded-md text-xs font-black uppercase transition-all ${quantityUnit === 'pallet' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'} ${isUnitLocked && quantityUnit !== 'pallet' ? 'opacity-20 cursor-not-allowed' : ''}`}
+                    disabled={isUnitLocked || (packagingLogic.forceUnit !== null && packagingLogic.forceUnit !== 'pallet')}
+                    className={`flex-1 rounded-md text-xs font-black uppercase transition-all ${quantityUnit === 'pallet' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'} ${isUnitLocked && quantityUnit !== 'pallet' ? 'opacity-20 cursor-not-allowed' : ''} ${(packagingLogic.forceUnit !== null && packagingLogic.forceUnit !== 'pallet') ? 'opacity-20 cursor-not-allowed' : ''}`}
                   >
                     {t('unit_pallet_short')}
                   </button>
