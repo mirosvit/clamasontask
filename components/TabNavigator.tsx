@@ -35,7 +35,7 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
   
   const currentOrder = systemConfig?.tabOrder || DEFAULT_TAB_ORDER;
 
-  // Definície skupín
+  // Definície skupín pre zbalenie menu
   const ADMIN_TAB_IDS = ['settings', 'permissions'];
   const STAT_TAB_IDS = ['map', 'analytics', 'logs'];
   const LOG_TAB_IDS = ['logistics', 'catalog'];
@@ -44,16 +44,17 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
   const isStatsTabActive = STAT_TAB_IDS.includes(activeTab);
   const isLogisticsTabActive = LOG_TAB_IDS.includes(activeTab);
 
-  // Zatvorenie dropdownov pri kliknutí mimo
+  // Zatvorenie dropdownov pri kliknutí mimo plochu menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (adminDropdownRef.current && !adminDropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (adminDropdownRef.current && !adminDropdownRef.current.contains(target)) {
         setIsAdminOpen(false);
       }
-      if (statsDropdownRef.current && !statsDropdownRef.current.contains(event.target as Node)) {
+      if (statsDropdownRef.current && !statsDropdownRef.current.contains(target)) {
         setIsStatsOpen(false);
       }
-      if (logisticsDropdownRef.current && !logisticsDropdownRef.current.contains(event.target as Node)) {
+      if (logisticsDropdownRef.current && !logisticsDropdownRef.current.contains(target)) {
         setIsLogisticsOpen(false);
       }
     };
@@ -61,7 +62,7 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Filtrovanie hlavných horizontálnych kariet (vylúčime všetky grupované ID)
+  // Filtrovanie položiek pre hlavný horizontálny riadok (vylúčime tie, čo idú do dropdownov)
   const topLevelTabIds = currentOrder.filter(id => 
     !ADMIN_TAB_IDS.includes(id) && 
     !STAT_TAB_IDS.includes(id) && 
@@ -92,15 +93,15 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
     setIsOpen: (val: boolean) => void, 
     isActive: boolean, 
     tabs: typeof TAB_CONFIG, 
-    ref: React.RefObject<HTMLDivElement | null>
+    dropdownRef: React.RefObject<HTMLDivElement | any>
   ) => {
     if (tabs.length === 0) return null;
 
     return (
-      <div className="relative ml-2 sm:ml-4 flex-shrink-0" ref={ref}>
+      <div className="relative ml-2 sm:ml-4 flex-shrink-0" ref={dropdownRef}>
         <button
           onClick={() => {
-              // Zatvoríme ostatné
+              // Pred otvorením nového zatvoríme ostatné
               if (!isOpen) {
                   setIsAdminOpen(false);
                   setIsStatsOpen(false);
@@ -114,7 +115,7 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
               : 'border-transparent text-gray-400 hover:text-gray-200'
           }`}
         >
-          <span className="whitespace-nowrap">{t(labelKey as any)}</span>
+          <span className="whitespace-nowrap uppercase tracking-tighter">{t(labelKey as any)}</span>
           <svg 
             className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180 text-teal-400' : 'text-gray-600'}`} 
             fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -122,7 +123,7 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
           </svg>
           
-          {/* Celkový badge pre skupinu */}
+          {/* Súhrnný indikátor pre skupinu (napr. ak je v nej upozornenie) */}
           {(() => {
             const totalBadge = tabs.reduce((acc, curr) => acc + (curr.badgeKey ? counts[curr.badgeKey] : 0), 0);
             return totalBadge > 0 ? (
@@ -173,7 +174,7 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
     <div className="bg-gray-800 border-t border-gray-700 shadow-sm z-30">
       <div className="max-w-7xl mx-auto w-full px-2 sm:px-4 flex items-center">
         
-        {/* Hlavný horizontálny zoznam */}
+        {/* Hlavný horizontálny zoznam dôležitých kariet */}
         <div className="flex space-x-4 sm:space-x-6 overflow-x-auto custom-scrollbar flex-grow py-1">
           {topLevelTabIds.map(tabId => {
             const config = TAB_CONFIG.find(c => c.id === tabId);
@@ -214,7 +215,7 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
           })}
         </div>
 
-        {/* Dropdowny */}
+        {/* Dropdown menu sekcie */}
         {renderDropdown('tab_logistics_group', isLogisticsOpen, setIsLogisticsOpen, isLogisticsTabActive, allowedLogisticsTabs, logisticsDropdownRef)}
         {renderDropdown('tab_statistics', isStatsOpen, setIsStatsOpen, isStatsTabActive, allowedStatsTabs, statsDropdownRef)}
         {renderDropdown('tab_administration', isAdminOpen, setIsAdminOpen, isAdminTabActive, allowedAdminTabs, adminDropdownRef)}
