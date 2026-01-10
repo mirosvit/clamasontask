@@ -39,11 +39,13 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
 
   useEffect(() => {
     const handleGlobalClick = (e: MouseEvent) => {
-        if (openMenu && !(e.target as HTMLElement).closest('.dropdown-trigger')) {
+        const target = e.target as HTMLElement;
+        // Ak je menu otvorené, zatvoríme ho len ak klik nebol na trigger ANI do vnútra portálu
+        if (openMenu && !target.closest('.dropdown-trigger') && !target.closest('.portal-dropdown-content')) {
             setOpenMenu(null);
         }
     };
-    const handleScroll = () => { if (openMenu) setOpenMenu(null); };
+    const handleScroll = () => { if (navBarRef.current && openMenu) setOpenMenu(null); };
 
     document.addEventListener("mousedown", handleGlobalClick);
     const scrollContainer = scrollContainerRef.current;
@@ -117,7 +119,7 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
                 right: `${dropdownPos.right}px`,
                 zIndex: 9999 
             }}
-            className="w-56 bg-gray-900 border-2 border-slate-700 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden animate-fade-in"
+            className="portal-dropdown-content w-56 bg-gray-900 border-2 border-slate-700 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden animate-fade-in"
           >
               <div className="py-2">
                 {tabs.map(config => {
