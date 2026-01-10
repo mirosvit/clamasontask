@@ -72,7 +72,6 @@ export const calculateBlockedTime = (
 
 /**
  * Hlavné jadro analytického výpočtu (Pure JS function).
- * Oddelené od Reactu pre maximálny výkon a stabilitu.
  */
 export const runAnalyticsEngine = (
     dataset: Task[],
@@ -89,7 +88,6 @@ export const runAnalyticsEngine = (
     const VZV_SPEED_MPS = VZV_SPEED_KMH / 3.6;
     const SHIFT_MINUTES = 450;
 
-    // Cache pre A* výpočty - kritické pre plynulosť UI
     const distanceCache = new Map<string, number>();
     const getCachedAStar = (p1: {x: number, y: number}, p2: {x: number, y: number}, id1: string, id2: string) => {
         const key = id1 < id2 ? `${id1}_${id2}` : `${id2}_${id1}`;
@@ -103,17 +101,15 @@ export const runAnalyticsEngine = (
     const hourlyLoad: Record<number, { prod: number, log: number }> = {};
     for (let h = 5; h <= 23; h++) { hourlyLoad[h] = { prod: 0, log: 0 }; }
 
-    const workplaceLoad: Record<string, { load: number, pal: number, req: number }> = {};
-    const highRunnerLoad: Record<string, { load: number, pal: number, req: number }> = {};
+    const workplaceLoad: Record<string, { load: number, pal: number, taskRequests: number }> = {};
+    const highRunnerLoad: Record<string, { load: number, pal: number, taskRequests: number }> = {};
     const missingPartsMap: Record<string, number> = {};
 
     let globalRealErrors = 0, globalFalseAlarms = 0, globalAuditedCount = 0;
-    let globalTotalTargetMin = 0, globalTotalActualMin = 0;
 
     const prodDriving: DrivingStats = { fullDist: 0, emptyDist: 0, fullRides: 0, emptyRides: 0, efficiency: 0 };
     const logDriving: DrivingStats = { fullDist: 0, emptyDist: 0, fullRides: 0, emptyRides: 0, efficiency: 0 };
 
-    // 1. Prvotná agregácia
     dataset.forEach(t => {
         if (t.isDone && t.completedBy) {
             if (!workerTaskMap[t.completedBy]) workerTaskMap[t.completedBy] = [];
@@ -137,7 +133,6 @@ export const runAnalyticsEngine = (
         }
     });
 
-    // 2. Výpočet štatistík pre každého pracovníka
     const workerStatsList: WorkerStats[] = Object.entries(workerTaskMap).map(([uid, workerTasks]) => {
         const sorted = [...workerTasks].sort((a, b) => (a.completedAt || 0) - (b.completedAt || 0));
         let wFull = 0, wEmpty = 0, wTransit = 0, wExecMs = 0, wTargetMin = 0, wActualMin = 0, wReactMs = 0, wReactCount = 0, wMissing = 0, wRealErr = 0, wRides = 0, wInvalid = 0;
@@ -149,12 +144,12 @@ export const runAnalyticsEngine = (
             const loadMultiplier = (task.quantityUnit === 'pallet') ? parseFloat((task.quantity || '1').replace(',', '.')) : 1;
 
             if (!task.isLogistics && task.workplace) {
-                if (!workplaceLoad[task.workplace]) workplaceLoad[task.workplace] = { load: 0, pal: 0, req: 0 };
-                workplaceLoad[task.workplace].load += loadMultiplier; workplaceLoad[task.workplace].req++;
+                if (!workplaceLoad[task.workplace]) workplaceLoad[task.workplace] = { load: 0, pal: 0, taskRequests: 0 };
+                workplaceLoad[task.workplace].load += loadMultiplier; workplaceLoad[task.workplace].taskRequests++;
                 if (task.quantityUnit === 'pallet') workplaceLoad[task.workplace].pal += loadMultiplier;
                 if (task.partNumber) {
-                    if (!highRunnerLoad[task.partNumber]) highRunnerLoad[task.partNumber] = { load: 0, pal: 0, req: 0 };
-                    highRunnerLoad[task.partNumber].load += loadMultiplier; highRunnerLoad[task.partNumber].req++;
+                    if (!highRunnerLoad[task.partNumber]) highRunnerLoad[task.partNumber] = { load: 0, pal: 0, taskRequests: 0 };
+                    highRunnerLoad[task.partNumber].load += loadMultiplier; highRunnerLoad[task.partNumber].taskRequests++;
                     if (task.quantityUnit === 'pallet') highRunnerLoad[task.partNumber].pal += loadMultiplier;
                 }
             }

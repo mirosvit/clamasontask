@@ -8,7 +8,6 @@ interface HighRunnerData {
   load: number;
   pal: number;
   taskRequests: number;
-  totalTasks: number;
 }
 
 interface HighRunnerSectionProps {

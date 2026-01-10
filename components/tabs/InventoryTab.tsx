@@ -65,6 +65,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
     });
 
     const activeInventoryTask = useMemo(() => {
+        // Oprava: hľadáme úlohu pomocou technického textu "Počítanie zásob", ktorý nastavuje useTaskData
         return (tasks || []).find(t => 
             t.partNumber === "Počítanie zásob" && 
             !t.isDone && 
@@ -72,10 +73,15 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
         );
     }, [tasks, currentUser]);
 
-    // Focus na lokáciu pri spustení novej relácie
+    // Okamžitý focus na lokáciu pri detekcii aktívnej relácie
     useEffect(() => {
         if (activeInventoryTask) {
-            setTimeout(() => locationRef.current?.focus(), 100);
+            const timer = setTimeout(() => {
+                if (locationRef.current) {
+                    locationRef.current.focus();
+                }
+            }, 150);
+            return () => clearTimeout(timer);
         }
     }, [activeInventoryTask?.id]);
 
@@ -159,7 +165,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
         
         setScannedItems(prev => [newItem, ...prev]);
 
-        // Reset všetkých polí pre novú položku (vrátene lokácie)
+        // Reset všetkých polí pre novú položku
         setLocation('');
         setPartNumber(''); 
         setBatch(''); 
@@ -310,6 +316,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                                 <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">{t('inv_loc_label')}</label>
                                 <input 
                                     ref={locationRef}
+                                    autoFocus
                                     type="text"
                                     value={location}
                                     onChange={(e) => setLocation(e.target.value.toUpperCase())}
