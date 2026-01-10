@@ -1,4 +1,3 @@
-
 export const commonLocales = {
   sk: {
     login_title: "Clamason Task Manager",
@@ -30,6 +29,9 @@ export const commonLocales = {
     tab_tasks: "Úlohy",
     tab_analytics: "Analytika",
     tab_settings: "Nastavenia",
+    tab_administration: "Administrácia",
+    tab_statistics: "Štatistika",
+    tab_logistics_group: "Logistika",
     tab_bom: "BOM (Kusovník)",
     tab_missing: "Chýbajúci tovar",
     tab_logistics_center: "Logistické centrum",
@@ -94,6 +96,9 @@ export const commonLocales = {
     tab_tasks: "Tasks",
     tab_analytics: "Analytics",
     tab_settings: "Settings",
+    tab_administration: "Administration",
+    tab_statistics: "Statistics",
+    tab_logistics_group: "Logistics",
     tab_bom: "BOM",
     tab_missing: "Missing Items",
     tab_logistics_center: "Logistics Center",

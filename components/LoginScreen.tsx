@@ -131,7 +131,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, users, system
         )}
 
         <div className="text-center">
-          <h2 className="text-3xl font-extrabold text-[#97bc1e] mb-2">
+          <h2 className="text-3xl font-extrabold text-teal-400 mb-2">
             {t('login_title')}
           </h2>
           <p className="mt-2 text-sm text-gray-400">
@@ -183,13 +183,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, users, system
             <button
               type="submit"
               disabled={systemConfig.ipCheckEnabled && !isIpAllowed}
-              className={`group relative w-full flex justify-center py-3 px-4 border border-[#97bb23]/50 text-sm font-medium rounded-md text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-[#97bb23] 
+              className={`group relative w-full flex justify-center py-3 px-4 border border-teal-500/50 text-sm font-black rounded-md text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-teal-500 
                   ${systemConfig.ipCheckEnabled && !isIpAllowed 
                     ? 'bg-gray-600 cursor-not-allowed opacity-50' 
-                    : 'bg-[#97bb23] hover:opacity-90 shadow-[0_0_15px_rgba(151,187,35,0.4)]'
+                    : 'bg-teal-600 hover:bg-teal-500 shadow-[0_0_15px_rgba(13,148,136,0.4)]'
                   }`}
             >
-              {t('login_btn')}
+              {t('login_btn').toUpperCase()}
             </button>
           </div>
         </form>
