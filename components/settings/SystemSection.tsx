@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DBItem, BreakSchedule, SystemConfig } from '../../App';
 import { useLanguage } from '../LanguageContext';
 import { useData } from '../../context/DataContext';
+import { TAB_CONFIG, DEFAULT_TAB_ORDER } from '../../constants/uiConstants';
 
 interface SystemSectionProps {
   missingReasons: DBItem[];
@@ -21,14 +22,17 @@ interface SystemSectionProps {
 const Icons = {
   Trash: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
   Megaphone: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>,
-  UserGroup: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+  UserGroup: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>,
+  ArrowUp: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" /></svg>,
+  ArrowDown: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>,
+  Layout: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
 };
 
 const SystemSection: React.FC<SystemSectionProps> = ({ 
   missingReasons, breakSchedules, onAddMissingReason, onDeleteMissingReason, onAddBreakSchedule, onDeleteBreakSchedule, onUpdateAdminKey,
   isAdminLockEnabled, onToggleAdminLock, systemConfig, onUpdateSystemConfig
 }) => {
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const { onBroadcastNotification, users } = useData();
   
   const [newMissingReason, setNewMissingReason] = useState('');
@@ -45,6 +49,38 @@ const SystemSection: React.FC<SystemSectionProps> = ({
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [selectedRecipients, setSelectedRecipients] = useState<string[]>([]);
   const [selectAll, setSelectAll] = useState(true);
+
+  // Tab Order State
+  const [localTabOrder, setLocalTabOrder] = useState<string[]>([]);
+  const [hasOrderChanged, setHasOrderChanged] = useState(false);
+
+  useEffect(() => {
+    setLocalTabOrder(systemConfig.tabOrder || DEFAULT_TAB_ORDER);
+  }, [systemConfig.tabOrder]);
+
+  const moveTab = (index: number, direction: 'up' | 'down') => {
+    const newOrder = [...localTabOrder];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newOrder.length) return;
+
+    const temp = newOrder[index];
+    newOrder[index] = newOrder[targetIndex];
+    newOrder[targetIndex] = temp;
+
+    setLocalTabOrder(newOrder);
+    setHasOrderChanged(true);
+  };
+
+  const handleSaveTabOrder = async () => {
+    await onUpdateSystemConfig({ tabOrder: localTabOrder });
+    setHasOrderChanged(false);
+    alert(language === 'sk' ? 'Usporiadanie menu bolo uložené.' : 'Tab order saved.');
+  };
+
+  const resetToDefaultOrder = () => {
+    setLocalTabOrder(DEFAULT_TAB_ORDER);
+    setHasOrderChanged(true);
+  };
 
   const toggleRecipient = (username: string) => {
     setSelectAll(false);
@@ -171,6 +207,68 @@ const SystemSection: React.FC<SystemSectionProps> = ({
                   </button>
               </div>
           </div>
+      </div>
+
+      {/* TAB ORDER MANAGEMENT SECTION */}
+      <div className={cardClass}>
+        <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-3">
+                <div className="p-3 bg-teal-500/10 rounded-xl text-teal-400 border border-teal-500/20">
+                    <Icons.Layout />
+                </div>
+                <div>
+                    <h3 className="text-xl font-black text-white uppercase tracking-tighter">USPORIADANIE NAVIGÁCIE</h3>
+                    <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">Zmeňte poradie kariet v hlavnom menu</p>
+                </div>
+            </div>
+            <div className="flex gap-2">
+                <button 
+                    onClick={resetToDefaultOrder}
+                    className="h-10 px-4 rounded-lg bg-slate-800 text-slate-400 border border-slate-700 text-[9px] font-black uppercase tracking-widest hover:text-white transition-all"
+                >
+                    RESET
+                </button>
+                {hasOrderChanged && (
+                    <button 
+                        onClick={handleSaveTabOrder}
+                        className="h-10 px-6 rounded-lg bg-teal-600 text-white border-2 border-teal-500 text-[10px] font-black uppercase tracking-widest shadow-lg animate-pulse"
+                    >
+                        ULOŽIŤ ZMENY
+                    </button>
+                )}
+            </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {localTabOrder.map((tabId, idx) => {
+                const config = TAB_CONFIG.find(c => c.id === tabId);
+                if (!config) return null;
+                return (
+                    <div key={tabId} className="bg-slate-950/40 p-4 rounded-xl border border-white/5 flex items-center justify-between group">
+                        <div className="flex items-center gap-4">
+                            <span className="text-[10px] font-black text-slate-700 font-mono w-4">{idx + 1}.</span>
+                            <span className="text-xs font-black text-slate-300 uppercase tracking-wider">{t(config.labelKey)}</span>
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button 
+                                onClick={() => moveTab(idx, 'up')} 
+                                disabled={idx === 0}
+                                className="p-2 rounded bg-slate-800 text-slate-500 hover:text-teal-400 disabled:opacity-10"
+                            >
+                                <Icons.ArrowUp />
+                            </button>
+                            <button 
+                                onClick={() => moveTab(idx, 'down')} 
+                                disabled={idx === localTabOrder.length - 1}
+                                className="p-2 rounded bg-slate-800 text-slate-500 hover:text-teal-400 disabled:opacity-10"
+                            >
+                                <Icons.ArrowDown />
+                            </button>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

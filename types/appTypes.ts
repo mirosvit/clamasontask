@@ -186,4 +186,5 @@ export interface SystemConfig {
     mapOriginX?: number;
     mapOriginY?: number;
     vzvSpeed?: number;
+    tabOrder?: string[];
 }

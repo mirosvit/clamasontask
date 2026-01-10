@@ -252,6 +252,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                 t={t}
                 counts={counts}
                 currentUserRole={props.currentUserRole}
+                systemConfig={props.systemConfig}
             />
 
             {/* Main Application Container */}
