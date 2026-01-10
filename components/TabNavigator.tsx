@@ -94,7 +94,13 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
         <span className="whitespace-nowrap uppercase tracking-tighter">{t(labelKey as any)}</span>
         <svg className={`w-4 h-4 transition-transform duration-200 ${openMenu === menuId ? 'rotate-180 text-teal-400' : 'text-gray-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
         {(() => {
-          const totalBadge = tabs.reduce((acc, curr) => acc + (curr.badgeKey ? (counts as any)[curr.badgeKey] : 0), 0);
+          const totalBadge = tabs.reduce((acc, curr) => {
+            const bKey = curr.badgeKey;
+            if (bKey) {
+              return acc + ((counts as any)[bKey] || 0);
+            }
+            return acc;
+          }, 0);
           return totalBadge > 0 ? <span className="bg-orange-600 text-white text-[9px] rounded-full w-4 h-4 flex items-center justify-center font-bold">!</span> : null;
         })()}
       </button>
@@ -114,16 +120,20 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
             className="w-56 bg-gray-900 border-2 border-slate-700 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden animate-fade-in"
           >
               <div className="py-2">
-                {tabs.map(config => (
-                    <button 
-                        key={config.id} 
-                        onClick={() => { setActiveTab(config.id); setOpenMenu(null); }} 
-                        className={`w-full flex items-center justify-between px-4 py-3 text-left text-sm font-bold transition-all ${activeTab === config.id ? 'bg-teal-600/20 text-teal-400' : 'text-gray-400 hover:bg-slate-800 hover:text-white'}`}
-                    >
-                        <span className="uppercase tracking-wide">{t(config.labelKey as any)}</span>
-                        {(config.badgeKey ? (counts as any)[config.badgeKey] : 0) > 0 && <span className={`text-[10px] text-white px-1.5 py-0.5 rounded-full ${config.id === 'settings' ? 'bg-red-500' : 'bg-orange-600'}`}>{(counts as any)[config.badgeKey]}</span>}
-                    </button>
-                ))}
+                {tabs.map(config => {
+                    const bKey = config.badgeKey;
+                    const badgeCount = bKey ? (counts as any)[bKey] : 0;
+                    return (
+                        <button 
+                            key={config.id} 
+                            onClick={() => { setActiveTab(config.id); setOpenMenu(null); }} 
+                            className={`w-full flex items-center justify-between px-4 py-3 text-left text-sm font-bold transition-all ${activeTab === config.id ? 'bg-teal-600/20 text-teal-400' : 'text-gray-400 hover:bg-slate-800 hover:text-white'}`}
+                        >
+                            <span className="uppercase tracking-wide">{t(config.labelKey as any)}</span>
+                            {badgeCount > 0 && <span className={`text-[10px] text-white px-1.5 py-0.5 rounded-full ${config.id === 'settings' ? 'bg-red-500' : 'bg-orange-600'}`}>{badgeCount}</span>}
+                        </button>
+                    );
+                })}
               </div>
           </div>,
           document.body
@@ -142,6 +152,8 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
               {topLevelTabIds.map(tabId => {
                 const config = TAB_CONFIG.find(c => c.id === tabId);
                 if (!config || (config.adminOnly && currentUserRole !== 'ADMIN') || !hasPermission(config.permission)) return null;
+                const bKey = config.badgeKey;
+                const badgeCount = bKey ? (counts as any)[bKey] : 0;
                 return (
                   <button 
                     key={config.id} 
@@ -149,7 +161,7 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
                     className={`relative whitespace-nowrap py-3 px-1 border-b-4 font-bold text-sm transition-colors ${activeTab === config.id ? (config.color || 'border-teal-500 text-teal-400') : `border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500`}`}
                   >
                     {t(config.labelKey as any)}
-                    {(config.badgeKey ? (counts as any)[config.badgeKey] : 0) > 0 && <span className={`ml-2 text-white text-[10px] rounded-full px-1.5 py-0.5 bg-orange-600`}>{(counts as any)[config.badgeKey]}</span>}
+                    {badgeCount > 0 && <span className={`ml-2 text-white text-[10px] rounded-full px-1.5 py-0.5 bg-orange-600`}>{badgeCount}</span>}
                   </button>
                 );
               })}
