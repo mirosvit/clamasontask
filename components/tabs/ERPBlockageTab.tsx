@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { db } from '../../firebase';
@@ -16,6 +15,7 @@ interface ERPBlockageTabProps {
     parts: DBItem[];
     blockages: ERPBlockage[];
     resolveName: (username?: string | null) => string;
+    hasPermission: (perm: string) => boolean;
 }
 
 const Icons = {
@@ -25,7 +25,7 @@ const Icons = {
     Excel: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
 };
 
-const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUserRole, parts, blockages, resolveName }) => {
+const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUserRole, parts, blockages, resolveName, hasPermission }) => {
     const { t, language } = useLanguage();
     const { onAddNotification } = useData();
 
@@ -173,7 +173,8 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
         return diff < 1 ? t('erp_ageing_now') : t('erp_ageing_min', { n: diff });
     };
 
-    const isAdmin = currentUserRole === 'ADMIN';
+    const canManage = hasPermission('perm_erp_manage');
+    const canDelete = hasPermission('perm_erp_delete');
 
     return (
         <div className="max-w-7xl mx-auto space-y-8 pb-24 animate-fade-in text-slate-200">
@@ -191,7 +192,7 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
                     <button onClick={handleExport} className="flex-1 md:flex-none h-12 px-6 bg-teal-600/10 hover:bg-teal-600/20 text-teal-500 border border-teal-500/30 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center justify-center gap-2">
                         <Icons.Excel /> {t('erp_btn_excel')}
                     </button>
-                    {isAdmin && (
+                    {canDelete && (
                         <button onClick={handleClearReady} className="flex-1 md:flex-none h-12 px-6 bg-red-600/10 hover:bg-red-600/20 text-red-500 border border-red-500/30 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center justify-center gap-2">
                             <Icons.Trash /> {t('erp_btn_clear')}
                         </button>
@@ -237,7 +238,7 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
                     </div>
                     <div className="lg:col-span-3 pt-2">
                         <button 
-                            onClick={handleAdd}
+                            onClick={handleAdd} 
                             disabled={isSubmitting}
                             className="w-full h-16 bg-teal-600 hover:bg-teal-500 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl shadow-teal-900/20 transition-all active:scale-[0.98] border-b-4 border-teal-800 hover:border-teal-700 text-lg flex items-center justify-center gap-3"
                         >
@@ -298,35 +299,33 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
                                 </div>
 
                                 <div className="md:w-48 flex-shrink-0 flex md:flex-col items-center justify-center gap-3">
-                                    {isAdmin && (
+                                    {canManage && !isReady && (
                                         <>
-                                            {!isReady && (
-                                                <>
-                                                    {isWaiting && (
-                                                        <button 
-                                                            onClick={() => handleResolve(item.id)}
-                                                            className="w-full h-14 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest border-b-4 border-orange-800 shadow-lg transition-all active:scale-95"
-                                                        >
-                                                            {t('erp_btn_resolve')}
-                                                        </button>
-                                                    )}
-                                                    {isResolving && (
-                                                        <button 
-                                                            onClick={() => openFinishModal(item.id)}
-                                                            className="w-full h-14 bg-teal-600 hover:bg-teal-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest border-b-4 border-teal-800 shadow-lg transition-all active:scale-95"
-                                                        >
-                                                            {t('erp_btn_finish')}
-                                                        </button>
-                                                    )}
-                                                </>
+                                            {isWaiting && (
+                                                <button 
+                                                    onClick={() => handleResolve(item.id)}
+                                                    className="w-full h-14 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest border-b-4 border-orange-800 shadow-lg transition-all active:scale-95"
+                                                >
+                                                    {t('erp_btn_resolve')}
+                                                </button>
                                             )}
-                                            <button 
-                                                onClick={() => handleDelete(item.id)}
-                                                className="w-14 h-14 flex items-center justify-center rounded-2xl bg-slate-950 border-2 border-slate-800 text-slate-600 hover:text-red-500 hover:border-red-500/40 transition-all active:scale-95 shadow-lg"
-                                            >
-                                                <Icons.Trash />
-                                            </button>
+                                            {isResolving && (
+                                                <button 
+                                                    onClick={() => openFinishModal(item.id)}
+                                                    className="w-full h-14 bg-teal-600 hover:bg-teal-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest border-b-4 border-teal-800 shadow-lg transition-all active:scale-95"
+                                                >
+                                                    {t('erp_btn_finish')}
+                                                </button>
+                                            )}
                                         </>
+                                    )}
+                                    {canDelete && (
+                                        <button 
+                                            onClick={() => handleDelete(item.id)}
+                                            className="w-14 h-14 flex items-center justify-center rounded-2xl bg-slate-950 border-2 border-slate-800 text-slate-600 hover:text-red-500 hover:border-red-500/40 transition-all active:scale-95 shadow-lg"
+                                        >
+                                            <Icons.Trash />
+                                        </button>
                                     )}
                                 </div>
                             </div>

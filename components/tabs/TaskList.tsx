@@ -169,8 +169,8 @@ const TaskList: React.FC<TaskListProps> = (props) => {
 
   return (
     <div className="flex flex-col space-y-3 pb-20">
-      {/* VYHĽADÁVACÍ PANEL */}
-      <div className="sticky top-0 z-30 bg-gray-900/95 backdrop-blur-sm pb-4 pt-1">
+      {/* VYHĽADÁVACÍ PANEL - Teraz fixne umiestnený, nie sticky */}
+      <div className="bg-gray-900 pb-6">
         <div className="relative group">
           <input 
             type="text" 

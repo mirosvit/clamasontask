@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLanguage } from './LanguageContext';
 import AppHeader from './AppHeader';
@@ -407,6 +406,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                             parts={props.parts}
                             blockages={props.erpBlockages}
                             resolveName={resolveName}
+                            hasPermission={hasPermission}
                         />
                     )}
 
