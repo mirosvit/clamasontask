@@ -226,7 +226,7 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
                     </div>
                     <div className="lg:col-span-2 space-y-4">
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">POZNÁMKA / DÔVOD CHYBY</label>
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">{t('erp_label_note')}</label>
                             <textarea 
                                 value={userNote}
                                 onChange={e => setUserNote(e.target.value)}
