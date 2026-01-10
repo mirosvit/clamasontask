@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { db } from '../../firebase';
-import { doc, onSnapshot, updateDoc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { ERPBlockage, DBItem } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 import { useData } from '../../context/DataContext';
@@ -14,6 +14,7 @@ interface ERPBlockageTabProps {
     currentUser: string;
     currentUserRole: string;
     parts: DBItem[];
+    blockages: ERPBlockage[];
     resolveName: (username?: string | null) => string;
 }
 
@@ -24,13 +25,11 @@ const Icons = {
     Excel: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
 };
 
-const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUserRole, parts, resolveName }) => {
+const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUserRole, parts, blockages, resolveName }) => {
     const { t, language } = useLanguage();
     const { onAddNotification } = useData();
 
     // State
-    const [blockages, setBlockages] = useState<ERPBlockage[]>([]);
-    const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [timer, setTimer] = useState(Date.now());
 
@@ -43,15 +42,9 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
     const [finishModal, setFinishModal] = useState<{ isOpen: boolean; id: string | null; note: string }>({ isOpen: false, id: null, note: '' });
     const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; title: string; desc: string; onConfirm: () => void; type: 'danger' | 'warning' }>({ isOpen: false, title: '', desc: '', onConfirm: () => {}, type: 'danger' });
 
-    // REALTIME SYNC (Single Doc pattern)
     useEffect(() => {
-        const unsub = onSnapshot(doc(db, 'settings', 'erp_blockages'), (s) => {
-            if (s.exists()) setBlockages(s.data().items || []);
-            else setBlockages([]);
-            setLoading(false);
-        });
         const interval = setInterval(() => setTimer(Date.now()), 60000);
-        return () => { unsub(); clearInterval(interval); };
+        return () => clearInterval(interval);
     }, []);
 
     const sortedList = useMemo(() => {
@@ -117,7 +110,6 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
 
         await updateStatus(finishModal.id, updates);
 
-        // Notifikácia operátorovi
         onAddNotification({
             partNumber: item.partNumber,
             reason: finishModal.note,
@@ -185,8 +177,6 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
 
     return (
         <div className="max-w-7xl mx-auto space-y-8 pb-24 animate-fade-in text-slate-200">
-            
-            {/* HEADER SECTION */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div className="flex items-center gap-5">
                     <div className="p-4 bg-orange-500/20 rounded-2xl border border-orange-500/30">
@@ -209,7 +199,6 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
                 </div>
             </div>
 
-            {/* INPUT FORM SECTION */}
             <div className="bg-slate-900/60 border-2 border-slate-800 rounded-[2rem] p-8 shadow-2xl backdrop-blur-md relative overflow-hidden group">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/5 rounded-full -mr-32 -mt-32 blur-[100px] pointer-events-none"></div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-end relative z-10">
@@ -258,11 +247,8 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
                 </div>
             </div>
 
-            {/* LIST SECTION */}
             <div className="space-y-4">
-                {loading ? (
-                    <div className="h-64 flex items-center justify-center"><div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div></div>
-                ) : sortedList.length > 0 ? (
+                {sortedList.length > 0 ? (
                     sortedList.map((item) => {
                         const isWaiting = item.status === 'waiting';
                         const isResolving = item.status === 'resolving';
@@ -282,7 +268,6 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
 
                         return (
                             <div key={item.id} className={`group relative flex flex-col md:flex-row items-stretch rounded-[2rem] border-2 transition-all duration-300 p-6 gap-6 ${statusColors}`}>
-                                {/* Left Side: Part Info */}
                                 <div className="md:w-64 flex-shrink-0 flex flex-col justify-center">
                                     <h4 className="text-2xl font-black text-white font-mono tracking-tight break-all leading-tight">{item.partNumber}</h4>
                                     <div className="mt-3 bg-slate-950 rounded-xl p-3 border border-slate-800 flex items-center justify-between">
@@ -291,7 +276,6 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
                                     </div>
                                 </div>
 
-                                {/* Middle: Content */}
                                 <div className="flex-grow flex flex-col justify-center space-y-4">
                                     <div className="flex flex-wrap items-center gap-3">
                                         <span className={`px-4 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border-2 ${badgeColors}`}>
@@ -313,7 +297,6 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
                                     )}
                                 </div>
 
-                                {/* Right Side: Actions */}
                                 <div className="md:w-48 flex-shrink-0 flex md:flex-col items-center justify-center gap-3">
                                     {isAdmin && (
                                         <>
@@ -357,7 +340,6 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
                 )}
             </div>
 
-            {/* MODALS */}
             {finishModal.isOpen && createPortal(
                 <div className="fixed inset-0 z-[12000] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 animate-fade-in">
                     <div className="bg-slate-900 border-2 border-teal-500/50 rounded-[2.5rem] shadow-[0_0_100px_rgba(20,184,166,0.2)] w-full max-w-lg p-10 relative overflow-hidden" onClick={e => e.stopPropagation()}>

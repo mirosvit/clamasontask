@@ -9,8 +9,9 @@ interface TabNavigatorProps {
   counts: {
     tasks: number;
     pendingRequests: number;
+    erpBlockages: number;
   };
-  currentUserRole?: string; // Pridané pre kontrolu roly
+  currentUserRole?: string;
 }
 
 const TabNavigator: React.FC<TabNavigatorProps> = ({
@@ -114,11 +115,15 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
                 activeTab === 'erp' ? 'border-orange-500 text-orange-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'
               }`}
             >
-              {t('tab_erp')}
+              {t('tab_erp')}{' '}
+              {counts.erpBlockages > 0 && (
+                <span className="ml-1 sm:ml-2 bg-orange-600 text-white text-xs rounded-full px-1.5 sm:px-2 py-0.5">
+                  {counts.erpBlockages}
+                </span>
+              )}
             </button>
           )}
 
-          {/* NOVÝ TAB: Mapa trás */}
           {hasPermission('perm_tab_map') && (
             <button
               onClick={() => setActiveTab('map')}
@@ -130,7 +135,6 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
             </button>
           )}
 
-          {/* NOVÝ TAB: Transakcie (LOG) - Len pre ADMIN */}
           {currentUserRole === 'ADMIN' && (
             <button
               onClick={() => setActiveTab('logs')}

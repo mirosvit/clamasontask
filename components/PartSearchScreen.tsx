@@ -16,7 +16,7 @@ import AnalyticsTab from './tabs/Analytics/AnalyticsTab';
 import SettingsTab from './settings/SettingsTab';
 import PermissionsTab from './tabs/PermissionsTab';
 import PartCatalogTab from './tabs/PartCatalogTab';
-import { Task, PriorityLevel, DBItem, Role, SystemConfig, MapSector, MapObstacle, BOMComponent, PartRequest, BOMRequest, AdminNote } from '../types/appTypes';
+import { Task, PriorityLevel, DBItem, Role, SystemConfig, MapSector, MapObstacle, BOMComponent, PartRequest, BOMRequest, AdminNote, ERPBlockage } from '../types/appTypes';
 
 // --- MAIN DASHBOARD COMPONENT ---
 interface PartSearchScreenProps {
@@ -34,6 +34,7 @@ interface PartSearchScreenProps {
     partRequests: PartRequest[];
     bomRequests: BOMRequest[];
     adminNotes: AdminNote[];
+    erpBlockages: ERPBlockage[];
     systemConfig: SystemConfig;
     isBreakActive: boolean;
 
@@ -185,7 +186,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                 alert(t('fill_all_fields'));
                 return;
             }
-            // OKAMŽITÉ PRIDANIE - Modal sa zobrazí až pri dokončení skladníkom
             await props.onAddTask(
                 selectedPart,
                 selectedWorkplace,
@@ -220,8 +220,9 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
 
     const counts = useMemo(() => ({
         tasks: props.tasks.filter(t => !t.isDone).length,
-        pendingRequests: props.partRequests.length + props.bomRequests.length
-    }), [props.tasks, props.partRequests, props.bomRequests]);
+        pendingRequests: props.partRequests.length + props.bomRequests.length,
+        erpBlockages: (props.erpBlockages || []).filter(b => b.status !== 'ready').length
+    }), [props.tasks, props.partRequests, props.bomRequests, props.erpBlockages]);
 
     return (
         <div className="flex flex-col h-screen overflow-hidden bg-gray-900">
@@ -403,6 +404,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                             currentUser={props.currentUser}
                             currentUserRole={props.currentUserRole}
                             parts={props.parts}
+                            blockages={props.erpBlockages}
                             resolveName={resolveName}
                         />
                     )}

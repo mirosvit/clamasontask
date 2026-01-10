@@ -13,12 +13,13 @@ import {
   arrayUnion,
   getDoc
 } from 'firebase/firestore';
-import { DBItem, BreakSchedule, SystemBreak } from '../../types/appTypes';
+import { DBItem, BreakSchedule, SystemBreak, ERPBlockage } from '../../types/appTypes';
 
 export const useOperationsData = () => {
   const [missingReasons, setMissingReasons] = useState<DBItem[]>([]);
   const [breakSchedules, setBreakSchedules] = useState<BreakSchedule[]>([]);
   const [systemBreaks, setSystemBreaks] = useState<SystemBreak[]>([]);
+  const [erpBlockages, setErpBlockages] = useState<ERPBlockage[]>([]);
   const [isBreakActive, setIsBreakActive] = useState(false);
 
   useEffect(() => {
@@ -29,7 +30,12 @@ export const useOperationsData = () => {
       if (s.exists()) setBreakSchedules(s.data().data || []);
     });
 
-    return () => { unsubReasons(); unsubSysBreaks(); unsubBreaks(); };
+    const unsubERP = onSnapshot(doc(db, 'settings', 'erp_blockages'), (s) => {
+        if (s.exists()) setErpBlockages(s.data().items || []);
+        else setErpBlockages([]);
+    });
+
+    return () => { unsubReasons(); unsubSysBreaks(); unsubBreaks(); unsubERP(); };
   }, []);
 
   const checkBreakStatus = useCallback(() => {
@@ -86,7 +92,7 @@ export const useOperationsData = () => {
   };
 
   return {
-    missingReasons, breakSchedules, systemBreaks, isBreakActive,
+    missingReasons, breakSchedules, systemBreaks, erpBlockages, isBreakActive,
     onAddMissingReason, onDeleteMissingReason,
     onAddBreakSchedule, onDeleteBreakSchedule
   };
