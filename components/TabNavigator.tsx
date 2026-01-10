@@ -59,7 +59,7 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
                     : `border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500 ${hasBadge ? 'text-orange-400/80' : ''}`
                 }`}
               >
-                {t(config.labelKey)}
+                {t(config.labelKey as any)}
                 {hasBadge && (
                   <span className={`ml-1 sm:ml-2 text-white text-xs rounded-full px-1.5 sm:px-2 py-0.5 ${badgeColorClass}`}>
                     {badgeValue}

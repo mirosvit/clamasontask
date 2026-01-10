@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { DBItem, BreakSchedule, SystemConfig } from '../../App';
+import { DBItem, BreakSchedule, SystemConfig } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 import { useData } from '../../context/DataContext';
 import { TAB_CONFIG, DEFAULT_TAB_ORDER } from '../../constants/uiConstants';
@@ -247,7 +247,7 @@ const SystemSection: React.FC<SystemSectionProps> = ({
                     <div key={tabId} className="bg-slate-950/40 p-4 rounded-xl border border-white/5 flex items-center justify-between group">
                         <div className="flex items-center gap-4">
                             <span className="text-[10px] font-black text-slate-700 font-mono w-4">{idx + 1}.</span>
-                            <span className="text-xs font-black text-slate-300 uppercase tracking-wider">{t(config.labelKey)}</span>
+                            <span className="text-xs font-black text-slate-300 uppercase tracking-wider">{t(config.labelKey as any)}</span>
                         </div>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button 

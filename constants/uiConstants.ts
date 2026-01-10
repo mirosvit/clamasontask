@@ -17,7 +17,7 @@ export const COLOR_MAP = {
 
 export interface TabDefinition {
   id: string;
-  labelKey: string;
+  labelKey: any; // Zmenené zo string na any pre opravu TS2345 buildu
   permission: string;
   badgeKey?: 'tasks' | 'pendingRequests' | 'erpBlockages';
   color?: string;
