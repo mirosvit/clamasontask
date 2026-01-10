@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useLanguage } from '../../LanguageContext';
 
@@ -22,11 +23,10 @@ const HighRunnerSection: React.FC<HighRunnerSectionProps> = ({ topHighRunners, t
   const renderCard = (item: HighRunnerData, idx: number, isWorkplace: boolean) => {
     const title = isWorkplace ? item.workplace : item.partNumber;
     
-    // DEFINÍCIA FARIEB PODĽA RANQU (RUŽOVÁ TÉMA)
     const rankStyles = [
-      { border: 'border-t-fuchsia-500', text: 'text-fuchsia-500', badgeBorder: 'border-fuchsia-500/30' }, // #1 Vivid Pink
-      { border: 'border-t-rose-500', text: 'text-rose-500', badgeBorder: 'border-rose-500/30' },        // #2 Standard Rose
-      { border: 'border-t-rose-700', text: 'text-rose-700', badgeBorder: 'border-rose-700/30' }         // #3 Dark Rose
+      { border: 'border-t-fuchsia-500', text: 'text-fuchsia-500', badgeBorder: 'border-fuchsia-500/30' },
+      { border: 'border-t-rose-500', text: 'text-rose-500', badgeBorder: 'border-rose-500/30' },
+      { border: 'border-t-rose-700', text: 'text-rose-700', badgeBorder: 'border-rose-700/30' }
     ];
     
     const style = rankStyles[idx] || rankStyles[1];
@@ -38,7 +38,7 @@ const HighRunnerSection: React.FC<HighRunnerSectionProps> = ({ topHighRunners, t
         </div>
         
         <div className="flex justify-between items-start mb-4">
-          <span className={`text-[10px] font-black uppercase tracking-widest ${style.text}`}>Pozícia #{idx + 1}</span>
+          <span className={`text-[10px] font-black uppercase tracking-widest ${style.text}`}>{language === 'sk' ? 'Pozícia' : 'Rank'} #{idx + 1}</span>
           <span className={`bg-slate-800 text-[10px] font-black px-2 py-1 rounded border shadow-sm animate-pulse ${style.text} ${style.badgeBorder}`}>
             {t('load')}: {Number(item.load.toFixed(1))} {t('points')}
           </span>
@@ -61,7 +61,7 @@ const HighRunnerSection: React.FC<HighRunnerSectionProps> = ({ topHighRunners, t
 
         <div className="mt-6 pt-4 border-t border-white/5">
           <p className="text-[10px] font-bold text-rose-200/60 uppercase tracking-widest text-center">
-            {t('included')} {item.pal.toFixed(1)} {language === 'sk' ? 'paliet' : 'pallets'} | {item.taskRequests} {language === 'sk' ? 'požiadaviek' : 'requests'}
+            {t('included')} {item.pal.toFixed(1)} {t('unit_pallet_5')} | {item.taskRequests} {language === 'sk' ? 'požiadaviek' : 'requests'}
           </p>
         </div>
       </div>
@@ -70,10 +70,8 @@ const HighRunnerSection: React.FC<HighRunnerSectionProps> = ({ topHighRunners, t
 
   return (
     <div className="space-y-8">
-      {/* HIGH RUNNERS */}
       <div className="bg-slate-950/40 border border-slate-800 p-6 rounded-3xl shadow-2xl overflow-hidden">
         <div className="flex items-center gap-3 mb-8 border-b border-white/5 pb-6">
-          {/* Jednotná ružová pre výrobné štatistiky */}
           <div className="w-1.5 h-6 bg-rose-500 rounded-full"></div>
           <h3 className="text-sm font-black text-white uppercase tracking-[0.25em]">{t('top_highrunners_prod')}</h3>
         </div>
@@ -82,16 +80,14 @@ const HighRunnerSection: React.FC<HighRunnerSectionProps> = ({ topHighRunners, t
             topHighRunners.map((runner, idx) => renderCard(runner, idx, false))
           ) : (
             <div className="col-span-3 py-12 text-center bg-slate-900/20 rounded-2xl border border-dashed border-slate-800">
-              <p className="text-slate-600 font-bold uppercase tracking-widest text-xs">Zatiaľ žiadne výrobné dáta</p>
+              <p className="text-slate-600 font-bold uppercase tracking-widest text-xs">{t('no_data')}</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* TOP WORKPLACES */}
       <div className="bg-slate-950/40 border border-slate-800 p-6 rounded-3xl shadow-2xl overflow-hidden">
         <div className="flex items-center gap-3 mb-8 border-b border-white/5 pb-6">
-          {/* Jednotná ružová pre výrobné štatistiky */}
           <div className="w-1.5 h-6 bg-rose-500 rounded-full"></div>
           <h3 className="text-sm font-black text-white uppercase tracking-[0.25em]">{t('top_workplaces_prod')}</h3>
         </div>
@@ -100,7 +96,7 @@ const HighRunnerSection: React.FC<HighRunnerSectionProps> = ({ topHighRunners, t
             topWorkplaces.map((wp, idx) => renderCard(wp, idx, true))
           ) : (
             <div className="col-span-3 py-12 text-center bg-slate-900/20 rounded-2xl border border-dashed border-slate-800">
-              <p className="text-slate-600 font-bold uppercase tracking-widest text-xs">Zatiaľ žiadne výrobné dáta</p>
+              <p className="text-slate-600 font-bold uppercase tracking-widest text-xs">{t('no_data')}</p>
             </div>
           )}
         </div>

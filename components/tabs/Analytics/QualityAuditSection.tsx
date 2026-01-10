@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useLanguage } from '../../LanguageContext';
 
@@ -29,7 +30,6 @@ const QualityAuditSection: React.FC<QualityAuditSectionProps> = ({ data, t }) =>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* KARTA 1: REÁLNE CHYBY */}
         <div className={`${cardBaseClass} border-t-red-500`}>
           <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
             <span className="text-8xl font-black italic">!</span>
@@ -39,11 +39,10 @@ const QualityAuditSection: React.FC<QualityAuditSectionProps> = ({ data, t }) =>
             {data.realErrorsCount}
           </h4>
           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-            {language === 'sk' ? 'Potvrdené auditom' : 'Confirmed by audit'}
+            {t('audit_confirmed')}
           </p>
         </div>
 
-        {/* KARTA 2: FALOŠNÉ POPLACHY */}
         <div className={`${cardBaseClass} border-t-orange-500`}>
           <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
             <span className="text-8xl font-black italic">?</span>
@@ -53,11 +52,10 @@ const QualityAuditSection: React.FC<QualityAuditSectionProps> = ({ data, t }) =>
             {data.falseAlarmsCount}
           </h4>
           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-            {language === 'sk' ? 'Nájdené (Zlé nahlásenie)' : 'Found (False alarm)'}
+            {t('audit_found_false')}
           </p>
         </div>
 
-        {/* KARTA 3: ÚSPEŠNOSŤ */}
         <div className={`${cardBaseClass} border-t-blue-500`}>
           <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
             <span className="text-8xl font-black italic">%</span>
@@ -72,7 +70,6 @@ const QualityAuditSection: React.FC<QualityAuditSectionProps> = ({ data, t }) =>
         </div>
       </div>
 
-      {/* TOP MISSING DIELY - MINI SEKCIA */}
       {data.topMissingParts.length > 0 && (
         <div className="mt-8 pt-6 border-t border-white/5">
           <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">

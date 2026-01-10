@@ -98,6 +98,7 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
 
   const handleInternalKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
+      // Okamžite schováme dropdown pri stlačení Enteru pre navigáciu
       setIsDropdownVisible(false);
     }
     if (onKeyDown) onKeyDown(e);
@@ -138,8 +139,6 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
               if (found) {
                   setMasterSearchStatus('found');
                   if (window.confirm(t('db_master_found'))) {
-                      // Automatický import cez callback (cez PartSearchScreen -> onAddPart)
-                      // Pre zjednodušenie tu len nastavíme hodnotu
                       handleSelectPart(found.p);
                   }
               } else {

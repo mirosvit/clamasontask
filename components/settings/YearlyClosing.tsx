@@ -21,7 +21,7 @@ interface YearlyClosingProps {
 }
 
 const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName, fetchSanons, mapSectors }) => {
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const [isExporting, setIsExporting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [hasExported, setHasExported] = useState(false);
@@ -44,7 +44,6 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName, fetchSanons,
     return `${formatDate(ts)} ${formatTime(ts)}`;
   };
 
-  // Helper na prevod ID sektoru na názov
   const resolveSectorName = (sectorId?: string) => {
       if (!sectorId) return '';
       const sector = mapSectors.find(s => s.id === sectorId);
@@ -53,26 +52,23 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName, fetchSanons,
 
   const fetchYearlyData = async () => {
     setIsExporting(true);
-    setProgress(language === 'sk' ? 'Pripravujem sťahovanie...' : 'Preparing download...');
+    setProgress(t('yearly_prep_download'));
     
     const allTasks: any[] = [];
     const currentYear = new Date().getFullYear();
     
     try {
-      // 1. Sťahujeme živé úlohy z kolekcie
-      setProgress(language === 'sk' ? 'Sťahujem živé úlohy...' : 'Fetching live tasks...');
+      setProgress(t('yearly_fetch_live'));
       const snapTasks = await getDocs(collection(db, 'tasks'));
       snapTasks.forEach(d => allTasks.push({ id: d.id, ...d.data() }));
 
-      // 2. Sťahujeme Draft bucket
-      setProgress(language === 'sk' ? 'Sťahujem denný archív...' : 'Fetching daily draft...');
+      setProgress(t('yearly_fetch_draft'));
       const draftSnap = await getDoc(doc(db, 'settings', 'draft'));
       if (draftSnap.exists()) {
           (draftSnap.data().data || []).forEach((t: any) => allTasks.push(t));
       }
 
-      // 3. Sťahujeme všetky šanóny pomocou optimalizovanej funkcie
-      setProgress(language === 'sk' ? 'Sťahujem týždenné šanóny...' : 'Fetching weekly buckets...');
+      setProgress(t('yearly_fetch_weekly'));
       const sanons = await fetchSanons();
       
       sanons.forEach(sanon => {
@@ -82,7 +78,7 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName, fetchSanons,
       });
 
       if (allTasks.length === 0) {
-        alert(language === 'sk' ? 'Nenašli sa žiadne dáta pre aktuálny rok.' : 'No data found for current year.');
+        alert(t('yearly_no_data'));
         setIsExporting(false);
         return;
       }
@@ -91,24 +87,23 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName, fetchSanons,
         let searchResult = '';
         if (item.searchedBy) {
           if (item.searchExhausted || item.auditResult) {
-            searchResult = 'Nie';
+            searchResult = language === 'sk' ? 'Nie' : 'No';
           } else if (item.isMissing === false) {
-            searchResult = 'Áno';
+            searchResult = language === 'sk' ? 'Áno' : 'Yes';
           } else {
-            searchResult = 'Prebieha';
+            searchResult = language === 'sk' ? 'Prebieha' : 'In progress';
           }
         }
 
-        let statusText = 'Otvorené';
+        let statusText = language === 'sk' ? 'Otvorené' : 'Open';
         if (item.status === 'incorrectly_entered') {
-            statusText = 'Chybne zadané';
+            statusText = language === 'sk' ? 'Chybne zadané' : 'Incorrectly entered';
         } else if (item.auditResult) {
-            statusText = 'Auditované';
+            statusText = language === 'sk' ? 'Auditované' : 'Audited';
         } else if (item.isDone) {
-            statusText = 'Dokončené';
+            statusText = language === 'sk' ? 'Dokončené' : 'Completed';
         }
 
-        // --- LOGIKA ODKIAĽ / KAM ---
         let sourceVal = '';
         let targetVal = '';
 
@@ -118,71 +113,61 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName, fetchSanons,
             const isLoading = op.includes('NAKL') || op.includes('LOAD') || op.includes('EXPED') || op.includes('OUTBOUND');
 
             if (isUnloading) {
-                 // Príjem: Odkiaľ = Note (ŠPZ/Dodávateľ), Kam = TargetSector alebo "PRÍJEM"
-                 sourceVal = item.note || 'EXTERNY ZDROJ';
-                 targetVal = resolveSectorName(item.targetSectorId) || 'PRÍJEM';
+                 sourceVal = item.note || (language === 'sk' ? 'EXTERNY ZDROJ' : 'EXTERNAL SOURCE');
+                 targetVal = resolveSectorName(item.targetSectorId) || (language === 'sk' ? 'PRÍJEM' : 'RECEIVING');
             } else if (isLoading) {
-                 // Expedícia: Odkiaľ = SourceSector, Kam = Note (ŠPZ/Zákazník)
-                 sourceVal = resolveSectorName(item.sourceSectorId) || 'SKLAD';
-                 targetVal = item.note || 'EXTERNY CIEĽ';
+                 sourceVal = resolveSectorName(item.sourceSectorId) || (language === 'sk' ? 'SKLAD' : 'WAREHOUSE');
+                 targetVal = item.note || (language === 'sk' ? 'EXTERNY CIEĽ' : 'EXTERNAL TARGET');
             } else {
-                 // Interný presun: Odkiaľ = SourceSector, Kam = TargetSector
                  sourceVal = resolveSectorName(item.sourceSectorId) || '';
                  targetVal = resolveSectorName(item.targetSectorId) || '';
             }
         } else {
-            // Výroba: Odkiaľ = PickedFromSector, Kam = Workplace
             sourceVal = resolveSectorName(item.pickedFromSectorId) || '';
             targetVal = item.workplace || '';
         }
 
         return {
-          'Dátum pridania': formatDate(item.createdAt),
-          'Čas pridania': formatTime(item.createdAt),
-          'Kto pridal': resolveName(item.createdBy),
-          'Diel / Referencia': item.partNumber || '',
-          'Pracovisko / Operácia': item.workplace || '',
-          'SPZ / Prepravca': item.isLogistics ? (item.note || '') : '',
-          'Počet': item.quantity || '',
-          'Jednotka': item.quantityUnit || '',
-          'Poznámka': !item.isLogistics ? (item.note || '') : '',
-          'Skladník': resolveName(item.completedBy),
-          'Dátum dokončenia': formatDate(item.completedAt),
-          'Čas dokončenia': formatTime(item.completedAt),
+          [language === 'sk' ? 'Dátum pridania' : 'Added Date']: formatDate(item.createdAt),
+          [language === 'sk' ? 'Čas pridania' : 'Added Time']: formatTime(item.createdAt),
+          [language === 'sk' ? 'Kto pridal' : 'Created By']: resolveName(item.createdBy),
+          [language === 'sk' ? 'Diel / Referencia' : 'Part / Ref']: item.partNumber || '',
+          [language === 'sk' ? 'Pracovisko / Operácia' : 'Workplace / Op']: item.workplace || '',
+          [language === 'sk' ? 'SPZ / Prepravca' : 'Plate / Carrier']: item.isLogistics ? (item.note || '') : '',
+          [language === 'sk' ? 'Počet' : 'Quantity']: item.quantity || '',
+          [language === 'sk' ? 'Jednotka' : 'Unit']: item.quantityUnit || '',
+          [language === 'sk' ? 'Poznámka' : 'Note']: !item.isLogistics ? (item.note || '') : '',
+          [language === 'sk' ? 'Skladník' : 'Picker']: resolveName(item.completedBy),
+          [language === 'sk' ? 'Dátum dokončenia' : 'Done Date']: formatDate(item.completedAt),
+          [language === 'sk' ? 'Čas dokončenia' : 'Done Time']: formatTime(item.completedAt),
           'Status': statusText,
-          'Nahlásil chýbajúce': resolveName(item.missingReportedBy),
-          'Dôvod chýbania': item.missingReason || '',
-          'Čas nahlásenia chyby': item.missingReportedBy ? formatTime(item.completedAt || item.createdAt) : '',
-          'Kto hľadal': item.searchedBy || '',
-          'Výsledok hľadania': searchResult,
-          'Audit (Výsledok)': item.auditResult || '',
-          'Poznámka k auditu': item.auditNote || '',
-          'Audit vykonal': resolveName(item.auditedBy) || item.auditBy || '',
-          'Dátum a čas auditu': formatDateTime(item.auditedAt ?? undefined),
-          'Odkiaľ (Zdroj)': sourceVal,
-          'Kam (Cieľ)': targetVal
+          [language === 'sk' ? 'Nahlásil chýbajúce' : 'Reported Missing By']: resolveName(item.missingReportedBy),
+          [language === 'sk' ? 'Dôvod chýbania' : 'Missing Reason']: item.missingReason || '',
+          [language === 'sk' ? 'Čas nahlásenia chyby' : 'Report Time']: item.missingReportedBy ? formatTime(item.completedAt || item.createdAt) : '',
+          [language === 'sk' ? 'Kto hľadal' : 'Searched By']: item.searchedBy || '',
+          [language === 'sk' ? 'Výsledok hľadania' : 'Search Result']: searchResult,
+          [language === 'sk' ? 'Audit (Výsledok)' : 'Audit Result']: item.auditResult || '',
+          [language === 'sk' ? 'Poznámka k auditu' : 'Audit Note']: item.auditNote || '',
+          [language === 'sk' ? 'Audit vykonal' : 'Audited By']: resolveName(item.auditedBy) || item.auditBy || '',
+          [language === 'sk' ? 'Dátum a čas auditu' : 'Audit Datetime']: formatDateTime(item.auditedAt ?? undefined),
+          [language === 'sk' ? 'Odkiaľ (Zdroj)' : 'From (Source)']: sourceVal,
+          [language === 'sk' ? 'Kam (Cieľ)' : 'To (Target)']: targetVal
         };
       });
 
       const ws = XLSX.utils.json_to_sheet(excelData);
-      const wscols = [
-        {wch: 15}, {wch: 12}, {wch: 20}, {wch: 20}, {wch: 25}, 
-        {wch: 20}, {wch: 10}, {wch: 10}, {wch: 25}, {wch: 20}, 
-        {wch: 15}, {wch: 12}, {wch: 18}, {wch: 20}, {wch: 25}, 
-        {wch: 15}, {wch: 20}, {wch: 18}, {wch: 15}, {wch: 35},
-        {wch: 20}, {wch: 20}, {wch: 20}, {wch: 20} // Updated widths
-      ];
+      const wscols = Array(24).fill({wch: 20});
       ws['!cols'] = wscols;
 
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "ROCNA_UZAVIERKA");
-      XLSX.writeFile(wb, `KOMPLETNY_ARCHIV_${currentYear}_${new Date().getTime()}.xlsx`);
+      XLSX.utils.book_append_sheet(wb, ws, "YEARLY_CLOSING");
+      XLSX.writeFile(wb, `COMPLETE_ARCHIVE_${currentYear}_${new Date().getTime()}.xlsx`);
       
       setHasExported(true);
-      setProgress(language === 'sk' ? 'Export úspešný!' : 'Export successful!');
+      setProgress(t('yearly_export_success'));
     } catch (error) {
       console.error(error);
-      alert('Chyba pri exporte.');
+      alert('Error during export.');
     } finally {
       setIsExporting(false);
     }
@@ -191,63 +176,42 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName, fetchSanons,
   const handleReset = async () => {
     if (!hasExported) return;
     
-    const confirm1 = window.confirm(language === 'sk' 
-      ? "VAROVANIE: Chystáte sa definitívne vymazať VŠETKY úlohy a archívy z aktuálneho roku! Máte stiahnutú Excel zálohu?" 
-      : "WARNING: You are about to permanently delete ALL tasks and archives from the current year! Do you have your Excel backup?");
-    
-    if (!confirm1) return;
-
-    const confirm2 = window.confirm(language === 'sk'
-      ? "Posledné varovanie: Táto akcia je nevratná. Pokračovať?"
-      : "Final warning: This action is irreversible. Proceed?");
-
-    if (!confirm2) return;
+    if (!window.confirm(t('yearly_reset_warning_1'))) return;
+    if (!window.confirm(t('yearly_reset_warning_2'))) return;
 
     setIsResetting(true);
-    setProgress(language === 'sk' ? 'Premazávam databázu...' : 'Cleaning database...');
+    setProgress(t('yearly_cleaning_db'));
 
     try {
-      // 1. Vymazanie Draft bucketu
       await updateDoc(doc(db, 'settings', 'draft'), { data: [] });
       
-      // 2. Vymazanie všetkých šanónov (efektívne cez batch)
       const sanonsToDelete = await fetchSanons();
       if (sanonsToDelete.length > 0) {
           const batch = writeBatch(db);
           let opCount = 0;
-          
           for (const sanon of sanonsToDelete) {
-              const sanonRef = doc(db, 'sanony', sanon.id);
-              batch.delete(sanonRef);
+              batch.delete(doc(db, 'sanony', sanon.id));
               opCount++;
-              
-              if (opCount >= 498) {
-                  await batch.commit();
-              }
+              if (opCount >= 498) { await batch.commit(); }
           }
           if (opCount > 0) await batch.commit();
       }
 
-      // 3. Vymazanie živých úloh (tasks)
       const snapTasks = await getDocs(collection(db, 'tasks'));
       let batchTasks = writeBatch(db);
       let count = 0;
       for (const d of snapTasks.docs) {
         batchTasks.delete(d.ref);
         count++;
-        if (count === 500) {
-          await batchTasks.commit();
-          batchTasks = writeBatch(db);
-          count = 0;
-        }
+        if (count === 500) { await batchTasks.commit(); batchTasks = writeBatch(db); count = 0; }
       }
       if (count > 0) await batchTasks.commit();
 
-      alert(language === 'sk' ? 'Systém bol úspešne zresetovaný.' : 'System successfully reset.');
+      alert(t('yearly_reset_success'));
       window.location.reload();
     } catch (error) {
       console.error(error);
-      alert('Chyba pri čistení dát.');
+      alert('Error during data cleanup.');
     } finally {
       setIsResetting(false);
     }
@@ -262,16 +226,16 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName, fetchSanons,
           </svg>
         </div>
         <div>
-          <h3 className="text-2xl font-black text-white uppercase tracking-tighter">ROČNÁ UZÁVIERKA</h3>
-          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Archivácia a čistenie systémových dát</p>
+          <h3 className="text-2xl font-black text-white uppercase tracking-tighter">{t('yearly_closing_title')}</h3>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">{t('yearly_closing_subtitle')}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="bg-slate-950/40 p-6 rounded-2xl border border-white/5 space-y-4">
-          <h4 className="text-sm font-black text-teal-400 uppercase tracking-widest">1. KROK: EXPORT DÁT</h4>
+          <h4 className="text-sm font-black text-teal-400 uppercase tracking-widest">{t('yearly_step1')}</h4>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Stiahne všetky záznamy z aktuálnych úloh aj týždenných šanónov do jedného Excel súboru s 24 stĺpcami (vrátane sektorov Odkiaľ/Kam).
+            {t('yearly_step1_desc')}
           </p>
           <button 
             onClick={fetchYearlyData}
@@ -283,16 +247,16 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName, fetchSanons,
             {isExporting ? '...' : (
               <>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                STIAHNUŤ KOMPLETNÝ ARCHÍV (.xlsx)
+                {t('yearly_download_btn')}
               </>
             )}
           </button>
         </div>
 
         <div className="bg-slate-950/40 p-6 rounded-2xl border border-white/5 space-y-4">
-          <h4 className="text-sm font-black text-rose-400 uppercase tracking-widest">2. KROK: RESET SYSTÉMU</h4>
+          <h4 className="text-sm font-black text-rose-400 uppercase tracking-widest">{t('yearly_step2')}</h4>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Vymaže všetky archívne dáta a aktuálne úlohy. Tlačidlo sa sprístupní až po stiahnutí archívu.
+            {t('yearly_step2_desc')}
           </p>
           <button 
             onClick={handleReset}
@@ -304,7 +268,7 @@ const YearlyClosing: React.FC<YearlyClosingProps> = ({ resolveName, fetchSanons,
             {isResetting ? '...' : (
               <>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                VYMAZAŤ ARCHÍV A RESETOVAŤ SYSTÉM
+                {t('yearly_reset_btn')}
               </>
             )}
           </button>

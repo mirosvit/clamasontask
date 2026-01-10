@@ -82,7 +82,10 @@ const AppAuthenticated: React.FC<AppAuthenticatedProps> = (props) => {
           onUpdateTask={data.onUpdateTask}
           onDeleteTask={data.onDeleteTask}
           onToggleTask={data.onToggleTask}
+          onToggleBlock={data.onToggleBlock}
           onToggleManualBlock={data.onToggleManualBlock}
+          onExhaustSearch={data.onExhaustSearch}
+          onAddNote={data.onAddNote}
           onMarkAsIncorrect={data.onMarkAsIncorrect}
           onStartAudit={data.onStartAudit}
           onFinishAudit={data.onFinishAudit}

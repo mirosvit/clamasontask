@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface HourlyData {
@@ -17,7 +18,6 @@ const HourlyChartSection: React.FC<HourlyChartSectionProps> = ({ hourlyData, t }
   const renderHourlyChart = (data: HourlyData[], type: 'production' | 'logistics') => {
     const maxVal = Math.max(...data.map(d => d[type]), 5);
     
-    // AKTUALIZOVANÉ FARBY: Výroba -> Rose, Logistika -> Sky
     const colorClass = type === 'production' 
       ? 'bg-rose-500 hover:bg-rose-400' 
       : 'bg-sky-500 hover:bg-sky-400';
@@ -36,7 +36,7 @@ const HourlyChartSection: React.FC<HourlyChartSectionProps> = ({ hourlyData, t }
             const heightPercent = Math.max((d[type] / maxVal) * 100, 2);
             return (
               <div key={d.hour} className="flex-1 flex flex-col items-center group relative h-full justify-end">
-                <div className="absolute -top-6 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-slate-800 px-2 py-0.5 rounded text-[9px] font-black text-white z-20 shadow-xl border border-slate-700 pointer-events-none">
+                <div className="absolute -top-6 opacity-0 group-hover:opacity-10 transition-opacity whitespace-nowrap bg-slate-800 px-2 py-0.5 rounded text-[9px] font-black text-white z-20 shadow-xl border border-slate-700 pointer-events-none">
                   {Number(d[type].toFixed(1))}
                 </div>
                 <div 
@@ -59,9 +59,8 @@ const HourlyChartSection: React.FC<HourlyChartSectionProps> = ({ hourlyData, t }
   return (
     <div className="bg-slate-950/40 border border-slate-800 p-4 sm:p-6 rounded-3xl shadow-2xl overflow-hidden">
       <div className="flex items-center gap-3 mb-8 border-b border-white/5 pb-6">
-        {/* Neutrálna farba ikony sekcie (Slate), keďže obsahuje mix Rose a Sky */}
         <div className="w-1.5 h-6 bg-slate-500 rounded-full"></div>
-        <h3 className="text-sm font-black text-white uppercase tracking-[0.25em]">HODINOVÁ ANALÝZA NÁPORU</h3>
+        <h3 className="text-sm font-black text-white uppercase tracking-[0.25em]">{t('hourly_load_title')}</h3>
       </div>
       
       <div className="grid grid-cols-1 gap-6">

@@ -48,6 +48,19 @@ export interface InventorySession {
     end?: number;
 }
 
+export interface ERPBlockage {
+    id: string;
+    partNumber: string;
+    quantity: string;
+    userNote: string;
+    adminNote?: string;
+    status: 'waiting' | 'resolving' | 'ready';
+    createdBy: string;
+    timestamp: number;
+    resolvedBy?: string;
+    resolvedAt?: number;
+}
+
 export interface Task {
   id: string; 
   text: string;

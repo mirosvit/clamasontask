@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Task, UserData, MapSector, DBItem, SystemConfig, MapObstacle } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
@@ -137,14 +138,8 @@ const MapVisualizationTab: React.FC<MapVisualizationTabProps> = ({
     Object.entries(heatmap).forEach(([key, freq]) => {
         const [x, y] = key.split(',').map(Number);
         const intensity = freq / maxFreq;
-        
-        if (intensity > 0.1) {
-            finalHeatNodes.push({ x, y, freq, intensity });
-        }
-
-        if (intensity > 0.8) {
-            finalBottlenecks.push({ x, y, freq });
-        }
+        if (intensity > 0.1) { finalHeatNodes.push({ x, y, freq, intensity }); }
+        if (intensity > 0.8) { finalBottlenecks.push({ x, y, freq }); }
     });
 
     return { 
@@ -173,7 +168,7 @@ const MapVisualizationTab: React.FC<MapVisualizationTabProps> = ({
         <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 shadow-xl">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="md:col-span-1 space-y-4">
-                    <h3 className="text-sm font-black text-amber-500 uppercase tracking-widest border-b border-amber-900/30 pb-2">Analytické obdobie</h3>
+                    <h3 className="text-sm font-black text-amber-500 uppercase tracking-widest border-b border-amber-900/30 pb-2">{t('map_period_title')}</h3>
                     <div className="grid grid-cols-2 gap-2">
                         <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-emerald-500 transition-all" />
                         <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-emerald-500 transition-all" />
@@ -191,7 +186,7 @@ const MapVisualizationTab: React.FC<MapVisualizationTabProps> = ({
                     </div>
                 </div>
                 <div className="md:col-span-1 space-y-4 border-l border-slate-800 pl-6">
-                    <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2">Legenda</h3>
+                    <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2">{t('map_legend_title')}</h3>
                     <div className="flex flex-col gap-2 items-start text-[10px] font-black uppercase tracking-widest text-slate-500">
                         <div className="flex items-center gap-2"><div className="w-3 h-1 bg-teal-500 rounded"></div> {t('map_legend_prod')}</div>
                         <div className="flex items-center gap-2"><div className="w-3 h-1 bg-sky-500 rounded"></div> {t('map_legend_log')}</div>
@@ -214,16 +209,12 @@ const MapVisualizationTab: React.FC<MapVisualizationTabProps> = ({
                         <pattern id="grid5m" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M 50 0 L 0 0 0 50" fill="none" stroke="white" strokeWidth="1" strokeOpacity="0.05" /></pattern>
                         <pattern id="grid1m" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="white" strokeWidth="0.5" strokeOpacity="0.02" /></pattern>
                         <pattern id="hatch" patternUnits="userSpaceOnUse" width="10" height="10"><path d="M-1,1 l2,-2 M0,10 l10,-10 M9,11 l2,-2" stroke="white" strokeWidth="1" strokeOpacity="0.1" /></pattern>
-                        
-                        <filter id="blurHeat" x="-50%" y="-50%" width="200%" height="200%">
-                            <feGaussianBlur in="SourceGraphic" stdDeviation="6" />
-                        </filter>
+                        <filter id="blurHeat" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur in="SourceGraphic" stdDeviation="6" /></filter>
                     </defs>
                     
                     <rect width="10000" height="10000" x="-5000" y="-5000" fill="url(#grid1m)" />
                     <rect width="10000" height="10000" x="-5000" y="-5000" fill="url(#grid5m)" />
 
-                    {/* PREKÁŽKY */}
                     {obstacles.map((o, idx) => (
                         <g key={o.id || idx}>
                             <rect x={o.x} y={o.y} width={o.w} height={o.h} fill="#1e293b" stroke="#334155" strokeWidth="2" rx="4" />
@@ -232,36 +223,16 @@ const MapVisualizationTab: React.FC<MapVisualizationTabProps> = ({
                         </g>
                     ))}
 
-                    {/* HEATMAPA */}
                     <g filter="url(#blurHeat)">
                         {heatNodes.map((hn, i) => (
-                            <circle 
-                                key={`heat-${i}`} 
-                                cx={hn.x} 
-                                cy={hn.y} 
-                                r={18} 
-                                fill={hn.intensity > 0.7 ? '#ef4444' : hn.intensity > 0.4 ? '#f59e0b' : '#10b981'} 
-                                opacity={hn.intensity * 0.35} 
-                            />
+                            <circle key={`heat-${i}`} cx={hn.x} cy={hn.y} r={18} fill={hn.intensity > 0.7 ? '#ef4444' : hn.intensity > 0.4 ? '#f59e0b' : '#10b981'} opacity={hn.intensity * 0.35} />
                         ))}
                     </g>
 
-                    {/* TRASY */}
                     {segments.map((s, i) => (
-                        <path 
-                            key={`${s.isTransit ? 'tr' : 'ride'}-${i}`} 
-                            d={generatePathData(s.path)} 
-                            fill="none" 
-                            stroke={s.isTransit ? '#475569' : (s.taskType === 'prod' ? '#14b8a6' : '#0ea5e9')} 
-                            strokeWidth={s.isTransit ? 1 : 2.5} 
-                            strokeDasharray={s.isTransit ? '4 4' : 'none'} 
-                            strokeOpacity={s.isTransit ? 0.3 : 0.6} 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round" 
-                        />
+                        <path key={`${s.isTransit ? 'tr' : 'ride'}-${i}`} d={generatePathData(s.path)} fill="none" stroke={s.isTransit ? '#475569' : (s.taskType === 'prod' ? '#14b8a6' : '#0ea5e9')} strokeWidth={s.isTransit ? 1 : 2.5} strokeDasharray={s.isTransit ? '4 4' : 'none'} strokeOpacity={s.isTransit ? 0.3 : 0.6} strokeLinecap="round" strokeLinejoin="round" />
                     ))}
                     
-                    {/* BOTTLENECKY */}
                     {bottlenecks.map((bn, i) => (
                         <g key={`bn-${i}`} transform={`translate(${bn.x}, ${bn.y})`}>
                             <circle r="30" fill="none" stroke="#ef4444" strokeWidth="1" strokeDasharray="4 2" className="animate-spin" style={{ animationDuration: '4s' }} />
@@ -269,7 +240,6 @@ const MapVisualizationTab: React.FC<MapVisualizationTabProps> = ({
                         </g>
                     ))}
 
-                    {/* PRACOVISKÁ A SEKTORY - VYLEPŠENÝ HOVER */}
                     {nodes.map(node => {
                         const isSector = node.type === 'sector';
                         const colorValue = isSector ? (COLOR_MAP[node.color as keyof typeof COLOR_MAP]?.replace('bg-', '') || 'pink-500') : 'blue-500';
@@ -280,40 +250,16 @@ const MapVisualizationTab: React.FC<MapVisualizationTabProps> = ({
                                 ) : (
                                     <circle r="8" fill="#0f172a" stroke={node.type === 'wp' ? '#3b82f6' : '#0ea5e9'} strokeWidth="2.5" className="group-hover/node:scale-150 transition-all duration-200" />
                                 )}
-                                
-                                {/* ROZŠÍRENÝ ŠTÍTOK SÚRADNÍC A NÁZVU */}
                                 <g className="opacity-0 group-hover/node:opacity-100 transition-opacity duration-200 pointer-events-none">
-                                    {/* Pozadie pre text pre lepšiu čitateľnosť */}
-                                    <rect 
-                                        x="-60" 
-                                        y={isSector ? -55 : -45} 
-                                        width="120" 
-                                        height="35" 
-                                        rx="8" 
-                                        fill="#0f172a" 
-                                        className="shadow-2xl border border-slate-700" 
-                                    />
-                                    <text 
-                                        y={isSector ? -40 : -30} 
-                                        textAnchor="middle" 
-                                        className="fill-white text-sm font-black uppercase tracking-tight"
-                                    >
-                                        {node.label}
-                                    </text>
-                                    <text 
-                                        y={isSector ? -28 : -18} 
-                                        textAnchor="middle" 
-                                        className="fill-teal-500 text-[9px] font-mono font-bold tracking-widest"
-                                    >
-                                        [{node.x}, {node.y}]
-                                    </text>
+                                    <rect x="-60" y={isSector ? -55 : -45} width="120" height="35" rx="8" fill="#0f172a" className="shadow-2xl border border-slate-700" />
+                                    <text y={isSector ? -40 : -30} textAnchor="middle" className="fill-white text-sm font-black uppercase tracking-tight">{node.label}</text>
+                                    <text y={isSector ? -28 : -18} textAnchor="middle" className="fill-teal-500 text-[9px] font-mono font-bold tracking-widest">[{node.x}, {node.y}]</text>
                                 </g>
                             </g>
                         );
                     })}
                 </svg>
 
-                {/* SCALE */}
                 <div className="absolute bottom-6 left-6 bg-slate-900/60 backdrop-blur-md border border-slate-700 p-4 rounded-2xl pointer-events-none shadow-2xl">
                      <div className="flex flex-col items-center gap-2">
                         <div className="w-[100px] h-3 border-x-2 border-slate-400 relative"><div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-400 -translate-y-1/2"></div></div>
@@ -321,17 +267,16 @@ const MapVisualizationTab: React.FC<MapVisualizationTabProps> = ({
                      </div>
                 </div>
 
-                {/* INFO PANEL */}
                 {allData.length > 0 && (
                     <div className="absolute top-6 right-6 bg-slate-900/80 backdrop-blur-md border border-slate-700 p-5 rounded-2xl shadow-2xl pointer-events-none">
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Spracované dáta</p>
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">{t('map_processed_data')}</p>
                         <div className="space-y-2">
                             <div className="flex justify-between items-center gap-6">
-                                <span className="text-xs font-bold text-slate-300">Hotové úlohy:</span>
+                                <span className="text-xs font-bold text-slate-300">{t('map_done_tasks')}</span>
                                 <span className="text-sm font-black text-white font-mono">{allData.length}</span>
                             </div>
                             <div className="flex justify-between items-center gap-6">
-                                <span className="text-xs font-bold text-slate-300">Aktívni vodiči:</span>
+                                <span className="text-xs font-bold text-slate-300">{t('map_active_drivers')}</span>
                                 <span className="text-sm font-black text-emerald-400 font-mono">{new Set(allData.map(t=>t.completedBy)).size}</span>
                             </div>
                         </div>

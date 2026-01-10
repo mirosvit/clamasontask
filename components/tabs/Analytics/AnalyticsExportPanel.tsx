@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Task, SystemBreak } from '../../../types/appTypes';
 
@@ -68,7 +69,7 @@ const AnalyticsExportPanel: React.FC<AnalyticsExportPanelProps> = ({ canExport, 
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
-          EXPORTOVANIE DÁT
+          {t('export_panel_title')}
         </h3>
         <div className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
@@ -81,7 +82,7 @@ const AnalyticsExportPanel: React.FC<AnalyticsExportPanelProps> = ({ canExport, 
             <input type="date" value={archiveExportEnd} onChange={e => setArchiveExportEnd(e.target.value)} className="w-full h-12 bg-slate-950 border border-slate-700 rounded-xl px-4 text-white" />
           </div>
           <button onClick={handleAdminArchiveExport} disabled={isExportingArchive} className="w-full h-14 bg-teal-600 hover:bg-teal-500 text-white font-black uppercase rounded-xl shadow-lg border-2 border-teal-500">
-            {isExportingArchive ? '...' : 'STIAHNUŤ REPORT (.xlsx)'}
+            {isExportingArchive ? '...' : t('export_btn_full')}
           </button>
         </div>
       )}

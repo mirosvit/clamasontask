@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLanguage } from './LanguageContext';
 import AppHeader from './AppHeader';
@@ -10,6 +11,7 @@ import InventoryTab from './tabs/InventoryTab';
 import LogisticsCenterTab from './tabs/LogisticsCenterTab';
 import MapVisualizationTab from './tabs/MapVisualizationTab';
 import TransactionLogTab from './tabs/TransactionLogTab';
+import ERPBlockageTab from './tabs/ERPBlockageTab';
 import AnalyticsTab from './tabs/Analytics/AnalyticsTab';
 import SettingsTab from './settings/SettingsTab';
 import PermissionsTab from './tabs/PermissionsTab';
@@ -155,7 +157,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
         const roleObj = props.roles.find(r => r.name === props.currentUserRole);
         if (!roleObj) return false;
         return roleObj.permissions ? roleObj.permissions.includes(permName) : false;
-    }, [props.currentUserRole, props.roles]);
+    }, [props.roles, props.currentUserRole]);
 
     // Name resolution memoized for performance
     const resolveName = useCallback((username?: string | null) => {
@@ -254,7 +256,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
             {/* Main Application Container */}
             <main className="flex-grow overflow-y-auto custom-scrollbar p-4 sm:p-6">
                 <div className="max-w-7xl mx-auto h-full">
-                    {activeTab === 'entry' && (
+                    {activeTab === 'entry' && hasPermission('perm_tab_entry') && (
                         <ProductionEntry 
                             mode={mode}
                             setMode={setMode}
@@ -290,7 +292,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                         />
                     )}
 
-                    {activeTab === 'tasks' && (
+                    {activeTab === 'tasks' && hasPermission('perm_tab_tasks') && (
                         <TaskList 
                             currentUser={props.currentUserRole as any}
                             currentUserName={props.currentUser}
@@ -315,7 +317,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                         />
                     )}
 
-                    {activeTab === 'bom' && (
+                    {activeTab === 'bom' && hasPermission('perm_tab_bom') && (
                         <BOMScreen 
                             parts={props.parts}
                             workplaces={props.workplaces}
@@ -327,14 +329,14 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                         />
                     )}
 
-                    {activeTab === 'catalog' && (
+                    {activeTab === 'catalog' && hasPermission('perm_tab_catalog') && (
                         <PartCatalogTab 
                             parts={props.parts}
                             onSelectPart={(p) => { setSelectedPart(p.value); setActiveTab('entry'); }}
                         />
                     )}
 
-                    {activeTab === 'missing' && (
+                    {activeTab === 'missing' && hasPermission('perm_tab_missing') && (
                         <MissingItemsTab 
                             tasks={props.tasks}
                             onDeleteMissingItem={props.onDeleteMissingItem}
@@ -343,7 +345,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                         />
                     )}
 
-                    {activeTab === 'inventory' && (
+                    {activeTab === 'inventory' && hasPermission('perm_tab_inventory') && (
                         <InventoryTab 
                             currentUser={props.currentUser}
                             tasks={props.tasks}
@@ -358,7 +360,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                         />
                     )}
 
-                    {activeTab === 'logistics' && (
+                    {activeTab === 'logistics' && hasPermission('perm_tab_logistics_center') && (
                         <LogisticsCenterTab 
                             tasks={props.tasks} 
                             draftTasks={props.draftTasks}
@@ -370,7 +372,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                         />
                     )}
 
-                    {activeTab === 'map' && (
+                    {activeTab === 'map' && hasPermission('perm_tab_map') && (
                         <MapVisualizationTab 
                             tasks={props.tasks}
                             draftTasks={props.draftTasks}
@@ -385,7 +387,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                         />
                     )}
 
-                    {activeTab === 'logs' && (
+                    {activeTab === 'logs' && hasPermission('perm_tab_logs') && (
                         <TransactionLogTab 
                             tasks={props.tasks}
                             draftTasks={props.draftTasks}
@@ -396,7 +398,16 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                         />
                     )}
 
-                    {activeTab === 'analytics' && (
+                    {activeTab === 'erp' && hasPermission('perm_tab_erp') && (
+                        <ERPBlockageTab 
+                            currentUser={props.currentUser}
+                            currentUserRole={props.currentUserRole}
+                            parts={props.parts}
+                            resolveName={resolveName}
+                        />
+                    )}
+
+                    {activeTab === 'analytics' && hasPermission('perm_tab_analytics') && (
                         <AnalyticsTab 
                             systemConfig={props.systemConfig}
                             currentUser={props.currentUser}
@@ -405,7 +416,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                         />
                     )}
 
-                    {activeTab === 'settings' && (
+                    {activeTab === 'settings' && hasPermission('perm_tab_settings') && (
                         <SettingsTab 
                             currentUser={props.currentUser}
                             currentUserRole={props.currentUserRole}
@@ -418,7 +429,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                         />
                     )}
 
-                    {activeTab === 'permissions' && (
+                    {activeTab === 'permissions' && hasPermission('perm_tab_permissions') && (
                         <PermissionsTab 
                             roles={props.roles}
                             onAddRole={props.onAddRole}

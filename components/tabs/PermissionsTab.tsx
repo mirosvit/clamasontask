@@ -5,7 +5,6 @@ import { useLanguage } from '../LanguageContext';
 
 interface PermissionsTabProps {
     roles: Role[];
-    // permissions: Permission[]; // REMOVED - už nie je potrebné
     onAddRole: (name: string, parentId?: string, rank?: number) => void;
     onDeleteRole: (id: string) => void;
     onUpdatePermission: (permissionId: string, roleName: string, hasPermission: boolean) => void;
@@ -24,10 +23,13 @@ const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, onAddRole, onDel
               'perm_tab_entry', 
               'perm_tab_tasks', 
               'perm_tab_bom', 
+              'perm_tab_catalog',
               'perm_tab_missing', 
               'perm_tab_inventory', 
               'perm_tab_logistics_center', 
               'perm_tab_map',
+              'perm_tab_logs',
+              'perm_tab_erp',
               'perm_tab_analytics', 
               'perm_tab_settings', 
               'perm_tab_permissions', 

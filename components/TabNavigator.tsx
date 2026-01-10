@@ -107,6 +107,17 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
             </button>
           )}
 
+          {hasPermission('perm_tab_erp') && (
+            <button
+              onClick={() => setActiveTab('erp')}
+              className={`relative whitespace-nowrap py-3 px-1 border-b-4 font-bold text-sm transition-colors ${
+                activeTab === 'erp' ? 'border-orange-500 text-orange-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'
+              }`}
+            >
+              {t('tab_erp')}
+            </button>
+          )}
+
           {/* NOVÝ TAB: Mapa trás */}
           {hasPermission('perm_tab_map') && (
             <button

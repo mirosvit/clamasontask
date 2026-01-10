@@ -183,10 +183,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, users, system
             <button
               type="submit"
               disabled={systemConfig.ipCheckEnabled && !isIpAllowed}
-              className={`group relative w-full flex justify-center py-3 px-4 border border-teal-400/50 text-sm font-medium rounded-md text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-teal-500 
+              className={`group relative w-full flex justify-center py-3 px-4 border border-[#97bb23]/50 text-sm font-medium rounded-md text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-[#97bb23] 
                   ${systemConfig.ipCheckEnabled && !isIpAllowed 
                     ? 'bg-gray-600 cursor-not-allowed opacity-50' 
-                    : 'bg-teal-600 hover:bg-teal-500 shadow-[0_0_15px_rgba(20,184,166,0.4)]'
+                    : 'bg-[#97bb23] hover:opacity-90 shadow-[0_0_15px_rgba(151,187,35,0.4)]'
                   }`}
             >
               {t('login_btn')}
