@@ -63,9 +63,17 @@ export const useTaskData = (
     
     // Dynamické priradenie logistickej operácie pre šrot ak je nastavená
     let finalWorkplace = wp || '';
+    let finalSource = src || null;
+    let finalTarget = tgt || null;
+
     if (pn === "Váženie šrotu" && scrapConfig?.scrapLogisticsOpId && logisticsOperations) {
         const foundOp = logisticsOperations.find(o => o.id === scrapConfig.scrapLogisticsOpId);
-        if (foundOp) finalWorkplace = foundOp.value;
+        if (foundOp) {
+            finalWorkplace = foundOp.value;
+            // Automatické priradenie sektorov z konfigurácie operácie šrotu
+            finalSource = foundOp.defaultSourceSectorId || null;
+            finalTarget = foundOp.defaultTargetSectorId || null;
+        }
     }
 
     const taskData: any = {
@@ -80,8 +88,8 @@ export const useTaskData = (
         createdBy: user,
         note: note || '',
         plate: isLog ? (note || '') : '',
-        sourceSectorId: src || null,
-        targetSectorId: tgt || null
+        sourceSectorId: finalSource,
+        targetSectorId: finalTarget
     };
 
     // FIX: Ak ide o inventúru alebo šrot, automaticky nastaviť riešiteľa pre odomknutie UI
