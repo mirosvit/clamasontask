@@ -18,6 +18,7 @@ import PartCatalogTab from './tabs/PartCatalogTab';
 import ScrapWeighingTab from './tabs/ScrapWeighingTab';
 import ScrapWarehouseTab from './tabs/ScrapWarehouseTab';
 import ScrapArchiveTab from './tabs/ScrapArchiveTab';
+import ScrapAnalyticsTab from './tabs/ScrapAnalyticsTab';
 import { Task, PriorityLevel, DBItem, Role, SystemConfig, MapSector, MapObstacle, BOMComponent, PartRequest, BOMRequest, AdminNote, ERPBlockage, ScrapBin, ScrapMetal, ScrapPrice, ScrapRecord } from '../types/appTypes';
 
 // --- MAIN DASHBOARD COMPONENT ---
@@ -51,6 +52,7 @@ interface PartSearchScreenProps {
     onDeleteScrapRecord: (id: string) => Promise<void>;
     onUpdateScrapRecord: (id: string, updates: Partial<ScrapRecord>) => Promise<void>;
     onUpdateArchivedScrapItem: (sanonId: string, itemId: string, updates: Partial<ScrapRecord>) => Promise<void>;
+    onUpdateScrapArchive: (sanonId: string, updates: any) => Promise<void>;
     onDeleteArchivedScrapItem: (sanonId: string, itemId: string) => Promise<void>;
     onDeleteScrapArchive: (id: string) => Promise<void>;
     onExpediteScrap: (worker: string, dispatchDate: string) => Promise<string | undefined>;
@@ -434,10 +436,19 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                             metals={props.scrapMetals}
                             prices={props.scrapPrices}
                             onUpdateArchivedItem={props.onUpdateArchivedScrapItem}
+                            onUpdateScrapArchive={props.onUpdateScrapArchive}
                             onDeleteArchivedItem={props.onDeleteArchivedScrapItem}
                             onDeleteArchive={props.onDeleteScrapArchive}
                             resolveName={resolveName}
                             hasPermission={hasPermission}
+                        />
+                    )}
+
+                    {activeTab === 'scrap_analytics' && hasPermission('perm_tab_scrap_analytics') && (
+                        <ScrapAnalyticsTab 
+                            scrapSanons={props.scrapSanons}
+                            scrapPrices={props.scrapPrices}
+                            scrapMetals={props.scrapMetals}
                         />
                     )}
 

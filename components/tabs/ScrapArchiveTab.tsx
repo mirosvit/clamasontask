@@ -9,6 +9,7 @@ interface ScrapArchiveTabProps {
     metals: ScrapMetal[];
     prices: ScrapPrice[];
     onUpdateArchivedItem: (sanonId: string, itemId: string, updates: Partial<ScrapRecord>) => Promise<void>;
+    onUpdateScrapArchive: (sanonId: string, updates: any) => Promise<void>;
     onDeleteArchivedItem: (sanonId: string, itemId: string) => Promise<void>;
     onDeleteArchive: (id: string) => Promise<void>;
     resolveName: (username?: string | null) => string;
@@ -23,7 +24,8 @@ const Icons = {
     Trash: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
     ChevronDown: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>,
     Calendar: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
-    Download: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+    Download: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>,
+    Dollar: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
 };
 
 const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
@@ -33,6 +35,11 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
     const [editGross, setEditGross] = useState('');
     const [editMetalId, setEditMetalId] = useState('');
     const [editBinId, setEditBinId] = useState('');
+
+    // State pre úpravu ceny odberateľa
+    const [isExternalValueModalOpen, setIsExternalValueModalOpen] = useState(false);
+    const [targetSanonId, setTargetSanonId] = useState<string | null>(null);
+    const [externalValInput, setExternalValInput] = useState('');
 
     const sortedArchives = useMemo(() => {
         return [...props.scrapArchives].sort((a, b) => {
@@ -76,6 +83,21 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
             netto: Math.max(grossVal - taraVal, 0)
         });
         setEditingItem(null);
+    };
+
+    const handleOpenExternalValue = (sanon: any) => {
+        setTargetSanonId(sanon.id);
+        setExternalValInput(String(sanon.externalValue || ''));
+        setIsExternalValueModalOpen(true);
+    };
+
+    const handleSaveExternalValue = async () => {
+        if (!targetSanonId) return;
+        await props.onUpdateScrapArchive(targetSanonId, {
+            externalValue: parseFloat(externalValInput) || 0
+        });
+        setIsExternalValueModalOpen(false);
+        setTargetSanonId(null);
     };
 
     const handleExportSanon = (archive: any) => {
@@ -143,6 +165,7 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                         const items = archive.items || [];
                         const totalWeight = items.reduce((acc: number, curr: ScrapRecord) => acc + curr.netto, 0);
                         const totalValue = calculateSanonValue(items, archive.dispatchDate);
+                        const externalValue = archive.externalValue || 0;
                         const displayDate = new Date(archive.dispatchDate).toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric' });
                         
                         return (
@@ -168,16 +191,26 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                                                 <p className="text-xl font-black text-teal-400 font-mono">{totalWeight} <span className="text-xs font-normal text-slate-600">kg</span></p>
                                             </div>
                                             
-                                            {/* NOVÝ BLOK: HODNOTA */}
                                             <div className="text-center border-l border-white/5 pl-10">
-                                                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">ODHADOVANÁ HODNOTA</p>
+                                                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">INTERNÝ ODHAD</p>
                                                 <p className="text-xl font-black text-amber-400 font-mono">{totalValue.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-normal text-slate-600">€</span></p>
                                             </div>
 
                                             <div className="text-center border-l border-white/5 pl-10">
-                                                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">VYSTAVIL</p>
-                                                <p className="text-xs font-bold text-slate-300 uppercase">{props.resolveName(archive.finalizedBy)}</p>
+                                                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">CENA ODBERATEĽA</p>
+                                                <p className={`text-xl font-black font-mono ${externalValue > 0 ? 'text-green-500' : 'text-slate-700'}`}>
+                                                    {externalValue > 0 ? externalValue.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '---'} 
+                                                    <span className="text-xs font-normal text-slate-600 ml-1">€</span>
+                                                </p>
                                             </div>
+
+                                            <div className="text-center border-l border-white/5 pl-10">
+                                                <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${externalValue > totalValue ? 'text-green-400' : 'text-slate-600'}`}>ROZDIEL</p>
+                                                <p className={`text-sm font-black font-mono ${externalValue === 0 ? 'text-slate-700' : (externalValue - totalValue) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                                    {externalValue === 0 ? '---' : (externalValue - totalValue).toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                                                </p>
+                                            </div>
+
                                             <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180 text-teal-500' : 'text-slate-600'}`}>
                                                 <Icons.ChevronDown />
                                             </div>
@@ -185,6 +218,15 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                                     </button>
                                     
                                     <div className="p-4 md:border-l border-slate-800 flex justify-center items-center gap-2 w-full md:w-auto">
+                                        {props.hasPermission('perm_scrap_edit') && (
+                                            <button 
+                                                onClick={() => handleOpenExternalValue(archive)}
+                                                className="p-3 bg-amber-900/20 text-amber-500 hover:bg-amber-500 hover:text-white rounded-xl transition-all shadow-sm"
+                                                title="Zadať cenu od odberateľa"
+                                            >
+                                                <Icons.Dollar />
+                                            </button>
+                                        )}
                                         <button 
                                             onClick={() => handleExportSanon(archive)}
                                             className="p-3 bg-emerald-900/20 text-emerald-500 hover:bg-emerald-500 hover:text-white rounded-xl transition-all shadow-sm"
@@ -264,7 +306,38 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                 )}
             </div>
 
-            {/* EDIT MODAL */}
+            {/* MODAL: ZADANIE CENY ODBERATEĽA */}
+            {isExternalValueModalOpen && createPortal(
+                <div className="fixed inset-0 z-[12000] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 animate-fade-in" onClick={() => setIsExternalValueModalOpen(false)}>
+                    <div className="bg-slate-900 border-2 border-amber-500/50 rounded-[2.5rem] shadow-2xl w-full max-w-lg p-10 relative overflow-hidden text-center" onClick={e => e.stopPropagation()}>
+                        <div className="w-20 h-20 bg-amber-500/10 border border-amber-500/30 rounded-full flex items-center justify-center mx-auto mb-6 text-amber-500">
+                            <Icons.Dollar />
+                        </div>
+                        <h3 className="text-3xl font-black text-white uppercase tracking-tighter mb-4">Cena od odberateľa</h3>
+                        <p className="text-sm text-slate-400 font-bold uppercase leading-relaxed mb-8">Zadajte finálnu sumu, ktorú za tento vývoz potvrdil odberateľ.</p>
+                        
+                        <div className="relative mb-10">
+                            <input 
+                                type="number" 
+                                value={externalValInput} 
+                                onChange={e => setExternalValInput(e.target.value)} 
+                                className={`${inputClass} !text-4xl text-amber-400`}
+                                placeholder="0.00"
+                                autoFocus
+                            />
+                            <span className="absolute right-6 bottom-4 text-xl font-black text-slate-700">€</span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <button onClick={() => setIsExternalValueModalOpen(false)} className="h-14 bg-slate-800 text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:text-white transition-all">ZRUŠIŤ</button>
+                            <button onClick={handleSaveExternalValue} className="h-14 bg-amber-600 hover:bg-amber-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest border-b-4 border-amber-800 shadow-xl transition-all active:scale-95">ULOŽIŤ SUMU</button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* EDIT MODAL: POLOŽKA ARCHÍVU */}
             {editingItem && createPortal(
                 <div className="fixed inset-0 z-[12000] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 animate-fade-in" onClick={() => setEditingItem(null)}>
                     <div className="bg-slate-900 border-2 border-teal-500/50 rounded-[2.5rem] shadow-2xl w-full max-w-lg p-10 relative overflow-hidden" onClick={e => e.stopPropagation()}>

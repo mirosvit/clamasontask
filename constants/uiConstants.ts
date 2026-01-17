@@ -34,6 +34,7 @@ export const TAB_CONFIG: TabDefinition[] = [
   { id: 'scrap_weighing', labelKey: 'tab_scrap_weighing', permission: 'perm_scrap_add' }, 
   { id: 'scrap_warehouse', labelKey: 'tab_scrap_warehouse', permission: 'perm_scrap_list' },
   { id: 'scrap_archive', labelKey: 'tab_scrap_archive', permission: 'perm_scrap_archive' },
+  { id: 'scrap_analytics', labelKey: 'tab_scrap_analytics', permission: 'perm_tab_scrap_analytics' },
   { id: 'erp', labelKey: 'tab_erp', permission: 'perm_tab_erp', badgeKey: 'erpBlockages', color: 'border-orange-500 text-orange-400' },
   { id: 'map', labelKey: 'tab_map', permission: 'perm_tab_map', color: 'border-amber-500 text-amber-400' },
   { id: 'logs', labelKey: 'tab_logs', permission: 'perm_tab_logs', color: 'border-cyan-500 text-cyan-400', adminOnly: true },

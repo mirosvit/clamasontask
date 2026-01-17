@@ -29,6 +29,7 @@ const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, onAddRole, onDel
               'perm_scrap_add',
               'perm_scrap_list',
               'perm_scrap_archive',
+              'perm_tab_scrap_analytics',
               'perm_tab_map',
               'perm_tab_logs',
               'perm_tab_erp',

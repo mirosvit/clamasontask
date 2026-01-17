@@ -96,6 +96,7 @@ const AppAuthenticated: React.FC<AppAuthenticatedProps> = (props) => {
           onBulkAddScrapRecords={data.onBulkAddScrapRecords}
           onUpdateScrapRecord={data.onUpdateScrapRecord}
           onUpdateArchivedScrapItem={data.onUpdateArchivedScrapItem}
+          onUpdateScrapArchive={data.onUpdateScrapArchive}
           onExpediteScrap={data.onExpediteScrap}
 
           // Maintenance & System

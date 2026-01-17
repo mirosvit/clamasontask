@@ -7,10 +7,8 @@ import HourlyChartSection from './HourlyChartSection';
 import QualityAuditSection from './QualityAuditSection';
 import WorkerDetailModal from './WorkerDetailModal';
 import DrivingMetrics from './DrivingMetrics';
-import ScrapAnalyticsSection from './ScrapAnalyticsSection';
 import { useAnalyticsEngine, FilterMode, SourceFilter, ShiftFilter } from '../../../hooks/useAnalyticsEngine';
 import { useData } from '../../../context/DataContext';
-import { processScrapAnalytics } from '../../../utils/scrapAnalyticsUtils';
 
 interface AnalyticsTabProps {
   systemConfig: SystemConfig;
@@ -34,10 +32,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [selectedWorkerData, setSelectedWorkerData] = useState<{ name: string; tasks: Task[] } | null>(null);
   const { t, language } = useLanguage();
-
-  const now = new Date();
-  const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
 
   const resolveName = (username?: string | null) => {
       if (!username) return '-';
@@ -79,37 +73,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     combined.forEach(task => { if (task && task.id) uniqueMap.set(task.id, task); });
     return Array.from(uniqueMap.values());
   }, [data.tasks, data.draftTasks, historicalArchive]);
-
-  // SCRAP DATA PROCESSING
-  const scrapStats = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayTs = today.getTime();
-    
-    let startTime = 0;
-    let endTime = Date.now();
-
-    switch (filterMode) {
-      case 'TODAY': startTime = todayTs; break;
-      case 'YESTERDAY': startTime = todayTs - 86400000; endTime = todayTs; break;
-      case 'WEEK': startTime = todayTs - (today.getDay() || 7 - 1) * 86400000; break;
-      case 'MONTH': startTime = new Date(today.getFullYear(), today.getMonth(), 1).getTime(); break;
-      case 'CUSTOM':
-        if (customStart && customEnd) {
-          startTime = new Date(customStart).getTime();
-          endTime = new Date(customEnd).getTime() + 86399999;
-        }
-        break;
-    }
-
-    return processScrapAnalytics(
-      data.scrapSanons,
-      data.scrapPrices,
-      data.scrapMetals,
-      startTime,
-      endTime
-    );
-  }, [data.scrapSanons, data.scrapPrices, data.scrapMetals, filterMode, customStart, customEnd]);
 
   const engine = useAnalyticsEngine(
     masterDataset,
@@ -238,9 +201,6 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           <p className="text-3xl font-black text-white mt-2 font-mono">{globalStats.globalEfficiency.toFixed(1)}%</p>
         </div>
       </div>
-
-      {/* NEW SCRAP ANALYTICS SECTION */}
-      <ScrapAnalyticsSection data={scrapStats} prices={data.scrapPrices} metals={data.scrapMetals} />
 
       {/* WORKER PERFORMANCE TABLE */}
       <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-2xl overflow-hidden">

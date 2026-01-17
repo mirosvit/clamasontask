@@ -31,7 +31,7 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
   const ADMIN_TAB_IDS = ['settings', 'permissions'];
   const STAT_TAB_IDS = ['map', 'analytics', 'logs'];
   const LOG_TAB_IDS = ['logistics', 'catalog']; 
-  const SCRAP_TAB_IDS = ['scrap_weighing', 'scrap_warehouse', 'scrap_archive']; 
+  const SCRAP_TAB_IDS = ['scrap_weighing', 'scrap_warehouse', 'scrap_archive', 'scrap_analytics']; 
   const PARTS_TAB_IDS: string[] = []; 
   
   const isAdminTabActive = ADMIN_TAB_IDS.includes(activeTab);

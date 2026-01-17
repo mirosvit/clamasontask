@@ -75,6 +75,11 @@ export const useScrapWeighing = () => {
     }
   };
 
+  const onUpdateScrapArchive = async (sanonId: string, updates: any) => {
+      const ref = doc(db, 'scrap_archives', sanonId);
+      await updateDoc(ref, updates);
+  };
+
   const onDeleteArchivedScrapItem = async (sanonId: string, itemId: string) => {
     const ref = doc(db, 'scrap_archives', sanonId);
     const snap = await getDoc(ref);
@@ -106,7 +111,8 @@ export const useScrapWeighing = () => {
           dispatchDate: dispatchDate || dateObj.toISOString().split('T')[0],
           items: actualScrap,
           finalizedBy: worker,
-          finalizedAt: timestamp
+          finalizedAt: timestamp,
+          externalValue: 0 // Default skutočná cena
       };
 
       // 1. Uložiť do archívu
@@ -129,7 +135,8 @@ export const useScrapWeighing = () => {
           dispatchDate,
           items: records,
           finalizedBy: worker,
-          finalizedAt: Date.now()
+          finalizedAt: Date.now(),
+          externalValue: 0
       };
 
       await setDoc(doc(db, 'scrap_archives', sanonId), archiveDoc);
@@ -138,6 +145,6 @@ export const useScrapWeighing = () => {
 
   return {
     actualScrap, scrapSanons,
-    onAddScrapRecord, onBulkAddScrapRecords, onDeleteScrapRecord, onUpdateScrapRecord, onExpediteScrap, onFinalizeScrapArchive, onUpdateArchivedScrapItem, onDeleteArchivedScrapItem, onDeleteScrapArchive
+    onAddScrapRecord, onBulkAddScrapRecords, onDeleteScrapRecord, onUpdateScrapRecord, onExpediteScrap, onFinalizeScrapArchive, onUpdateArchivedScrapItem, onDeleteArchivedScrapItem, onDeleteScrapArchive, onUpdateScrapArchive
   };
 };
