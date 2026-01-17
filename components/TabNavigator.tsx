@@ -31,16 +31,17 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
   const ADMIN_TAB_IDS = ['settings', 'permissions'];
   const STAT_TAB_IDS = ['map', 'analytics', 'logs'];
   const LOG_TAB_IDS = ['logistics', 'catalog']; 
+  const SCRAP_TAB_IDS = ['scrap_weighing', 'scrap_warehouse', 'scrap_archive']; 
   const PARTS_TAB_IDS: string[] = []; 
   
   const isAdminTabActive = ADMIN_TAB_IDS.includes(activeTab);
   const isStatsTabActive = STAT_TAB_IDS.includes(activeTab);
   const isLogisticsTabActive = LOG_TAB_IDS.includes(activeTab);
+  const isScrapTabActive = SCRAP_TAB_IDS.includes(activeTab);
 
   useEffect(() => {
     const handleGlobalClick = (e: MouseEvent) => {
         const target = e.target as HTMLElement;
-        // Ak je menu otvorené, zatvoríme ho len ak klik nebol na trigger ANI do vnútra portálu
         if (openMenu && !target.closest('.dropdown-trigger') && !target.closest('.portal-dropdown-content')) {
             setOpenMenu(null);
         }
@@ -58,7 +59,11 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
   }, [openMenu]);
 
   const topLevelTabIds = currentOrder.filter(id => 
-    !ADMIN_TAB_IDS.includes(id) && !STAT_TAB_IDS.includes(id) && !LOG_TAB_IDS.includes(id) && !PARTS_TAB_IDS.includes(id)
+    !ADMIN_TAB_IDS.includes(id) && 
+    !STAT_TAB_IDS.includes(id) && 
+    !LOG_TAB_IDS.includes(id) && 
+    !SCRAP_TAB_IDS.includes(id) && 
+    !PARTS_TAB_IDS.includes(id)
   );
   
   const allowedAdminTabs = TAB_CONFIG.filter(config => 
@@ -71,6 +76,10 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
 
   const allowedLogisticsTabs = TAB_CONFIG.filter(config => 
     LOG_TAB_IDS.includes(config.id) && (config.adminOnly ? currentUserRole === 'ADMIN' : true) && hasPermission(config.permission)
+  );
+
+  const allowedScrapTabs = TAB_CONFIG.filter(config => 
+    SCRAP_TAB_IDS.includes(config.id) && (config.adminOnly ? currentUserRole === 'ADMIN' : true) && hasPermission(config.permission)
   );
 
   const handleDropdownClick = (e: React.MouseEvent, menuId: string) => {
@@ -95,16 +104,6 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
       >
         <span className="whitespace-nowrap uppercase tracking-tighter">{t(labelKey as any)}</span>
         <svg className={`w-4 h-4 transition-transform duration-200 ${openMenu === menuId ? 'rotate-180 text-teal-400' : 'text-gray-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
-        {(() => {
-          const totalBadge = tabs.reduce((acc, curr) => {
-            const bKey = curr.badgeKey;
-            if (bKey) {
-              return acc + ((counts as any)[bKey] || 0);
-            }
-            return acc;
-          }, 0);
-          return totalBadge > 0 ? <span className="bg-orange-600 text-white text-[9px] rounded-full w-4 h-4 flex items-center justify-center font-bold">!</span> : null;
-        })()}
       </button>
     );
   };
@@ -171,6 +170,7 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
             
             <div className="ml-auto flex items-center">
                 {renderDropdownTrigger('tab_logistics_group', 'logistics', isLogisticsTabActive, allowedLogisticsTabs)}
+                {renderDropdownTrigger('tab_scrap_group', 'scrap', isScrapTabActive, allowedScrapTabs)}
                 {renderDropdownTrigger('tab_statistics', 'stats', isStatsTabActive, allowedStatsTabs)}
                 {renderDropdownTrigger('tab_administration', 'admin', isAdminTabActive, allowedAdminTabs)}
             </div>
@@ -179,6 +179,7 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
       </div>
 
       {renderPortalMenu('logistics', allowedLogisticsTabs)}
+      {renderPortalMenu('scrap', allowedScrapTabs)}
       {renderPortalMenu('stats', allowedStatsTabs)}
       {renderPortalMenu('admin', allowedAdminTabs)}
     </>

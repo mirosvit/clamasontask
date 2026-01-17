@@ -198,7 +198,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, users, system
       {/* Footer Credit */}
       <div className="mt-8 text-center text-xs text-gray-500 opacity-60">
           <p>{t('created_by')}</p>
-          <p className="mt-1">© 2025</p>
+          <p className="mt-1">© 2026</p>
       </div>
     </div>
   );

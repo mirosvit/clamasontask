@@ -23,6 +23,7 @@ interface TaskListProps {
   onExhaustSearch: (id: string) => void;
   onMarkAsIncorrect: (id: string) => void;
   onAddNote: (id: string, note: string) => void;
+  onAddNoteAction?: (id: string, note: string) => void;
   onReleaseTask: (id: string) => void;
   onAuditPart?: (id: string) => void;
   onFinishAudit?: (id: string, result: 'found' | 'missing', note: string) => void;
@@ -210,15 +211,20 @@ const TaskList: React.FC<TaskListProps> = (props) => {
       )}
       
       {filteredTasks.map((task) => {
-        const isSystemInventoryTask = task.partNumber === "Počítanie zásob";
-        if (isSystemInventoryTask && !props.hasPermission('perm_tab_inventory')) return null;
+        const isInventory = task.partNumber === "Počítanie zásob";
+        const isScrap = task.partNumber === "Váženie šrotu";
+        const isSystemTask = isInventory || isScrap;
+
+        // Kontrola permisií pre zobrazenie systémových úloh
+        if (isInventory && !props.hasPermission('perm_tab_inventory')) return null;
+        if (isScrap && !props.hasPermission('perm_scrap_add')) return null;
 
         return (
           <TaskCard 
             key={task.id}
             task={task}
             currentUserName={props.currentUserName}
-            isSystemInventoryTask={isSystemInventoryTask}
+            isSystemInventoryTask={isSystemTask}
             copiedId={copiedId}
             hasPermission={props.hasPermission}
             onSetInProgress={props.onSetInProgress}

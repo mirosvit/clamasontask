@@ -1,4 +1,3 @@
-
 export interface UserData {
   id?: string;
   username: string;
@@ -6,6 +5,38 @@ export interface UserData {
   role: 'ADMIN' | 'USER' | 'LEADER';
   nickname?: string;
   canExportAnalytics?: boolean;
+}
+
+export interface ScrapBin {
+  id: string;
+  name: string;
+  tara: number;
+}
+
+export interface ScrapMetal {
+  id: string;
+  type: string;
+  description: string;
+}
+
+export interface ScrapPrice {
+  id: string;
+  metalId: string;
+  month: number;
+  year: number;
+  price: number;
+}
+
+export interface ScrapRecord {
+  id: string;
+  metalId: string;
+  binId: string;
+  gross: number;
+  tara: number;
+  netto: number;
+  timestamp: number;
+  worker: string;
+  taskId: string;
 }
 
 export interface DBItem {

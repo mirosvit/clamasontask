@@ -15,7 +15,10 @@ import AnalyticsTab from './tabs/Analytics/AnalyticsTab';
 import SettingsTab from './settings/SettingsTab';
 import PermissionsTab from './tabs/PermissionsTab';
 import PartCatalogTab from './tabs/PartCatalogTab';
-import { Task, PriorityLevel, DBItem, Role, SystemConfig, MapSector, MapObstacle, BOMComponent, PartRequest, BOMRequest, AdminNote, ERPBlockage } from '../types/appTypes';
+import ScrapWeighingTab from './tabs/ScrapWeighingTab';
+import ScrapWarehouseTab from './tabs/ScrapWarehouseTab';
+import ScrapArchiveTab from './tabs/ScrapArchiveTab';
+import { Task, PriorityLevel, DBItem, Role, SystemConfig, MapSector, MapObstacle, BOMComponent, PartRequest, BOMRequest, AdminNote, ERPBlockage, ScrapBin, ScrapMetal, ScrapPrice, ScrapRecord } from '../types/appTypes';
 
 // --- MAIN DASHBOARD COMPONENT ---
 interface PartSearchScreenProps {
@@ -36,6 +39,22 @@ interface PartSearchScreenProps {
     erpBlockages: ERPBlockage[];
     systemConfig: SystemConfig;
     isBreakActive: boolean;
+
+    // Scrap Data
+    scrapBins: ScrapBin[];
+    scrapMetals: ScrapMetal[];
+    scrapPrices: ScrapPrice[];
+    actualScrap: ScrapRecord[];
+    scrapSanons: any[];
+    onAddScrapRecord: (record: ScrapRecord) => Promise<void>;
+    onBulkAddScrapRecords: (records: ScrapRecord[]) => Promise<void>;
+    onDeleteScrapRecord: (id: string) => Promise<void>;
+    onUpdateScrapRecord: (id: string, updates: Partial<ScrapRecord>) => Promise<void>;
+    onUpdateArchivedScrapItem: (sanonId: string, itemId: string, updates: Partial<ScrapRecord>) => Promise<void>;
+    onDeleteArchivedScrapItem: (sanonId: string, itemId: string) => Promise<void>;
+    onDeleteScrapArchive: (id: string) => Promise<void>;
+    onExpediteScrap: (worker: string, dispatchDate: string) => Promise<string | undefined>;
+    onFinalizeScrapArchive: (date: string, worker: string, items: ScrapRecord[]) => Promise<string | undefined>;
 
     currentUser: string;
     currentUserRole: 'ADMIN' | 'USER' | 'LEADER';
@@ -205,7 +224,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                 logisticsRef,
                 logisticsOp,
                 quantity,
-                'pallet',
+                quantityUnit,
                 priority,
                 true,
                 logisticsPlate,
@@ -370,6 +389,53 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                             onDeleteTask={props.onDeleteTask} 
                             hasPermission={hasPermission} 
                             resolveName={resolveName} 
+                        />
+                    )}
+
+                    {activeTab === 'scrap_weighing' && hasPermission('perm_scrap_add') && (
+                        <ScrapWeighingTab 
+                            currentUser={props.currentUser}
+                            bins={props.scrapBins}
+                            metals={props.scrapMetals}
+                            prices={props.scrapPrices}
+                            actualScrap={props.actualScrap}
+                            scrapSanons={props.scrapSanons}
+                            onAddRecord={props.onAddScrapRecord}
+                            onBulkAddScrapRecords={props.onBulkAddScrapRecords}
+                            onDeleteRecord={props.onDeleteScrapRecord}
+                            onFinalizeArchive={props.onFinalizeScrapArchive}
+                            onAddTask={props.onAddTask}
+                            onUpdateTask={props.onUpdateTask}
+                            onDeleteTask={props.onDeleteTask}
+                            tasks={props.tasks}
+                            hasPermission={hasPermission}
+                            resolveName={resolveName}
+                        />
+                    )}
+
+                    {activeTab === 'scrap_warehouse' && hasPermission('perm_scrap_list') && (
+                        <ScrapWarehouseTab 
+                            currentUser={props.currentUser}
+                            actualScrap={props.actualScrap}
+                            bins={props.scrapBins}
+                            metals={props.scrapMetals}
+                            onDeleteRecord={props.onDeleteScrapRecord}
+                            onUpdateRecord={props.onUpdateScrapRecord}
+                            onExpedite={props.onExpediteScrap}
+                            resolveName={resolveName}
+                        />
+                    )}
+
+                    {activeTab === 'scrap_archive' && hasPermission('perm_scrap_archive') && (
+                        <ScrapArchiveTab 
+                            scrapArchives={props.scrapSanons}
+                            bins={props.scrapBins}
+                            metals={props.scrapMetals}
+                            onUpdateArchivedItem={props.onUpdateArchivedScrapItem}
+                            onDeleteArchivedItem={props.onDeleteArchivedScrapItem}
+                            onDeleteArchive={props.onDeleteScrapArchive}
+                            resolveName={resolveName}
+                            hasPermission={hasPermission}
                         />
                     )}
 

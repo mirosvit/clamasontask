@@ -1,4 +1,3 @@
-
 export const PRIORITY_ORDER: Record<string, number> = { 
   'URGENT': 0, 
   'NORMAL': 1, 
@@ -17,7 +16,7 @@ export const COLOR_MAP = {
 
 export interface TabDefinition {
   id: string;
-  labelKey: any; // Zmenené zo string na any pre opravu TS2345 buildu
+  labelKey: any; 
   permission: string;
   badgeKey?: 'tasks' | 'pendingRequests' | 'erpBlockages';
   color?: string;
@@ -32,6 +31,9 @@ export const TAB_CONFIG: TabDefinition[] = [
   { id: 'missing', labelKey: 'tab_missing', permission: 'perm_tab_missing' },
   { id: 'inventory', labelKey: 'tab_inventory', permission: 'perm_tab_inventory' },
   { id: 'logistics', labelKey: 'tab_logistics_center', permission: 'perm_tab_logistics_center' },
+  { id: 'scrap_weighing', labelKey: 'tab_scrap_weighing', permission: 'perm_scrap_add' }, 
+  { id: 'scrap_warehouse', labelKey: 'tab_scrap_warehouse', permission: 'perm_scrap_list' },
+  { id: 'scrap_archive', labelKey: 'tab_scrap_archive', permission: 'perm_scrap_archive' },
   { id: 'erp', labelKey: 'tab_erp', permission: 'perm_tab_erp', badgeKey: 'erpBlockages', color: 'border-orange-500 text-orange-400' },
   { id: 'map', labelKey: 'tab_map', permission: 'perm_tab_map', color: 'border-amber-500 text-amber-400' },
   { id: 'logs', labelKey: 'tab_logs', permission: 'perm_tab_logs', color: 'border-cyan-500 text-cyan-400', adminOnly: true },

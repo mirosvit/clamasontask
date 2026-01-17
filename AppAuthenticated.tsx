@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import PartSearchScreen from './components/PartSearchScreen';
 import NotificationModal from './components/modals/NotificationModal';
@@ -92,6 +91,13 @@ const AppAuthenticated: React.FC<AppAuthenticatedProps> = (props) => {
           onToggleMissing={data.onToggleMissing}
           onDeleteMissingItem={(id) => data.onToggleMissing(id)}
           
+          // Scrap Weighing Lifecycle
+          onFinalizeScrapArchive={data.onFinalizeScrapArchive}
+          onBulkAddScrapRecords={data.onBulkAddScrapRecords}
+          onUpdateScrapRecord={data.onUpdateScrapRecord}
+          onUpdateArchivedScrapItem={data.onUpdateArchivedScrapItem}
+          onExpediteScrap={data.onExpediteScrap}
+
           // Maintenance & System
           onGetDocCount={safeGetDocCount}
           onPurgeOldTasks={safePurgeOldTasks}

@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext'; 
 import { SystemConfig } from '../../types/appTypes';
@@ -14,6 +13,7 @@ import SetupView from './SetupView';
 import YearlyClosing from './YearlyClosing';
 import AdminNotesSection from './AdminNotesSection';
 import PartsSection from './PartsSection';
+import ScrapSection from './ScrapSection';
 
 interface SettingsTabProps {
   currentUser: string;
@@ -35,7 +35,8 @@ const Icons = {
   Archive: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>,
   Summary: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
   Yearly: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
-  Notes: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+  Notes: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>,
+  Scrap: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
 };
 
 const SettingsTab: React.FC<SettingsTabProps> = (props) => {
@@ -63,6 +64,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
       { id: 'parts', label: t('sect_parts'), icon: <Icons.Parts />, perm: 'perm_settings_parts' },
       { id: 'wp', label: t('sect_wp'), icon: <Icons.Workplaces />, perm: 'perm_settings_wp' },
       { id: 'bom', label: t('sect_bom'), icon: <Icons.BOM />, perm: 'perm_settings_bom' },
+      { id: 'scrap', label: t('sect_scrap'), icon: <Icons.Scrap />, perm: 'perm_scrap_manage' },
       { id: 'system', label: 'SYSTÉM', icon: <Icons.System />, perm: 'perm_settings_system' },
       { id: 'maint', label: 'ÚDRŽBA', icon: <Icons.Archive />, perm: 'perm_settings_maint' },
       { id: 'yearly', label: language === 'sk' ? 'UZÁVIERKA' : 'CLOSING', icon: <Icons.Yearly />, perm: 'perm_manage_roles' },
@@ -100,7 +102,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
         resolveName={resolveName}
       />
 
-      <div className={`grid gap-3 mb-8 ${navTiles.length <= 4 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-4 lg:grid-cols-8'}`}>
+      <div className={`grid gap-3 mb-8 ${navTiles.length <= 4 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-4 lg:grid-cols-9'}`}>
         {navTiles.map(tile => {
           const isActive = activeSubTab === tile.id;
           return (
@@ -189,6 +191,21 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             onBatchAddBOMItems={data.onBatchAddBOMItems} 
             onDeleteBOMItem={data.onDeleteBOMItem} 
             onDeleteAllBOMItems={data.onDeleteAllBOMItems} 
+          />
+        )}
+        {activeSubTab === 'scrap' && (
+          <ScrapSection 
+            bins={data.scrapBins}
+            metals={data.scrapMetals}
+            prices={data.scrapPrices}
+            onAddBin={data.onAddScrapBin}
+            onDeleteBin={data.onDeleteScrapBin}
+            onUpdateBin={data.onUpdateScrapBin}
+            onAddMetal={data.onAddScrapMetal}
+            onDeleteMetal={data.onDeleteScrapMetal}
+            onUpdateMetal={data.onUpdateScrapMetal}
+            onAddPrice={data.onAddScrapPrice}
+            onDeletePrice={data.onDeleteScrapPrice}
           />
         )}
         {activeSubTab === 'system' && (

@@ -33,23 +33,27 @@ const TaskBadges: React.FC<TaskBadgesProps> = ({
 
   const baseBadgeClass = "w-fit px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 border shadow-sm backdrop-blur-sm transition-all";
 
+  // Identifikácia typu systémovej úlohy
+  const isInventory = task.partNumber === "Počítanie zásob";
+  const isScrap = task.partNumber === "Váženie šrotu";
+
   return (
     <div className="flex flex-wrap gap-2 mb-2.5">
-      {task.isProduction && (
+      {task.isProduction && !isScrap && (
         <div className={`${baseBadgeClass} bg-pink-500/10 text-pink-400 border-pink-500/20`}>
           <FactoryIcon className="w-3 h-3" /> {language === 'sk' ? 'VÝROBA' : 'PRODUCTION'}
         </div>
       )}
 
-      {task.isLogistics && (
+      {task.isLogistics && !isInventory && (
         <div className={`${baseBadgeClass} bg-indigo-500/10 text-indigo-400 border-indigo-500/20`}>
           <TruckIcon className="w-3 h-3" /> {t('status_logistics')}
         </div>
       )}
 
       {isSystemInventoryTask && (
-        <span className={`${baseBadgeClass} bg-blue-600/20 text-blue-300 border-blue-500/50 animate-pulse shadow-[0_0_10px_rgba(37,99,235,0.2)]`}>
-          📋 {t('tab_inventory')} {task.inProgressBy ? `• ${resolveName(task.inProgressBy)}` : ''}
+        <span className={`${baseBadgeClass} ${isScrap ? 'bg-teal-600/20 text-teal-400 border-teal-500/50' : 'bg-blue-600/20 text-blue-300 border-blue-500/50'} animate-pulse shadow-[0_0_10px_rgba(37,99,235,0.2)]`}>
+          {isScrap ? '⚖️ ' + t('tab_scrap_weighing') : '📋 ' + t('tab_inventory')} {task.inProgressBy ? `• ${resolveName(task.inProgressBy)}` : ''}
         </span>
       )}
 

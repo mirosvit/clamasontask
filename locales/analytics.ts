@@ -1,4 +1,3 @@
-
 export const analyticsLocales = {
   sk: {
     analytics_title: "Production & Logistics Analytics",
@@ -113,6 +112,14 @@ export const analyticsLocales = {
     detail_tempo: "Tempo Manipulácie",
     detail_tempo_desc: "Priemerný čas na 1 operáciu",
     detail_audit_tag: "Auditované systémom Clamason Intelligence",
+    scrap_analytics_title: "ODPADOVÉ HOSPODÁRSTVO",
+    scrap_total_weight: "CELKOVÁ HMOTNOSŤ",
+    scrap_total_value: "ODHADOVANÁ HODNOTA",
+    scrap_price_trend: "VÝVOJ CIEN KOVOV",
+    scrap_weight_dist: "DISTRIBÚCIA PODĽA KOVOV",
+    scrap_avg_price: "PRIEMERNÁ CENA",
+    scrap_export_stats: "ŠTATISTIKA VÝVOZU",
+    scrap_empty_data: "Žiadne dáta o vývoze za toto obdobie."
   },
   en: {
     analytics_title: "Production & Logistics Analytics",
@@ -227,5 +234,13 @@ export const analyticsLocales = {
     detail_tempo: "Handling Pace",
     detail_tempo_desc: "Average time per operation",
     detail_audit_tag: "Audited by Clamason Intelligence",
+    scrap_analytics_title: "SCRAP MANAGEMENT",
+    scrap_total_weight: "TOTAL WEIGHT",
+    scrap_total_value: "ESTIMATED VALUE",
+    scrap_price_trend: "METAL PRICE TRENDS",
+    scrap_weight_dist: "METAL DISTRIBUTION",
+    scrap_avg_price: "AVERAGE PRICE",
+    scrap_export_stats: "EXPORT STATISTICS",
+    scrap_empty_data: "No export data for this period."
   }
 };

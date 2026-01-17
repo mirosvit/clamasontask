@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { Task, SystemConfig } from '../../../types/appTypes';
 import { useLanguage } from '../../LanguageContext';
@@ -8,8 +7,10 @@ import HourlyChartSection from './HourlyChartSection';
 import QualityAuditSection from './QualityAuditSection';
 import WorkerDetailModal from './WorkerDetailModal';
 import DrivingMetrics from './DrivingMetrics';
+import ScrapAnalyticsSection from './ScrapAnalyticsSection';
 import { useAnalyticsEngine, FilterMode, SourceFilter, ShiftFilter } from '../../../hooks/useAnalyticsEngine';
 import { useData } from '../../../context/DataContext';
+import { processScrapAnalytics } from '../../../utils/scrapAnalyticsUtils';
 
 interface AnalyticsTabProps {
   systemConfig: SystemConfig;
@@ -78,6 +79,37 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     combined.forEach(task => { if (task && task.id) uniqueMap.set(task.id, task); });
     return Array.from(uniqueMap.values());
   }, [data.tasks, data.draftTasks, historicalArchive]);
+
+  // SCRAP DATA PROCESSING
+  const scrapStats = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayTs = today.getTime();
+    
+    let startTime = 0;
+    let endTime = Date.now();
+
+    switch (filterMode) {
+      case 'TODAY': startTime = todayTs; break;
+      case 'YESTERDAY': startTime = todayTs - 86400000; endTime = todayTs; break;
+      case 'WEEK': startTime = todayTs - (today.getDay() || 7 - 1) * 86400000; break;
+      case 'MONTH': startTime = new Date(today.getFullYear(), today.getMonth(), 1).getTime(); break;
+      case 'CUSTOM':
+        if (customStart && customEnd) {
+          startTime = new Date(customStart).getTime();
+          endTime = new Date(customEnd).getTime() + 86399999;
+        }
+        break;
+    }
+
+    return processScrapAnalytics(
+      data.scrapSanons,
+      data.scrapPrices,
+      data.scrapMetals,
+      startTime,
+      endTime
+    );
+  }, [data.scrapSanons, data.scrapPrices, data.scrapMetals, filterMode, customStart, customEnd]);
 
   const engine = useAnalyticsEngine(
     masterDataset,
@@ -187,6 +219,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
         )}
       </div>
 
+      {/* KPI TILES GRID */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 border-l-4 border-l-blue-500 shadow-xl">
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">{t('kpi_total')}</p>
@@ -206,6 +239,10 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
         </div>
       </div>
 
+      {/* NEW SCRAP ANALYTICS SECTION */}
+      <ScrapAnalyticsSection data={scrapStats} prices={data.scrapPrices} metals={data.scrapMetals} />
+
+      {/* WORKER PERFORMANCE TABLE */}
       <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-2xl overflow-hidden">
           <div className="flex items-center gap-3 mb-8 border-b border-white/5 pb-6">
               <div className="w-1.5 h-6 bg-purple-500 rounded-full"></div>

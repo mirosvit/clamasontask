@@ -1,9 +1,10 @@
-
 import { useRef, useCallback, useEffect } from 'react';
 import { useSystemData } from './data/useSystemData';
 import { useMasterData } from './data/useMasterData';
 import { useOperationsData } from './data/useOperationsData';
 import { useTaskData } from './data/useTaskData';
+import { useScrapData } from './data/useScrapData';
+import { useScrapWeighing } from './data/useScrapWeighing';
 import { Role } from '../types/appTypes';
 
 export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: string) => {
@@ -18,7 +19,11 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
   // 3. OPERATIONS DATA (Breaks, Reasons)
   const operationsData = useOperationsData();
 
-  // 4. PERMISSION HELPER (Needed for Task Data Sound Logic)
+  // 4. SCRAP DATA & WEIGHING
+  const scrapData = useScrapData();
+  const scrapWeighing = useScrapWeighing();
+
+  // 5. PERMISSION HELPER (Needed for Task Data Sound Logic)
   const rolesRef = useRef<Role[]>([]);
   const currentUserRoleRef = useRef(currentUserRole);
 
@@ -37,14 +42,16 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
       return r.permissions ? r.permissions.includes(permName) : false;
   }, []);
 
-  // 5. TASK DATA (Depends on Auth & Permissions)
+  // 6. TASK DATA (Depends on Auth & Permissions)
   const taskData = useTaskData(isAuthenticated, checkPermissionRef, onAddNotification);
 
-  // 6. COMPOSE & RETURN
+  // 7. COMPOSE & RETURN
   return {
     ...systemData,
     ...masterData,
     ...operationsData,
+    ...scrapData,
+    ...scrapWeighing,
     ...taskData,
   };
 };

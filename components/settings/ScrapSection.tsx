@@ -1,0 +1,255 @@
+import React, { useState, memo } from 'react';
+import { createPortal } from 'react-dom';
+import { ScrapBin, ScrapMetal, ScrapPrice } from '../../types/appTypes';
+import { useLanguage } from '../LanguageContext';
+
+interface ScrapSectionProps {
+  bins: ScrapBin[];
+  metals: ScrapMetal[];
+  prices: ScrapPrice[];
+  onAddBin: (name: string, tara: number) => Promise<void>;
+  onDeleteBin: (id: string) => Promise<void>;
+  onUpdateBin: (id: string, updates: Partial<ScrapBin>) => Promise<void>;
+  onAddMetal: (type: string, description: string) => Promise<void>;
+  onDeleteMetal: (id: string) => Promise<void>;
+  onUpdateMetal: (id: string, updates: Partial<ScrapMetal>) => Promise<void>;
+  onAddPrice: (metalId: string, month: number, year: number, price: number) => Promise<void>;
+  onDeletePrice: (id: string) => Promise<void>;
+}
+
+const Icons = {
+  Plus: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>,
+  Trash: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
+  Edit: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>,
+  Money: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  Scale: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" /></svg>
+};
+
+const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
+  const { t, language } = useLanguage();
+  
+  // Modals
+  const [modalType, setModalType] = useState<'bin' | 'metal' | 'price' | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Form States
+  const [binName, setBinName] = useState('');
+  const [binTara, setBinTara] = useState('');
+  const [metalType, setMetalType] = useState('');
+  const [metalDesc, setMetalDesc] = useState('');
+  const [priceMetalId, setPriceMetalId] = useState('');
+  const [priceMonth, setPriceMonth] = useState(new Date().getMonth() + 1);
+  const [priceYear, setPriceYear] = useState(new Date().getFullYear());
+  const [priceValue, setPriceValue] = useState('');
+
+  const resetForms = () => {
+    setBinName(''); setBinTara('');
+    setMetalType(''); setMetalDesc('');
+    setPriceMetalId(''); setPriceValue('');
+    setEditingId(null);
+    setModalType(null);
+  };
+
+  const handleEditBin = (bin: ScrapBin) => {
+    setBinName(bin.name); setBinTara(bin.tara.toString());
+    setEditingId(bin.id); setModalType('bin');
+  };
+
+  const handleEditMetal = (m: ScrapMetal) => {
+    setMetalType(m.type); setMetalDesc(m.description);
+    setEditingId(m.id); setModalType('metal');
+  };
+
+  const cardClass = "bg-gray-800/40 border border-slate-700/50 rounded-3xl p-6 shadow-2xl backdrop-blur-sm relative overflow-hidden";
+  const labelClass = "block text-[9px] font-black text-slate-500 uppercase tracking-[0.25em] mb-2";
+  const inputClass = "w-full h-12 bg-slate-900/50 border-2 border-slate-700/50 rounded-xl px-4 text-white text-sm font-bold focus:outline-none focus:border-teal-500/50 transition-all font-mono uppercase";
+  const modalOverlayClass = "fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in";
+  const modalContentClass = "bg-slate-900 border-2 border-slate-700 rounded-3xl shadow-2xl w-full max-w-lg p-8 relative";
+
+  return (
+    <div className="space-y-8 animate-fade-in">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        
+        {/* BIN DATABASE */}
+        <div className={cardClass}>
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
+              <span className="w-2 h-6 bg-blue-500 rounded-full"></span>
+              {t('scrap_bins')}
+            </h3>
+            <button onClick={() => setModalType('bin')} className="p-2 bg-blue-600 rounded-lg text-white hover:bg-blue-500 transition-all shadow-lg active:scale-95">
+              <Icons.Plus />
+            </button>
+          </div>
+          <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+            {props.bins.map(bin => (
+              <div key={bin.id} className="bg-slate-950/30 p-4 rounded-xl border border-white/5 flex justify-between items-center group">
+                <div>
+                  <p className="text-sm font-black text-white uppercase">{bin.name}</p>
+                  <p className="text-[10px] font-mono text-slate-500">Tara: <span className="text-blue-400">{bin.tara} kg</span></p>
+                </div>
+                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => handleEditBin(bin)} className="text-slate-400 hover:text-white p-1.5 hover:bg-slate-800 rounded-md transition-colors"><Icons.Edit /></button>
+                  <button onClick={() => { if(window.confirm('Zmazať?')) props.onDeleteBin(bin.id); }} className="text-slate-400 hover:text-red-500 p-1.5 hover:bg-slate-800 rounded-md transition-colors"><Icons.Trash /></button>
+                </div>
+              </div>
+            ))}
+            {props.bins.length === 0 && <p className="text-center py-8 text-xs text-slate-600 italic">{t('scrap_no_bins')}</p>}
+          </div>
+        </div>
+
+        {/* METAL DATABASE */}
+        <div className={cardClass}>
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
+              <span className="w-2 h-6 bg-teal-500 rounded-full"></span>
+              {t('scrap_metals')}
+            </h3>
+            <button onClick={() => setModalType('metal')} className="p-2 bg-teal-600 rounded-lg text-white hover:bg-teal-500 transition-all shadow-lg active:scale-95">
+              <Icons.Plus />
+            </button>
+          </div>
+          <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+            {props.metals.map(m => (
+              <div key={m.id} className="bg-slate-950/30 p-4 rounded-xl border border-white/5 flex justify-between items-center group">
+                <div>
+                  <p className="text-sm font-black text-white uppercase">{m.type}</p>
+                  <p className="text-[10px] text-slate-500 italic">{m.description}</p>
+                </div>
+                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => handleEditMetal(m)} className="text-slate-400 hover:text-white p-1.5 hover:bg-slate-800 rounded-md transition-colors"><Icons.Edit /></button>
+                  <button onClick={() => { if(window.confirm('Zmazať?')) props.onDeleteMetal(m.id); }} className="text-slate-400 hover:text-red-500 p-1.5 hover:bg-slate-800 rounded-md transition-colors"><Icons.Trash /></button>
+                </div>
+              </div>
+            ))}
+            {props.metals.length === 0 && <p className="text-center py-8 text-xs text-slate-600 italic">{t('scrap_no_metals')}</p>}
+          </div>
+        </div>
+
+        {/* PRICE MANAGEMENT */}
+        <div className={cardClass}>
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
+              <span className="w-2 h-6 bg-amber-500 rounded-full"></span>
+              {t('scrap_prices')}
+            </h3>
+            <button onClick={() => setModalType('price')} className="p-2 bg-amber-600 rounded-lg text-white hover:bg-amber-500 transition-all shadow-lg active:scale-95">
+              <Icons.Plus />
+            </button>
+          </div>
+          <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+            {props.prices.map(p => {
+              const metal = props.metals.find(m => m.id === p.metalId);
+              return (
+                <div key={p.id} className="bg-slate-950/30 p-4 rounded-xl border border-white/5 flex justify-between items-center group">
+                  <div>
+                    <p className="text-sm font-black text-white uppercase">{metal?.type || '?'}</p>
+                    <p className="text-[10px] text-slate-500 uppercase">{p.month}/{p.year}</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-lg font-black text-amber-500 font-mono">{p.price.toFixed(3)} €</span>
+                    <button onClick={() => { if(window.confirm('Zmazať?')) props.onDeletePrice(p.id); }} className="text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Icons.Trash /></button>
+                  </div>
+                </div>
+              );
+            })}
+            {props.prices.length === 0 && <p className="text-center py-8 text-xs text-slate-600 italic">{t('scrap_no_prices')}</p>}
+          </div>
+        </div>
+
+      </div>
+
+      {/* --- MODALS --- */}
+      {modalType && createPortal(
+        <div className={modalOverlayClass} onClick={resetForms}>
+          <div className={modalContentClass} onClick={e => e.stopPropagation()}>
+            <h3 className="text-2xl font-black text-white uppercase tracking-tighter mb-8 flex items-center gap-3">
+              {modalType === 'bin' && <><Icons.Scale /> {editingId ? 'UPRAVIŤ KONTAJNER' : 'NOVÝ KONTAJNER'}</>}
+              {modalType === 'metal' && <><Icons.Scale /> {editingId ? 'UPRAVIŤ KOV' : 'NOVÝ KOV'}</>}
+              {modalType === 'price' && <><Icons.Money /> {t('scrap_add_price')}</>}
+            </h3>
+
+            <div className="space-y-6">
+              {modalType === 'bin' && (
+                <>
+                  <div>
+                    <label className={labelClass}>{t('scrap_bin_name')}</label>
+                    <input value={binName} onChange={e => setBinName(e.target.value.toUpperCase())} className={inputClass} autoFocus />
+                  </div>
+                  <div>
+                    <label className={labelClass}>{t('scrap_bin_tara')}</label>
+                    <input type="number" value={binTara} onChange={e => setBinTara(e.target.value)} className={inputClass} />
+                  </div>
+                  <button onClick={() => {
+                    if (editingId) props.onUpdateBin(editingId, { name: binName, tara: parseFloat(binTara) });
+                    else props.onAddBin(binName, parseFloat(binTara));
+                    resetForms();
+                  }} className="w-full h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black uppercase text-xs border-2 border-blue-500 shadow-xl transition-all">
+                    {t('btn_save')}
+                  </button>
+                </>
+              )}
+
+              {modalType === 'metal' && (
+                <>
+                  <div>
+                    <label className={labelClass}>{t('scrap_metal_type')}</label>
+                    <input value={metalType} onChange={e => setMetalType(e.target.value.toUpperCase())} className={inputClass} autoFocus />
+                  </div>
+                  <div>
+                    <label className={labelClass}>{t('scrap_metal_desc')}</label>
+                    <input value={metalDesc} onChange={e => setMetalDesc(e.target.value)} className={inputClass} />
+                  </div>
+                  <button onClick={() => {
+                    if (editingId) props.onUpdateMetal(editingId, { type: metalType, description: metalDesc });
+                    else props.onAddMetal(metalType, metalDesc);
+                    resetForms();
+                  }} className="w-full h-14 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-black uppercase text-xs border-2 border-teal-500 shadow-xl transition-all">
+                    {t('btn_save')}
+                  </button>
+                </>
+              )}
+
+              {modalType === 'price' && (
+                <>
+                  <div>
+                    <label className={labelClass}>KOV</label>
+                    <select value={priceMetalId} onChange={e => setPriceMetalId(e.target.value)} className={inputClass}>
+                      <option value="">-- VÝBER --</option>
+                      {props.metals.map(m => <option key={m.id} value={m.id}>{m.type}</option>)}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClass}>{t('scrap_month')}</label>
+                      <select value={priceMonth} onChange={e => setPriceMonth(parseInt(e.target.value))} className={inputClass}>
+                        {Array.from({ length: 12 }, (_, i) => <option key={i+1} value={i+1}>{i+1}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelClass}>{t('scrap_year')}</label>
+                      <input type="number" value={priceYear} onChange={e => setPriceYear(parseInt(e.target.value))} className={inputClass} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className={labelClass}>{t('scrap_price_val')}</label>
+                    <input type="number" step="0.001" value={priceValue} onChange={e => setPriceValue(e.target.value)} className={inputClass} placeholder="0.000" />
+                  </div>
+                  <button onClick={() => {
+                    if (priceMetalId && priceValue) props.onAddPrice(priceMetalId, priceMonth, priceYear, parseFloat(priceValue));
+                    resetForms();
+                  }} className="w-full h-14 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-black uppercase text-xs border-2 border-amber-500 shadow-xl transition-all">
+                    {t('scrap_add_price')}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+});
+
+export default ScrapSection;
