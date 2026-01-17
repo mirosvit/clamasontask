@@ -8,12 +8,13 @@ import {
   arrayUnion, 
   getDoc 
 } from 'firebase/firestore';
-import { ScrapBin, ScrapMetal, ScrapPrice } from '../../types/appTypes';
+import { ScrapBin, ScrapMetal, ScrapPrice, ScrapConfig } from '../../types/appTypes';
 
 export const useScrapData = () => {
   const [scrapBins, setScrapBins] = useState<ScrapBin[]>([]);
   const [scrapMetals, setScrapMetals] = useState<ScrapMetal[]>([]);
   const [scrapPrices, setScrapPrices] = useState<ScrapPrice[]>([]);
+  const [scrapConfig, setScrapConfig] = useState<ScrapConfig>({ scrapLogisticsOpId: '' });
 
   useEffect(() => {
     const unsubBins = onSnapshot(doc(db, 'scrap', 'bins'), (s) => {
@@ -25,8 +26,11 @@ export const useScrapData = () => {
     const unsubPrices = onSnapshot(doc(db, 'scrap', 'prices'), (s) => {
       setScrapPrices(s.exists() ? (s.data().items || []) : []);
     });
+    const unsubConfig = onSnapshot(doc(db, 'scrap', 'config'), (s) => {
+      if (s.exists()) setScrapConfig(s.data() as ScrapConfig);
+    });
 
-    return () => { unsubBins(); unsubMetals(); unsubPrices(); };
+    return () => { unsubBins(); unsubMetals(); unsubPrices(); unsubConfig(); };
   }, []);
 
   const onAddScrapBin = async (name: string, tara: number) => {
@@ -91,10 +95,14 @@ export const useScrapData = () => {
     }
   };
 
+  const onUpdateScrapConfig = async (config: Partial<ScrapConfig>) => {
+    await setDoc(doc(db, 'scrap', 'config'), config, { merge: true });
+  };
+
   return {
-    scrapBins, scrapMetals, scrapPrices,
+    scrapBins, scrapMetals, scrapPrices, scrapConfig,
     onAddScrapBin, onDeleteScrapBin, onUpdateScrapBin,
     onAddScrapMetal, onDeleteScrapMetal, onUpdateScrapMetal,
-    onAddScrapPrice, onDeleteScrapPrice
+    onAddScrapPrice, onDeleteScrapPrice, onUpdateScrapConfig
   };
 };

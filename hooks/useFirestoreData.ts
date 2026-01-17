@@ -43,7 +43,7 @@ export const useFirestoreData = (isAuthenticated: boolean, currentUserRole: stri
   }, []);
 
   // 6. TASK DATA (Depends on Auth & Permissions)
-  const taskData = useTaskData(isAuthenticated, checkPermissionRef, onAddNotification);
+  const taskData = useTaskData(isAuthenticated, checkPermissionRef, onAddNotification, scrapData.scrapConfig, masterData.logisticsOperations);
 
   // 7. COMPOSE & RETURN
   return {

@@ -198,6 +198,8 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             bins={data.scrapBins}
             metals={data.scrapMetals}
             prices={data.scrapPrices}
+            scrapConfig={data.scrapConfig}
+            logisticsOperations={data.logisticsOperations}
             onAddBin={data.onAddScrapBin}
             onDeleteBin={data.onDeleteScrapBin}
             onUpdateBin={data.onUpdateScrapBin}
@@ -206,6 +208,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             onUpdateMetal={data.onUpdateScrapMetal}
             onAddPrice={data.onAddScrapPrice}
             onDeletePrice={data.onDeleteScrapPrice}
+            onUpdateScrapConfig={data.onUpdateScrapConfig}
           />
         )}
         {activeSubTab === 'system' && (

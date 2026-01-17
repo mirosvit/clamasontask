@@ -1,15 +1,16 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { db } from '../../firebase';
 import { collection, onSnapshot, query, where, limit, doc, getDocs } from 'firebase/firestore';
-import { Task, PriorityLevel, Notification } from '../../types/appTypes';
+import { Task, PriorityLevel, Notification, ScrapConfig, DBItem } from '../../types/appTypes';
 import { PRIORITY_ORDER } from '../../constants/uiConstants';
 import { taskService } from '../../services/taskService';
 
 export const useTaskData = (
     isAuthenticated: boolean, 
     checkPermission: (perm: string) => boolean,
-    onAddNotification: (n: Partial<Notification>) => void
+    onAddNotification: (n: Partial<Notification>) => void,
+    scrapConfig?: ScrapConfig,
+    logisticsOperations?: DBItem[]
 ) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [draftTasks, setDraftTasks] = useState<Task[]>([]);
@@ -60,10 +61,17 @@ export const useTaskData = (
   const onAddTask = useCallback(async (pn: string, wp: string | null, qty: string, unit: string, prio: PriorityLevel, isLog?: boolean, note?: string, isProd?: boolean, src?: string | null, tgt?: string | null) => {
     const user = localStorage.getItem('app_user') || 'Unknown';
     
+    // Dynamické priradenie logistickej operácie pre šrot ak je nastavená
+    let finalWorkplace = wp || '';
+    if (pn === "Váženie šrotu" && scrapConfig?.scrapLogisticsOpId && logisticsOperations) {
+        const foundOp = logisticsOperations.find(o => o.id === scrapConfig.scrapLogisticsOpId);
+        if (foundOp) finalWorkplace = foundOp.value;
+    }
+
     const taskData: any = {
         partNumber: pn || '',
         text: pn || '',
-        workplace: wp || '',
+        workplace: finalWorkplace,
         quantity: qty || '0',
         quantityUnit: unit || 'pcs',
         priority: prio || 'NORMAL',
@@ -76,15 +84,15 @@ export const useTaskData = (
         targetSectorId: tgt || null
     };
 
-    // FIX: Ak ide o inventúru, automaticky nastaviť riešiteľa pre odomknutie UI
-    if (pn === "Počítanie zásob") {
+    // FIX: Ak ide o inventúru alebo šrot, automaticky nastaviť riešiteľa pre odomknutie UI
+    if (pn === "Počítanie zásob" || pn === "Váženie šrotu") {
         taskData.isInProgress = true;
         taskData.inProgressBy = user;
         taskData.startedAt = Date.now();
     }
     
     return taskService.addTask(taskData);
-  }, []);
+  }, [scrapConfig, logisticsOperations]);
 
   const onUpdateTask = useCallback((id: string, up: Partial<Task>) => taskService.updateTask(id, up), []);
   const onDeleteTask = useCallback((id: string) => taskService.deleteTask(id), []);

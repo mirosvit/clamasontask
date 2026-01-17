@@ -1,12 +1,14 @@
 import React, { useState, memo, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ScrapBin, ScrapMetal, ScrapPrice } from '../../types/appTypes';
+import { ScrapBin, ScrapMetal, ScrapPrice, ScrapConfig, DBItem } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 
 interface ScrapSectionProps {
   bins: ScrapBin[];
   metals: ScrapMetal[];
   prices: ScrapPrice[];
+  scrapConfig: ScrapConfig;
+  logisticsOperations: DBItem[];
   onAddBin: (name: string, tara: number) => Promise<void>;
   onDeleteBin: (id: string) => Promise<void>;
   onUpdateBin: (id: string, updates: Partial<ScrapBin>) => Promise<void>;
@@ -15,6 +17,7 @@ interface ScrapSectionProps {
   onUpdateMetal: (id: string, updates: Partial<ScrapMetal>) => Promise<void>;
   onAddPrice: (metalId: string, month: number, year: number, price: number) => Promise<void>;
   onDeletePrice: (id: string) => Promise<void>;
+  onUpdateScrapConfig: (config: Partial<ScrapConfig>) => Promise<void>;
 }
 
 const Icons = {
@@ -23,7 +26,8 @@ const Icons = {
   Edit: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>,
   Money: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
   Scale: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" /></svg>,
-  Search: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+  Search: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>,
+  Truck: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" /></svg>
 };
 
 const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
@@ -103,6 +107,37 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
 
   return (
     <div className="space-y-8 animate-fade-in">
+      
+      {/* SYSTEM CONFIG - LOGISTICS LINK */}
+      <div className="bg-indigo-900/10 border-2 border-indigo-500/30 rounded-[2rem] p-8 shadow-xl ring-1 ring-indigo-500/20 mb-8">
+          <div className="flex items-center gap-4 mb-8 border-b border-indigo-500/20 pb-6">
+              <div className="p-3 bg-indigo-500/20 rounded-2xl text-indigo-400">
+                  <Icons.Truck />
+              </div>
+              <div>
+                  <h3 className="text-xl font-black text-white uppercase tracking-tighter">PRIRADENIE OPERÁCIE</h3>
+                  <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">Zvoľte logistickú operáciu pre úlohu "VÁŽENIE ŠROTU"</p>
+              </div>
+          </div>
+
+          <div className="max-w-md">
+              <label className={labelClass}>LOGISTICKÁ OPERÁCIA</label>
+              <select 
+                  value={props.scrapConfig.scrapLogisticsOpId || ''}
+                  onChange={(e) => props.onUpdateScrapConfig({ scrapLogisticsOpId: e.target.value })}
+                  className="w-full h-14 bg-slate-950 border-2 border-indigo-500/30 rounded-2xl px-6 text-white font-black uppercase text-xs focus:border-indigo-500 outline-none transition-all appearance-none cursor-pointer"
+              >
+                  <option value="">-- NEVYBRANÉ --</option>
+                  {props.logisticsOperations.map(op => (
+                      <option key={op.id} value={op.id}>{op.value}</option>
+                  ))}
+              </select>
+              <p className="text-[9px] text-slate-600 mt-3 italic font-bold uppercase tracking-widest leading-relaxed">
+                  * Táto operácia sa automaticky nastaví ako "pracovisko" pri spustení relácie váženia, čo zabezpečí správne KPI a výpočty trás.
+              </p>
+          </div>
+      </div>
+
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         
         {/* BIN DATABASE */}

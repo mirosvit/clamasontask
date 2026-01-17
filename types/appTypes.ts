@@ -7,6 +7,10 @@ export interface UserData {
   canExportAnalytics?: boolean;
 }
 
+export interface ScrapConfig {
+  scrapLogisticsOpId: string;
+}
+
 export interface ScrapBin {
   id: string;
   name: string;
