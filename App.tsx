@@ -62,28 +62,48 @@ const AppContent = ({
   if (currentUserRole === 'ADMIN' && systemConfig.adminLockEnabled && !isUnlocked) {
     return (
         <div className="flex flex-col items-center justify-center p-10 bg-gray-900 w-full h-full">
-            <div className="flex flex-col items-center justify-center p-10 bg-gray-900 rounded-2xl border-2 border-amber-600 shadow-2xl">
+            <div className="flex flex-col items-center justify-center p-10 bg-gray-800 rounded-3xl border-2 border-amber-600 shadow-[0_0_50px_rgba(217,119,6,0.2)] max-w-md w-full">
                 <div className="text-amber-500 mb-6 animate-pulse">
                     <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                 </div>
-                <h2 className="text-white text-2xl font-black mb-6 tracking-widest uppercase">Zabezpečený prístup</h2>
+                <h2 className="text-white text-2xl font-black mb-2 tracking-widest uppercase text-center">Zabezpečený prístup</h2>
+                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-8 text-center leading-relaxed">Zadajte kľúč pre prístup k nastaveniam</p>
+                
                 <input 
                     type="password" 
+                    inputMode="numeric"
                     value={unlockKey} 
                     onChange={(e) => setUnlockKey(e.target.value)}
-                    placeholder="ZADAJTE ADMIN KĽÚČ"
-                    className="bg-gray-800 border-2 border-gray-700 text-white text-center px-4 py-3 rounded-xl mb-4 focus:border-amber-500 outline-none font-mono"
+                    placeholder="ADMIN KĽÚČ"
+                    className="w-full bg-slate-900 border-2 border-slate-700 text-white text-center px-4 py-4 rounded-2xl mb-4 focus:border-amber-500 outline-none font-mono text-2xl"
                     onKeyDown={(e) => e.key === 'Enter' && onUnlockAttempt(unlockKey)}
                 />
+                
                 <button 
                     onClick={() => onUnlockAttempt(unlockKey)}
-                    className="w-full py-3 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-black transition-all"
+                    className="w-full py-4 bg-amber-600 hover:bg-amber-500 text-white rounded-2xl font-black transition-all shadow-xl active:scale-95 border-b-4 border-amber-800 mb-6"
                 >
                     ODOMKNÚŤ SYSTÉM
                 </button>
-                <button onClick={onLogout} className="mt-4 text-gray-500 hover:text-white text-xs uppercase font-bold transition-colors">Odhlásiť sa</button>
+
+                <div className="w-full pt-6 border-t border-slate-700 flex flex-col items-center gap-4">
+                    <button onClick={onLogout} className="text-slate-500 hover:text-white text-[10px] uppercase font-black tracking-widest transition-colors">Odhlásiť sa</button>
+                    
+                    {/* EMERGENCY RECOVERY INFO */}
+                    <div className="bg-slate-900/50 p-4 rounded-xl border border-white/5 text-center">
+                        <p className="text-[9px] text-slate-600 font-bold uppercase mb-2">Zabudli ste kľúč?</p>
+                        <a 
+                            href="https://console.firebase.google.com/u/0/project/sklad-ulohy/firestore/databases/-default-/data/~2Fsystem_data~2Fconfig"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[9px] text-amber-500/60 hover:text-amber-400 font-black uppercase tracking-tighter underline"
+                        >
+                            Resetovať cez Firebase Console
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
     );
