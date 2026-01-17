@@ -451,6 +451,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                             scrapSanons={props.scrapSanons}
                             scrapPrices={props.scrapPrices}
                             scrapMetals={props.scrapMetals}
+                            onFetchArchives={props.onFetchScrapArchives}
                         />
                     )}
 
