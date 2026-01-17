@@ -12,6 +12,7 @@ interface ScrapArchiveTabProps {
     onUpdateScrapArchive: (sanonId: string, updates: any) => Promise<void>;
     onDeleteArchivedItem: (sanonId: string, itemId: string) => Promise<void>;
     onDeleteArchive: (id: string) => Promise<void>;
+    onFetchArchives: (from: string, to: string) => Promise<any[]>;
     resolveName: (username?: string | null) => string;
     hasPermission: (perm: string) => boolean;
 }
@@ -26,10 +27,19 @@ const Icons = {
     Calendar: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
     Download: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>,
     Dollar: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+    Refresh: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
 };
 
 const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
     const { t, language } = useLanguage();
+    
+    // State pre filtre
+    const [dateFrom, setDateFrom] = useState(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+    const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [hasLoaded, setHasLoaded] = useState(false);
+
+    // State pre interakciu s položkami
     const [expandedSanonId, setExpandedSanonId] = useState<string | null>(null);
     const [editingItem, setEditingItem] = useState<{ sanonId: string, item: ScrapRecord } | null>(null);
     const [editGross, setEditGross] = useState('');
@@ -48,6 +58,17 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
             return dateB - dateA;
         });
     }, [props.scrapArchives]);
+
+    // HANDLER: Načítanie histórie na vyžiadanie
+    const handleLoadArchives = async () => {
+        setIsLoading(true);
+        try {
+            await props.onFetchArchives(dateFrom, dateTo);
+            setHasLoaded(true);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     // Pomocná funkcia na výpočet hodnoty šanónu
     const calculateSanonValue = (items: ScrapRecord[], dispatchDate: string) => {
@@ -148,18 +169,60 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
 
     return (
         <div className="max-w-7xl mx-auto space-y-6 pb-20 animate-fade-in">
-            <div className="flex items-center gap-4 mb-10">
-                <div className="p-4 bg-indigo-500/20 rounded-2xl border border-indigo-500/30 text-indigo-400">
-                    <Icons.Archive />
+            {/* HLAVIČKA A FILTER */}
+            <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl space-y-6">
+                <div className="flex items-center gap-4 border-b border-slate-800 pb-4">
+                    <div className="p-3 bg-indigo-500/20 rounded-2xl border border-indigo-500/30 text-indigo-400">
+                        <Icons.Archive />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-black text-white uppercase tracking-tighter leading-none">{t('scrap_archive_title')}</h1>
+                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">História expedícií a vývozov</p>
+                    </div>
                 </div>
-                <div>
-                    <h1 className="text-3xl font-black text-white uppercase tracking-tighter leading-none">{t('scrap_archive_title')}</h1>
-                    <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-2">História expedícií a vývozov</p>
+
+                <div className="flex flex-col md:flex-row items-end gap-4">
+                    <div className="flex-1 grid grid-cols-2 gap-4 w-full">
+                        <div>
+                            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-1 block">Dátum Od</label>
+                            <input 
+                                type="date" 
+                                value={dateFrom} 
+                                onChange={e => setDateFrom(e.target.value)} 
+                                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-indigo-500 transition-all" 
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-1 block">Dátum Do</label>
+                            <input 
+                                type="date" 
+                                value={dateTo} 
+                                onChange={e => setDateTo(e.target.value)} 
+                                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-indigo-500 transition-all" 
+                            />
+                        </div>
+                    </div>
+                    <button 
+                        onClick={handleLoadArchives}
+                        disabled={isLoading}
+                        className={`w-full md:w-auto h-11 px-8 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all border-2 flex items-center justify-center gap-3 shadow-lg active:scale-95 ${isLoading ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-wait' : 'bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-500 shadow-indigo-900/20'}`}
+                    >
+                        {isLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <Icons.Refresh />}
+                        {isLoading ? 'NAČÍTAVAM...' : 'NAČÍTAŤ ARCHÍV'}
+                    </button>
                 </div>
             </div>
 
+            {/* ZOZNAM ARCHÍVOV */}
             <div className="space-y-4">
-                {sortedArchives.length > 0 ? (
+                {!hasLoaded ? (
+                    <div className="py-32 text-center bg-slate-900/20 rounded-[3rem] border-2 border-dashed border-slate-800">
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="p-4 bg-slate-800/50 rounded-full text-slate-600 animate-pulse"><Icons.Calendar /></div>
+                            <p className="text-slate-600 font-black uppercase tracking-[0.3em] text-xs">Zvoľte obdobie a načítajte dáta</p>
+                        </div>
+                    </div>
+                ) : sortedArchives.length > 0 ? (
                     sortedArchives.map(archive => {
                         const isExpanded = expandedSanonId === archive.id;
                         const items = archive.items || [];
@@ -204,14 +267,7 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                                                 </p>
                                             </div>
 
-                                            <div className="text-center border-l border-white/5 pl-10">
-                                                <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${externalValue > totalValue ? 'text-green-400' : 'text-slate-600'}`}>ROZDIEL</p>
-                                                <p className={`text-sm font-black font-mono ${externalValue === 0 ? 'text-slate-700' : (externalValue - totalValue) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                                    {externalValue === 0 ? '---' : (externalValue - totalValue).toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                                                </p>
-                                            </div>
-
-                                            <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180 text-teal-500' : 'text-slate-600'}`}>
+                                            <div className={`transition-transform duration-300 ml-4 ${isExpanded ? 'rotate-180 text-teal-500' : 'text-slate-600'}`}>
                                                 <Icons.ChevronDown />
                                             </div>
                                         </div>
@@ -301,7 +357,7 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                 ) : (
                     <div className="py-32 text-center bg-slate-900/20 rounded-[3rem] border-2 border-dashed border-slate-800">
                         <Icons.Archive />
-                        <p className="mt-4 text-slate-600 font-black uppercase tracking-[0.3em] text-sm">{t('scrap_archive_empty')}</p>
+                        <p className="mt-4 text-slate-600 font-black uppercase tracking-[0.3em] text-sm">Žiadne záznamy pre vybraný filter.</p>
                     </div>
                 )}
             </div>

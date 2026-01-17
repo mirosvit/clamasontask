@@ -8,7 +8,10 @@ import {
   arrayUnion, 
   getDoc,
   collection,
-  deleteDoc
+  deleteDoc,
+  query,
+  where,
+  getDocs
 } from 'firebase/firestore';
 import { ScrapRecord } from '../../types/appTypes';
 
@@ -17,19 +20,32 @@ export const useScrapWeighing = () => {
   const [scrapSanons, setScrapSanons] = useState<any[]>([]);
 
   useEffect(() => {
-    // Sledovanie archívnych šanónov
-    const unsubSanons = onSnapshot(collection(db, 'scrap_archives'), (s) => {
-      setScrapSanons(s.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-
-    // Sledovanie aktuálneho skladu šrotu
+    // Sledovanie aktuálneho skladu šrotu - ponechávame LIVE, je tam málo dát
     const unsubActual = onSnapshot(doc(db, 'scrap', 'actualscrap'), (s) => {
       if (s.exists()) setActualScrap(s.data().items || []);
       else setActualScrap([]);
     });
 
-    return () => { unsubSanons(); unsubActual(); };
+    return () => { unsubActual(); };
   }, []);
+
+  // NOVÉ: Manuálne načítanie archívu s filtrom (Quota Guard)
+  const onFetchScrapArchives = async (dateFrom: string, dateTo: string) => {
+    try {
+        const q = query(
+            collection(db, 'scrap_archives'),
+            where('dispatchDate', '>=', dateFrom),
+            where('dispatchDate', '<=', dateTo)
+        );
+        const snap = await getDocs(q);
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setScrapSanons(data);
+        return data;
+    } catch (e) {
+        console.error("Error fetching scrap archives", e);
+        return [];
+    }
+  };
 
   // Pridanie jedného záznamu (legacy/debug)
   const onAddScrapRecord = async (record: ScrapRecord) => {
@@ -72,12 +88,15 @@ export const useScrapWeighing = () => {
         const items = (snap.data().items || []) as ScrapRecord[];
         const newItems = items.map(i => i.id === itemId ? { ...i, ...updates } : i);
         await updateDoc(ref, { items: newItems });
+        // Aktualizujeme aj lokálny state ak je daný sanon načítaný
+        setScrapSanons(prev => prev.map(s => s.id === sanonId ? { ...s, items: newItems } : s));
     }
   };
 
   const onUpdateScrapArchive = async (sanonId: string, updates: any) => {
       const ref = doc(db, 'scrap_archives', sanonId);
       await updateDoc(ref, updates);
+      setScrapSanons(prev => prev.map(s => s.id === sanonId ? { ...s, ...updates } : s));
   };
 
   const onDeleteArchivedScrapItem = async (sanonId: string, itemId: string) => {
@@ -87,11 +106,13 @@ export const useScrapWeighing = () => {
         const items = (snap.data().items || []) as ScrapRecord[];
         const newItems = items.filter(i => i.id !== itemId);
         await updateDoc(ref, { items: newItems });
+        setScrapSanons(prev => prev.map(s => s.id === sanonId ? { ...s, items: newItems } : s));
     }
   };
 
   const onDeleteScrapArchive = async (id: string) => {
       await deleteDoc(doc(db, 'scrap_archives', id));
+      setScrapSanons(prev => prev.filter(s => s.id !== id));
   };
 
   const onExpediteScrap = async (worker: string, dispatchDate?: string) => {
@@ -103,7 +124,6 @@ export const useScrapWeighing = () => {
       const yyyy = dateObj.getFullYear();
       const timestamp = Date.now();
       
-      // ID sanonu teraz obsahuje zvolený dátum expedície
       const sanonId = `SCRAP_SANON_${dd}${mm}${yyyy}_${String(timestamp).slice(-4)}`;
       
       const archiveDoc = {
@@ -112,13 +132,10 @@ export const useScrapWeighing = () => {
           items: actualScrap,
           finalizedBy: worker,
           finalizedAt: timestamp,
-          externalValue: 0 // Default skutočná cena
+          externalValue: 0 
       };
 
-      // 1. Uložiť do archívu
       await setDoc(doc(db, 'scrap_archives', sanonId), archiveDoc);
-      
-      // 2. Vymazať aktuálny sklad
       await updateDoc(doc(db, 'scrap', 'actualscrap'), { items: [] });
       
       return sanonId;
@@ -145,6 +162,7 @@ export const useScrapWeighing = () => {
 
   return {
     actualScrap, scrapSanons,
-    onAddScrapRecord, onBulkAddScrapRecords, onDeleteScrapRecord, onUpdateScrapRecord, onExpediteScrap, onFinalizeScrapArchive, onUpdateArchivedScrapItem, onDeleteArchivedScrapItem, onDeleteScrapArchive, onUpdateScrapArchive
+    onAddScrapRecord, onBulkAddScrapRecords, onDeleteScrapRecord, onUpdateScrapRecord, onExpediteScrap, onFinalizeScrapArchive, onUpdateArchivedScrapItem, onDeleteArchivedScrapItem, onDeleteScrapArchive, onUpdateScrapArchive,
+    onFetchScrapArchives
   };
 };

@@ -57,6 +57,7 @@ interface PartSearchScreenProps {
     onDeleteScrapArchive: (id: string) => Promise<void>;
     onExpediteScrap: (worker: string, dispatchDate: string) => Promise<string | undefined>;
     onFinalizeScrapArchive: (date: string, worker: string, items: ScrapRecord[]) => Promise<string | undefined>;
+    onFetchScrapArchives: (from: string, to: string) => Promise<any[]>;
 
     currentUser: string;
     currentUserRole: 'ADMIN' | 'USER' | 'LEADER';
@@ -439,6 +440,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                             onUpdateScrapArchive={props.onUpdateScrapArchive}
                             onDeleteArchivedItem={props.onDeleteArchivedScrapItem}
                             onDeleteArchive={props.onDeleteScrapArchive}
+                            onFetchArchives={props.onFetchScrapArchives}
                             resolveName={resolveName}
                             hasPermission={hasPermission}
                         />
