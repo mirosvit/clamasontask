@@ -34,8 +34,8 @@ const ScrapAnalyticsSection: React.FC<ScrapAnalyticsProps> = ({ data, yearlyData
     return result.reverse(); 
   }, []);
 
-  // Výpočet celkového sumáru za vybraný rok
-  const yearlyTotalExternal = useMemo(() => {
+  // Výpočet celkového sumáru za vybraný rok pre sekciu fakturácie
+  const yearlyBillingTotal = useMemo(() => {
     return yearlyData.reduce((acc, curr) => acc + (curr.externalValue || 0), 0);
   }, [yearlyData]);
 
@@ -134,7 +134,7 @@ const ScrapAnalyticsSection: React.FC<ScrapAnalyticsProps> = ({ data, yearlyData
             <div className="space-y-8">
                <div className="h-full bg-slate-900/40 p-6 rounded-2xl border border-slate-800">
                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-8">{t('scrap_export_stats')} (Hmotnosť vs Finančné plnenie)</p>
-                  <ResponsiveContainer width="100%" height="400">
+                  <ResponsiveContainer width="100%" height={400}>
                       <BarChart data={data.trendData}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
                           <XAxis dataKey="month" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} />
@@ -172,10 +172,10 @@ const ScrapAnalyticsSection: React.FC<ScrapAnalyticsProps> = ({ data, yearlyData
             </div>
 
             <div className="flex flex-col sm:flex-row items-center gap-6">
-                {/* YEAR TOTAL KPI */}
-                <div className="bg-emerald-500/10 border-2 border-emerald-500/30 px-6 py-2 rounded-2xl flex flex-col items-center sm:items-end">
-                    <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">SUMÁR ZA ROK {selectedYear}</span>
-                    <span className="text-2xl font-black text-white font-mono tracking-tight">{yearlyTotalExternal.toLocaleString('sk-SK')} <span className="text-sm font-normal text-emerald-600">€</span></span>
+                {/* YEAR TOTAL KPI - NOVÝ PRVOK */}
+                <div className="bg-emerald-500/10 border border-emerald-500/30 px-6 py-3 rounded-2xl flex flex-col items-center sm:items-end shadow-inner">
+                    <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">CELKOM ZA ROK {selectedYear}</span>
+                    <span className="text-2xl font-black text-white font-mono tracking-tight">{yearlyBillingTotal.toLocaleString('sk-SK')} <span className="text-sm font-normal text-emerald-600">€</span></span>
                 </div>
 
                 <div className="relative group">
@@ -232,6 +232,7 @@ const ScrapAnalyticsSection: React.FC<ScrapAnalyticsProps> = ({ data, yearlyData
                         fill="url(#colorYield)" 
                         name={language === 'sk' ? "Výnos (€)" : "Yield (€)"}
                         animationDuration={2000}
+                        activeDot={{ r: 8, strokeWidth: 2, stroke: '#fff' }}
                     />
                 </AreaChart>
             </ResponsiveContainer>
@@ -304,7 +305,7 @@ const ScrapAnalyticsSection: React.FC<ScrapAnalyticsProps> = ({ data, yearlyData
                             stroke={COLORS[idx % COLORS.length]}
                             strokeWidth={4}
                             dot={{ r: 5, strokeWidth: 3, fill: '#0f172a' }}
-                            activeDot={{ r: 8, strokeWidth: 0, shadow: '0 0 15px currentColor' }}
+                            activeDot={{ r: 8, strokeWidth: 2, stroke: '#fff' }}
                             name={metal.type}
                             connectNulls
                             animationDuration={1500}
