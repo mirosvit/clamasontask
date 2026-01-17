@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ScrapRecord, ScrapBin, ScrapMetal } from '../../types/appTypes';
+import { ScrapRecord, ScrapBin, ScrapMetal, ScrapPrice } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 
 interface ScrapArchiveTabProps {
     scrapArchives: any[];
     bins: ScrapBin[];
     metals: ScrapMetal[];
+    prices: ScrapPrice[];
     onUpdateArchivedItem: (sanonId: string, itemId: string, updates: Partial<ScrapRecord>) => Promise<void>;
     onDeleteArchivedItem: (sanonId: string, itemId: string) => Promise<void>;
     onDeleteArchive: (id: string) => Promise<void>;
@@ -40,6 +41,19 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
             return dateB - dateA;
         });
     }, [props.scrapArchives]);
+
+    // Pomocná funkcia na výpočet hodnoty šanónu
+    const calculateSanonValue = (items: ScrapRecord[], dispatchDate: string) => {
+        const dateObj = new Date(dispatchDate);
+        const month = dateObj.getMonth() + 1;
+        const year = dateObj.getFullYear();
+        
+        return items.reduce((acc, item) => {
+            const priceObj = props.prices.find(p => p.metalId === item.metalId && p.month === month && p.year === year);
+            const price = priceObj?.price || 0;
+            return acc + (item.netto * price);
+        }, 0);
+    };
 
     const handleOpenEdit = (sanonId: string, item: ScrapRecord) => {
         setEditingItem({ sanonId, item });
@@ -126,7 +140,9 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                 {sortedArchives.length > 0 ? (
                     sortedArchives.map(archive => {
                         const isExpanded = expandedSanonId === archive.id;
-                        const totalWeight = (archive.items || []).reduce((acc: number, curr: ScrapRecord) => acc + curr.netto, 0);
+                        const items = archive.items || [];
+                        const totalWeight = items.reduce((acc: number, curr: ScrapRecord) => acc + curr.netto, 0);
+                        const totalValue = calculateSanonValue(items, archive.dispatchDate);
                         const displayDate = new Date(archive.dispatchDate).toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric' });
                         
                         return (
@@ -151,7 +167,14 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                                                 <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">HMOTNOSŤ</p>
                                                 <p className="text-xl font-black text-teal-400 font-mono">{totalWeight} <span className="text-xs font-normal text-slate-600">kg</span></p>
                                             </div>
-                                            <div className="text-center">
+                                            
+                                            {/* NOVÝ BLOK: HODNOTA */}
+                                            <div className="text-center border-l border-white/5 pl-10">
+                                                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">ODHADOVANÁ HODNOTA</p>
+                                                <p className="text-xl font-black text-amber-400 font-mono">{totalValue.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-normal text-slate-600">€</span></p>
+                                            </div>
+
+                                            <div className="text-center border-l border-white/5 pl-10">
                                                 <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">VYSTAVIL</p>
                                                 <p className="text-xs font-bold text-slate-300 uppercase">{props.resolveName(archive.finalizedBy)}</p>
                                             </div>

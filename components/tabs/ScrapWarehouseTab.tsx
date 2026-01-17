@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ScrapRecord, ScrapBin, ScrapMetal } from '../../types/appTypes';
+import { ScrapRecord, ScrapBin, ScrapMetal, ScrapPrice } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 
 interface ScrapWarehouseTabProps {
@@ -8,6 +8,7 @@ interface ScrapWarehouseTabProps {
     actualScrap: ScrapRecord[];
     bins: ScrapBin[];
     metals: ScrapMetal[];
+    prices: ScrapPrice[];
     onDeleteRecord: (id: string) => Promise<void>;
     onUpdateRecord: (id: string, updates: Partial<ScrapRecord>) => Promise<void>;
     onExpedite: (worker: string, dispatchDate: string) => Promise<string | undefined>;
@@ -49,6 +50,19 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
     useEffect(() => {
         setIsDeliveryNoteGenerated(false);
     }, [props.actualScrap.length]);
+
+    // Výpočet aktuálnej hodnoty skladu
+    const currentWarehouseValue = useMemo(() => {
+        const now = new Date();
+        const month = now.getMonth() + 1;
+        const year = now.getFullYear();
+
+        return props.actualScrap.reduce((acc, item) => {
+            const priceObj = props.prices.find(p => p.metalId === item.metalId && p.month === month && p.year === year);
+            const price = priceObj?.price || 0;
+            return acc + (item.netto * price);
+        }, 0);
+    }, [props.actualScrap, props.prices]);
 
     const handleOpenEdit = (item: ScrapRecord) => {
         setEditingItem(item);
@@ -140,12 +154,16 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
             finalY = 20; 
         }
 
-        // --- NOVINKA: SUMÁR PODĽA MATERIÁLU ---
-        const metalSummaryMap: Record<string, number> = {};
+        // --- SUMÁR PODĽA MATERIÁLU ---
+        const metalSummaryMap: Record<string, { weight: number, desc: string }> = {};
         props.actualScrap.forEach(r => {
             const metal = props.metals.find(m => m.id === r.metalId);
             const name = metal?.type || 'Neznamy';
-            metalSummaryMap[name] = (metalSummaryMap[name] || 0) + r.netto;
+            const desc = metal?.description || '';
+            if (!metalSummaryMap[name]) {
+                metalSummaryMap[name] = { weight: 0, desc };
+            }
+            metalSummaryMap[name].weight += r.netto;
         });
 
         doc.setFontSize(10);
@@ -154,10 +172,12 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
         doc.setFont("helvetica", "normal");
         
         let summaryY = finalY + 18;
-        Object.entries(metalSummaryMap).forEach(([name, weight]) => {
-            doc.text(`${name}:`, 20, summaryY);
+        Object.entries(metalSummaryMap).forEach(([name, data]) => {
+            const label = data.desc ? `${name} (${data.desc}):` : `${name}:`;
+            doc.text(label, 20, summaryY);
             doc.setFont("helvetica", "bold");
-            doc.text(`${weight} kg`, 80, summaryY, { align: 'right' });
+            // Posunutý totál váhy trochu doprava, ak je popis dlhý
+            doc.text(`${data.weight} kg`, 95, summaryY, { align: 'right' });
             doc.setFont("helvetica", "normal");
             summaryY += 6;
         });
@@ -167,7 +187,7 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
         const itemCount = props.actualScrap.length;
 
         doc.setLineWidth(0.2);
-        doc.line(20, summaryY + 2, 80, summaryY + 2);
+        doc.line(20, summaryY + 2, 95, summaryY + 2);
         
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
@@ -176,7 +196,7 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
         doc.setFont("helvetica", "normal");
         doc.text(`POCET POLOZIEK: ${itemCount}`, 20, summaryY + 16);
 
-        // --- NOVINKA: DOPLNKOVÉ INFORMÁCIE ---
+        // --- DOPLNKOVÉ INFORMÁCIE ---
         doc.setFontSize(9);
         doc.setFont("helvetica", "bold");
         doc.text("DOPLNKOVE INFORMACIE:", 20, summaryY + 26);
@@ -248,9 +268,11 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 no-print">
                 <div>
                     <h1 className="text-3xl font-black text-white uppercase tracking-tighter leading-none">{t('scrap_warehouse_title')}</h1>
-                    <div className="flex items-center gap-3 mt-3">
+                    <div className="flex flex-wrap items-center gap-3 mt-3">
                         <span className="bg-indigo-500/20 text-indigo-400 text-[9px] font-black px-3 py-1 rounded-full border border-indigo-500/30 uppercase tracking-widest">AKTUÁLNY SKLAD</span>
                         <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Položiek: <span className="text-white">{props.actualScrap.length}</span></p>
+                        <div className="w-1 h-1 rounded-full bg-slate-700 mx-1"></div>
+                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Odhadovaná hodnota: <span className="text-amber-400 font-black">{currentWarehouseValue.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span></p>
                     </div>
                 </div>
                 

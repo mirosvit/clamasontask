@@ -419,6 +419,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                             actualScrap={props.actualScrap}
                             bins={props.scrapBins}
                             metals={props.scrapMetals}
+                            prices={props.scrapPrices}
                             onDeleteRecord={props.onDeleteScrapRecord}
                             onUpdateRecord={props.onUpdateScrapRecord}
                             onExpedite={props.onExpediteScrap}
@@ -431,6 +432,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                             scrapArchives={props.scrapSanons}
                             bins={props.scrapBins}
                             metals={props.scrapMetals}
+                            prices={props.scrapPrices}
                             onUpdateArchivedItem={props.onUpdateArchivedScrapItem}
                             onDeleteArchivedItem={props.onDeleteArchivedScrapItem}
                             onDeleteArchive={props.onDeleteScrapArchive}
