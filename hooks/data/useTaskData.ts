@@ -61,18 +61,24 @@ export const useTaskData = (
   const onAddTask = useCallback(async (pn: string, wp: string | null, qty: string, unit: string, prio: PriorityLevel, isLog?: boolean, note?: string, isProd?: boolean, src?: string | null, tgt?: string | null) => {
     const user = localStorage.getItem('app_user') || 'Unknown';
     
-    // Dynamické priradenie logistickej operácie pre šrot ak je nastavená
     let finalWorkplace = wp || '';
     let finalSource = src || null;
     let finalTarget = tgt || null;
+    let finalIsLog = !!isLog;
+    let finalIsProd = !!isProd;
 
-    if (pn === "Váženie šrotu" && scrapConfig?.scrapLogisticsOpId && logisticsOperations) {
-        const foundOp = logisticsOperations.find(o => o.id === scrapConfig.scrapLogisticsOpId);
-        if (foundOp) {
-            finalWorkplace = foundOp.value;
-            // Automatické priradenie sektorov z konfigurácie operácie šrotu
-            finalSource = foundOp.defaultSourceSectorId || null;
-            finalTarget = foundOp.defaultTargetSectorId || null;
+    // Špeciálne ošetrenie pre šrot (Scrap)
+    if (pn === "Váženie šrotu") {
+        finalIsLog = true;
+        finalIsProd = false; // Musí byť false pre správne vetvenie v analytike
+
+        if (scrapConfig?.scrapLogisticsOpId && logisticsOperations) {
+            const foundOp = logisticsOperations.find(o => o.id === scrapConfig.scrapLogisticsOpId);
+            if (foundOp) {
+                finalWorkplace = foundOp.value;
+                finalSource = foundOp.defaultSourceSectorId || null;
+                finalTarget = foundOp.defaultTargetSectorId || null;
+            }
         }
     }
 
@@ -83,16 +89,15 @@ export const useTaskData = (
         quantity: qty || '0',
         quantityUnit: unit || 'pcs',
         priority: prio || 'NORMAL',
-        isLogistics: !!isLog,
-        isProduction: !!isProd,
+        isLogistics: finalIsLog,
+        isProduction: finalIsProd,
         createdBy: user,
         note: note || '',
-        plate: isLog ? (note || '') : '',
+        plate: finalIsLog ? (note || '') : '',
         sourceSectorId: finalSource,
         targetSectorId: finalTarget
     };
 
-    // FIX: Ak ide o inventúru alebo šrot, automaticky nastaviť riešiteľa pre odomknutie UI
     if (pn === "Počítanie zásob" || pn === "Váženie šrotu") {
         taskData.isInProgress = true;
         taskData.inProgressBy = user;

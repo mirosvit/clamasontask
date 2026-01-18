@@ -1,4 +1,3 @@
-
 import { Task, SystemBreak, MapSector, DBItem, SystemConfig, MapObstacle } from '../types/appTypes';
 import { calculateAStarDistance } from './pathfinding';
 
@@ -156,16 +155,38 @@ export const runAnalyticsEngine = (
 
             let oneWayD = 0;
             if (task.isLogistics) {
-                const op = logisticsOperations.find(o => o.value === task.workplace);
-                if (op) {
-                    oneWayD = op.distancePx ? (op.distancePx / 10) : 0;
-                    if (lastPoint && op.coordX !== undefined) {
-                        wTransit += getCachedAStar({x: lastPoint.x, y: lastPoint.y}, {x: op.coordX, y: op.coordY || 0}, lastPoint.id, op.id);
+                // PRIORITA: Dynamický výpočet medzi sektormi (ak existujú - dôležité pre ŠROT)
+                if (task.sourceSectorId && task.targetSectorId) {
+                    const s1 = mapSectors.find(s => s.id === task.sourceSectorId);
+                    const s2 = mapSectors.find(s => s.id === task.targetSectorId);
+                    if (s1 && s2) {
+                        oneWayD = getCachedAStar({x: s1.coordX, y: s1.coordY}, {x: s2.coordX, y: s2.coordY}, s1.id, s2.id);
+                        if (lastPoint) {
+                            wTransit += getCachedAStar({x: lastPoint.x, y: lastPoint.y}, {x: s1.coordX, y: s1.coordY}, lastPoint.id, s1.id);
+                        }
+                        lastPoint = { x: s2.coordX, y: s2.coordY, id: s2.id };
                     }
-                    if (op.coordX !== undefined) lastPoint = { x: op.coordX, y: op.coordY || 0, id: op.id };
-                    wTargetMin += ((op.standardTime || 2.0) * loadMultiplier) + (oneWayD / VZV_SPEED_MPM);
+                } 
+                
+                // FALLBACK: Statická vzdialenosť z operácie
+                if (oneWayD === 0) {
+                    const op = logisticsOperations.find(o => o.value === task.workplace);
+                    if (op) {
+                        oneWayD = op.distancePx ? (op.distancePx / 10) : 0;
+                        if (lastPoint && op.coordX !== undefined) {
+                            wTransit += getCachedAStar({x: lastPoint.x, y: lastPoint.y}, {x: op.coordX, y: op.coordY || 0}, lastPoint.id, op.id);
+                        }
+                        if (op.coordX !== undefined) lastPoint = { x: op.coordX, y: op.coordY || 0, id: op.id };
+                    }
                 }
+
+                if (oneWayD > 0) {
+                   const opData = logisticsOperations.find(o => o.value === task.workplace);
+                   wTargetMin += ((opData?.standardTime || 2.0) * loadMultiplier) + (oneWayD / VZV_SPEED_MPM);
+                }
+
             } else {
+                // Výroba
                 const wp = workplaces.find(w => w.value === task.workplace);
                 if (wp) {
                     let startPt: {x: number, y: number, id: string} | null = null;
