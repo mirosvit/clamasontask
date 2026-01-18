@@ -27,7 +27,8 @@ const Icons = {
   Trash: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
   Check: () => <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>,
   Alert: () => <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
-  Search: () => <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+  Search: () => <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>,
+  ChevronRight: () => <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
 };
 
 const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
@@ -41,18 +42,17 @@ const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
       );
   }, [props.tasks, props.currentUser]);
 
-  // Vyhľadávacie stavy pre Kovy
-  const [selectedMetal, setSelectedMetal] = useState('');
+  // States pre modaly výberu
+  const [isMetalModalOpen, setIsMetalModalOpen] = useState(false);
   const [metalSearch, setMetalSearch] = useState('');
-  const [showMetalDropdown, setShowMetalDropdown] = useState(false);
-  const metalContainerRef = useRef<HTMLDivElement>(null);
-
-  // Vyhľadávacie stavy pre Kontajnery
+  
+  // Kontajner search (ponechávame inline pre teraz alebo zmeníme na modal ak treba)
   const [selectedBin, setSelectedBin] = useState('');
   const [binSearch, setBinSearch] = useState('');
   const [showBinDropdown, setShowBinDropdown] = useState(false);
   const binContainerRef = useRef<HTMLDivElement>(null);
 
+  const [selectedMetalId, setSelectedMetalId] = useState('');
   const [gross, setGross] = useState('');
   const [tara, setTara] = useState(0);
   const [sessionRecords, setSessionRecords] = useState<ScrapRecord[]>([]);
@@ -64,9 +64,6 @@ const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
   // Kliknutie mimo pre zatvorenie dropdownov
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (metalContainerRef.current && !metalContainerRef.current.contains(event.target as Node)) {
-        setShowMetalDropdown(false);
-      }
       if (binContainerRef.current && !binContainerRef.current.contains(event.target as Node)) {
         setShowBinDropdown(false);
       }
@@ -98,11 +95,11 @@ const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
     return Math.max(g - tara, 0);
   }, [gross, tara]);
 
-  // Filtrovanie kovov
+  // Filtrovanie kovov v modale
   const filteredMetals = useMemo(() => {
     const q = metalSearch.toLowerCase().trim();
     if (!q) return props.metals;
-    return props.metals.filter(m => m.type.toLowerCase().includes(q));
+    return props.metals.filter(m => m.type.toLowerCase().includes(q) || m.description.toLowerCase().includes(q));
   }, [props.metals, metalSearch]);
 
   // Filtrovanie kontajnerov
@@ -112,10 +109,12 @@ const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
     return props.bins.filter(b => b.name.toLowerCase().includes(q));
   }, [props.bins, binSearch]);
 
+  const selectedMetalObj = useMemo(() => props.metals.find(m => m.id === selectedMetalId), [props.metals, selectedMetalId]);
+
   const handleSelectMetal = (m: ScrapMetal) => {
-    setSelectedMetal(m.id);
-    setMetalSearch(m.type);
-    setShowMetalDropdown(false);
+    setSelectedMetalId(m.id);
+    setIsMetalModalOpen(false);
+    setMetalSearch('');
   };
 
   const handleSelectBin = (b: ScrapBin) => {
@@ -130,14 +129,14 @@ const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
   };
 
   const handleAddItem = () => {
-    if (!selectedMetal || !selectedBin || !gross) {
+    if (!selectedMetalId || !selectedBin || !gross) {
       alert(t('fill_all_fields'));
       return;
     }
 
     const newRecord: ScrapRecord = {
       id: crypto.randomUUID(),
-      metalId: selectedMetal,
+      metalId: selectedMetalId,
       binId: selectedBin,
       gross: parseFloat(gross),
       tara: tara,
@@ -151,8 +150,7 @@ const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
     setGross('');
     setSelectedBin('');
     setBinSearch('');
-    setSelectedMetal('');
-    setMetalSearch('');
+    setSelectedMetalId('');
     setTara(0);
   };
 
@@ -199,6 +197,7 @@ const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
   const cardClass = "bg-gray-800/40 border border-slate-700/50 rounded-3xl p-6 shadow-2xl backdrop-blur-sm relative overflow-hidden";
   const labelClass = "block text-[10px] font-black text-slate-500 uppercase tracking-[0.25em] mb-2";
   const inputClass = "w-full h-16 bg-slate-900/80 border-2 border-slate-700 rounded-xl px-4 text-white text-lg font-black focus:outline-none focus:border-teal-500/50 transition-all font-mono uppercase text-center";
+  const triggerButtonClass = "w-full h-16 bg-slate-900/80 border-2 border-slate-700 rounded-xl px-4 flex items-center justify-between group hover:border-teal-500/50 transition-all text-left";
   const dropdownClass = "absolute z-[999] w-full mt-2 bg-slate-800 border-2 border-slate-700 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] max-h-60 overflow-y-auto custom-scrollbar animate-fade-in";
 
   return (
@@ -237,39 +236,26 @@ const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
 
             <div className={cardClass}>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
-                    {/* ZAPISOVATEĽNÝ VÝBER KOVU */}
-                    <div className="relative" ref={metalContainerRef}>
+                    {/* MODAL TRIGGER: VÝBER KOVU */}
+                    <div className="relative">
                         <label className={labelClass}>{t('scrap_metal_select')}</label>
-                        <div className="relative">
-                            <input 
-                                type="text"
-                                value={metalSearch}
-                                onChange={e => { setMetalSearch(e.target.value.toUpperCase()); setSelectedMetal(''); }}
-                                onFocus={() => setShowMetalDropdown(true)}
-                                placeholder="HĽADAŤ KOV..."
-                                className={inputClass}
-                            />
-                            <div className="absolute left-4 top-6"><Icons.Search /></div>
-                        </div>
-                        {showMetalDropdown && filteredMetals.length > 0 && (
-                            <div className={dropdownClass}>
-                                <ul className="divide-y divide-slate-700/50">
-                                    {filteredMetals.map(m => (
-                                        <li 
-                                            key={m.id} 
-                                            onClick={() => handleSelectMetal(m)}
-                                            className="px-5 py-4 text-slate-200 hover:bg-teal-600 hover:text-white cursor-pointer transition-colors font-black text-sm uppercase flex justify-between"
-                                        >
-                                            <span>{m.type}</span>
-                                            <span className="text-[10px] opacity-40 font-bold">{m.description}</span>
-                                        </li>
-                                    ))}
-                                </ul>
+                        <button 
+                            onClick={() => setIsMetalModalOpen(true)}
+                            className={triggerButtonClass}
+                        >
+                            <div className="flex flex-col min-w-0">
+                                <span className={`text-sm font-black uppercase truncate ${selectedMetalId ? 'text-white' : 'text-slate-600'}`}>
+                                    {selectedMetalObj ? selectedMetalObj.type : 'KLIKNI PRE VÝBER'}
+                                </span>
+                                {selectedMetalObj && (
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase truncate">{selectedMetalObj.description}</span>
+                                )}
                             </div>
-                        )}
+                            <Icons.ChevronRight />
+                        </button>
                     </div>
 
-                    {/* ZAPISOVATEĽNÝ VÝBER KONTAJNERA */}
+                    {/* ZAPISOVATEĽNÝ VÝBER KONTAJNERA (ponechaný ako inline pre diverzitu UX) */}
                     <div className="relative" ref={binContainerRef}>
                         <label className={labelClass}>{t('scrap_bin_select')}</label>
                         <div className="relative">
@@ -378,6 +364,65 @@ const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
                 </div>
             </div>
         </>
+      )}
+
+      {/* --- METAL SELECTION MODAL (NEW) --- */}
+      {isMetalModalOpen && createPortal(
+          <div className="fixed inset-0 z-[12000] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 animate-fade-in" onClick={() => setIsMetalModalOpen(false)}>
+              <div className="bg-slate-900 border-2 border-teal-500/50 rounded-[2.5rem] shadow-[0_0_100px_rgba(20,184,166,0.2)] w-full max-w-4xl p-8 sm:p-10 relative overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                  <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-6">
+                      <div>
+                          <h3 className="text-3xl font-black text-white uppercase tracking-tighter">VÝBER KOVU</h3>
+                          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Zvoľte typ materiálu pre váženie</p>
+                      </div>
+                      <button onClick={() => setIsMetalModalOpen(false)} className="text-slate-500 hover:text-white transition-colors text-2xl font-black p-2">×</button>
+                  </div>
+
+                  <div className="relative mb-6">
+                      <input 
+                          type="text"
+                          value={metalSearch}
+                          onChange={e => setMetalSearch(e.target.value.toUpperCase())}
+                          placeholder="FILTROVAŤ MATERIÁL..."
+                          className="w-full h-14 bg-slate-950 border-2 border-slate-800 rounded-2xl px-6 pl-14 text-white font-black uppercase focus:border-teal-500 outline-none transition-all shadow-inner"
+                          autoFocus
+                      />
+                      <div className="absolute left-6 top-5"><Icons.Search /></div>
+                  </div>
+
+                  <div className="flex-grow overflow-y-auto custom-scrollbar pr-2 mb-8">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {filteredMetals.map(m => (
+                              <button
+                                  key={m.id}
+                                  onClick={() => handleSelectMetal(m)}
+                                  className={`p-6 rounded-3xl border-2 transition-all flex flex-col items-start text-left group active:scale-[0.97] min-h-[100px] ${selectedMetalId === m.id ? 'bg-teal-600/10 border-teal-500 shadow-lg shadow-teal-500/20' : 'bg-slate-800/40 border-slate-700 hover:border-teal-500/40 hover:bg-slate-800'}`}
+                              >
+                                  <span className={`text-lg font-black uppercase tracking-tight leading-none mb-2 ${selectedMetalId === m.id ? 'text-teal-400' : 'text-white'}`}>
+                                      {m.type}
+                                  </span>
+                                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
+                                      {m.description || 'Bez popisu'}
+                                  </span>
+                              </button>
+                          ))}
+                          {filteredMetals.length === 0 && (
+                              <div className="col-span-full py-20 text-center text-slate-600 font-black uppercase tracking-widest italic opacity-50">
+                                  Nenašli sa žiadne materiály
+                              </div>
+                          )}
+                      </div>
+                  </div>
+
+                  <button 
+                      onClick={() => setIsMetalModalOpen(false)}
+                      className="w-full py-5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] transition-all border border-slate-700 shadow-inner"
+                  >
+                      {t('btn_cancel')}
+                  </button>
+              </div>
+          </div>,
+          document.body
       )}
 
       {/* --- FINISH CONFIRMATION MODAL --- */}
