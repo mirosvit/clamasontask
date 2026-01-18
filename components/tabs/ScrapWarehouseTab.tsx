@@ -176,8 +176,8 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
             const label = data.desc ? `${name} (${data.desc}):` : `${name}:`;
             doc.text(label, 20, summaryY);
             doc.setFont("helvetica", "bold");
-            // Posunutý totál váhy trochu doprava, ak je popis dlhý
-            doc.text(`${data.weight} kg`, 95, summaryY, { align: 'right' });
+            // Posunutý totál váhy na pravý okraj (190)
+            doc.text(`${data.weight} kg`, 190, summaryY, { align: 'right' });
             doc.setFont("helvetica", "normal");
             summaryY += 6;
         });
@@ -187,7 +187,8 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
         const itemCount = props.actualScrap.length;
 
         doc.setLineWidth(0.2);
-        doc.line(20, summaryY + 2, 95, summaryY + 2);
+        // Roztiahnutá čiara pod sumárom na celú šírku
+        doc.line(20, summaryY + 2, 190, summaryY + 2);
         
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
