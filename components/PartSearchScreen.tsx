@@ -162,6 +162,15 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
     const [sourceSector, setSourceSector] = useState<string | null>(null);
     const [targetSector, setTargetSector] = useState<string | null>(null);
 
+    // --- AUTOMATICKÉ PREDNASTAVENIE JEDNOTKY PODĽA MÓDU ---
+    useEffect(() => {
+        if (mode === 'logistics') {
+            setQuantityUnit('pallet');
+        } else {
+            setQuantityUnit('pcs');
+        }
+    }, [mode]);
+
     // Fullscreen handling
     const toggleFullscreen = () => {
         if (!document.fullscreenElement) {
@@ -192,7 +201,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
         setSelectedPart(null);
         setSelectedWorkplace(null);
         setQuantity('');
-        setQuantityUnit('pcs');
+        setQuantityUnit(mode === 'logistics' ? 'pallet' : 'pcs');
         setPriority('NORMAL');
         setLogisticsRef('');
         setLogisticsPlate('');
