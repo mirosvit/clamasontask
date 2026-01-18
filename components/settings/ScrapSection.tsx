@@ -10,6 +10,7 @@ interface ScrapSectionProps {
   scrapConfig: ScrapConfig;
   logisticsOperations: DBItem[];
   onAddBin: (name: string, tara: number) => Promise<void>;
+  onBatchAddBins: (lines: string[]) => Promise<void>;
   onDeleteBin: (id: string) => Promise<void>;
   onUpdateBin: (id: string, updates: Partial<ScrapBin>) => Promise<void>;
   onAddMetal: (type: string, description: string) => Promise<void>;
@@ -27,7 +28,8 @@ const Icons = {
   Money: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
   Scale: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" /></svg>,
   Search: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>,
-  Truck: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" /></svg>
+  Truck: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" /></svg>,
+  Import: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
 };
 
 const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
@@ -39,12 +41,13 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
   const [priceQuery, setPriceQuery] = useState('');
 
   // Modals
-  const [modalType, setModalType] = useState<'bin' | 'metal' | 'price' | null>(null);
+  const [modalType, setModalType] = useState<'bin' | 'metal' | 'price' | 'import_bins' | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Form States
   const [binName, setBinName] = useState('');
   const [binTara, setBinTara] = useState('');
+  const [bulkBins, setBulkBins] = useState('');
   const [metalType, setMetalType] = useState('');
   const [metalDesc, setMetalDesc] = useState('');
   const [priceMetalId, setPriceMetalId] = useState('');
@@ -81,7 +84,7 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
   }, [props.prices, props.metals, priceQuery]);
 
   const resetForms = () => {
-    setBinName(''); setBinTara('');
+    setBinName(''); setBinTara(''); setBulkBins('');
     setMetalType(''); setMetalDesc('');
     setPriceMetalId(''); setPriceValue('');
     setEditingId(null);
@@ -96,6 +99,13 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
   const handleEditMetal = (m: ScrapMetal) => {
     setMetalType(m.type); setMetalDesc(m.description);
     setEditingId(m.id); setModalType('metal');
+  };
+
+  const handleBatchBinsSubmit = () => {
+    if (bulkBins) {
+        props.onBatchAddBins(bulkBins.split('\n'));
+        resetForms();
+    }
   };
 
   const cardClass = "bg-gray-800/40 border border-slate-700/50 rounded-3xl p-6 shadow-2xl backdrop-blur-sm relative overflow-hidden";
@@ -147,9 +157,14 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
               <span className="w-2 h-6 bg-blue-500 rounded-full"></span>
               {t('scrap_bins')}
             </h3>
-            <button onClick={() => setModalType('bin')} className="p-2 bg-blue-600 rounded-lg text-white hover:bg-blue-500 transition-all shadow-lg active:scale-95">
-              <Icons.Plus />
-            </button>
+            <div className="flex gap-2">
+              <button onClick={() => setModalType('import_bins')} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-all shadow-lg active:scale-95 border border-slate-700" title="Hromadný import">
+                <Icons.Import />
+              </button>
+              <button onClick={() => setModalType('bin')} className="p-2 bg-blue-600 rounded-lg text-white hover:bg-blue-500 transition-all shadow-lg active:scale-95">
+                <Icons.Plus />
+              </button>
+            </div>
           </div>
           
           <div className="relative mb-4">
@@ -253,7 +268,9 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
                     <p className="text-[10px] text-slate-500 uppercase font-mono">{p.month.toString().padStart(2, '0')}/{p.year}</p>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className="text-lg font-black text-amber-500 font-mono tracking-tighter">{p.price.toFixed(3)} €</span>
+                    <span className="text-lg font-black text-amber-500 font-mono tracking-tighter">
+                      {p.price.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 5 })} €
+                    </span>
                     <button onClick={() => { if(window.confirm('Zmazať?')) props.onDeletePrice(p.id); }} className="text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Icons.Trash /></button>
                   </div>
                 </div>
@@ -273,6 +290,7 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
               {modalType === 'bin' && <><Icons.Scale /> {editingId ? 'UPRAVIŤ KONTAJNER' : 'NOVÝ KONTAJNER'}</>}
               {modalType === 'metal' && <><Icons.Scale /> {editingId ? 'UPRAVIŤ KOV' : 'NOVÝ KOV'}</>}
               {modalType === 'price' && <><Icons.Money /> {t('scrap_add_price')}</>}
+              {modalType === 'import_bins' && <><Icons.Import /> HROMADNÝ IMPORT</>}
             </h3>
 
             <div className="space-y-6">
@@ -292,6 +310,25 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
                     resetForms();
                   }} className="w-full h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black uppercase text-xs border-2 border-blue-500 shadow-xl transition-all">
                     {t('btn_save')}
+                  </button>
+                </>
+              )}
+
+              {modalType === 'import_bins' && (
+                <>
+                  <div>
+                    <label className={labelClass}>DÁTA (Formát: Názov;Tara)</label>
+                    <textarea 
+                      value={bulkBins} 
+                      onChange={e => setBulkBins(e.target.value)}
+                      placeholder="BIN_01;24.5&#10;BIN_02;28.0" 
+                      className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all font-mono placeholder-gray-500 h-48 resize-none"
+                      autoFocus
+                    />
+                    <p className="text-[10px] text-slate-500 mt-2 italic">* Každý kontajner na nový riadok. Oddeľovač je bodkočiarka.</p>
+                  </div>
+                  <button onClick={handleBatchBinsSubmit} className="w-full h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black uppercase text-xs border-2 border-blue-500 shadow-xl transition-all">
+                    IMPORTOVAŤ
                   </button>
                 </>
               )}
@@ -339,7 +376,7 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
                   </div>
                   <div>
                     <label className={labelClass}>{t('scrap_price_val')}</label>
-                    <input type="number" step="0.001" value={priceValue} onChange={e => setPriceValue(e.target.value)} className={inputClass} placeholder="0.000" />
+                    <input type="number" step="0.00001" value={priceValue} onChange={e => setPriceValue(e.target.value)} className={inputClass} placeholder="0.00000" />
                   </div>
                   <button onClick={() => {
                     if (priceMetalId && priceValue) props.onAddPrice(priceMetalId, priceMonth, priceYear, parseFloat(priceValue));

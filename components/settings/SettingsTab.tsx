@@ -201,6 +201,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             scrapConfig={data.scrapConfig}
             logisticsOperations={data.logisticsOperations}
             onAddBin={data.onAddScrapBin}
+            onBatchAddBins={data.onBatchAddScrapBins}
             onDeleteBin={data.onDeleteScrapBin}
             onUpdateBin={data.onUpdateScrapBin}
             onAddMetal={data.onAddScrapMetal}

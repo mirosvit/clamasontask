@@ -38,6 +38,27 @@ export const useScrapData = () => {
     await setDoc(doc(db, 'scrap', 'bins'), { items: arrayUnion(newBin) }, { merge: true });
   };
 
+  const onBatchAddScrapBins = async (lines: string[]) => {
+    const ref = doc(db, 'scrap', 'bins');
+    const snap = await getDoc(ref);
+    const currentItems = snap.exists() ? (snap.data().items || []) : [];
+    
+    const newItems = lines.map(line => {
+      if (!line.trim()) return null;
+      const [name, tara] = line.split(';');
+      if (!name) return null;
+      return {
+        id: crypto.randomUUID(),
+        name: name.trim().toUpperCase(),
+        tara: parseFloat(tara?.replace(',', '.') || '0')
+      };
+    }).filter(Boolean);
+
+    if (newItems.length > 0) {
+      await setDoc(ref, { items: [...currentItems, ...newItems] }, { merge: true });
+    }
+  };
+
   const onDeleteScrapBin = async (id: string) => {
     const ref = doc(db, 'scrap', 'bins');
     const snap = await getDoc(ref);
@@ -101,7 +122,7 @@ export const useScrapData = () => {
 
   return {
     scrapBins, scrapMetals, scrapPrices, scrapConfig,
-    onAddScrapBin, onDeleteScrapBin, onUpdateScrapBin,
+    onAddScrapBin, onBatchAddScrapBins, onDeleteScrapBin, onUpdateScrapBin,
     onAddScrapMetal, onDeleteScrapMetal, onUpdateScrapMetal,
     onAddScrapPrice, onDeleteScrapPrice, onUpdateScrapConfig
   };

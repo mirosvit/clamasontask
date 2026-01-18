@@ -291,11 +291,12 @@ const ScrapAnalyticsSection: React.FC<ScrapAnalyticsProps> = ({ data, yearlyData
                         tickLine={false} 
                         axisLine={false} 
                         domain={['auto', 'auto']} 
-                        tickFormatter={(v) => `${v.toLocaleString('sk-SK', { minimumFractionDigits: 2 })}€`} 
+                        tickFormatter={(v) => `${v.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 5 })}€`} 
                     />
                     <Tooltip 
                         contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
                         itemStyle={{ fontWeight: '900', textTransform: 'uppercase', fontSize: '11px' }}
+                        formatter={(value: any) => [`${parseFloat(value).toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 5 })} €`, 'Cena']}
                     />
                     {metals.map((metal, idx) => (
                         <Line 
