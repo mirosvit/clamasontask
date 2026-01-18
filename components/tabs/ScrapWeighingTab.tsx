@@ -28,7 +28,8 @@ const Icons = {
   Check: () => <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>,
   Alert: () => <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
   Search: () => <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>,
-  ChevronRight: () => <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+  ChevronRight: () => <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>,
+  Cube: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
 };
 
 const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
@@ -46,13 +47,11 @@ const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
   const [isMetalModalOpen, setIsMetalModalOpen] = useState(false);
   const [metalSearch, setMetalSearch] = useState('');
   
-  // Kontajner search (ponechávame inline pre teraz alebo zmeníme na modal ak treba)
-  const [selectedBin, setSelectedBin] = useState('');
-  const [binSearch, setBinSearch] = useState('');
-  const [showBinDropdown, setShowBinDropdown] = useState(false);
-  const binContainerRef = useRef<HTMLDivElement>(null);
+  const [isBinModalOpen, setIsBinModalOpen] = useState(false);
+  const [binSearchQuery, setBinSearchQuery] = useState('');
 
   const [selectedMetalId, setSelectedMetalId] = useState('');
+  const [selectedBinId, setSelectedBinId] = useState('');
   const [gross, setGross] = useState('');
   const [tara, setTara] = useState(0);
   const [sessionRecords, setSessionRecords] = useState<ScrapRecord[]>([]);
@@ -60,17 +59,6 @@ const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
   const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Kliknutie mimo pre zatvorenie dropdownov
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (binContainerRef.current && !binContainerRef.current.contains(event.target as Node)) {
-        setShowBinDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   useEffect(() => {
     if (!activeScrapTask) {
@@ -102,14 +90,15 @@ const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
     return props.metals.filter(m => m.type.toLowerCase().includes(q) || m.description.toLowerCase().includes(q));
   }, [props.metals, metalSearch]);
 
-  // Filtrovanie kontajnerov
+  // Filtrovanie kontajnerov v modale
   const filteredBins = useMemo(() => {
-    const q = binSearch.toLowerCase().trim();
+    const q = binSearchQuery.toLowerCase().trim();
     if (!q) return props.bins;
     return props.bins.filter(b => b.name.toLowerCase().includes(q));
-  }, [props.bins, binSearch]);
+  }, [props.bins, binSearchQuery]);
 
   const selectedMetalObj = useMemo(() => props.metals.find(m => m.id === selectedMetalId), [props.metals, selectedMetalId]);
+  const selectedBinObj = useMemo(() => props.bins.find(b => b.id === selectedBinId), [props.bins, selectedBinId]);
 
   const handleSelectMetal = (m: ScrapMetal) => {
     setSelectedMetalId(m.id);
@@ -118,10 +107,10 @@ const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
   };
 
   const handleSelectBin = (b: ScrapBin) => {
-    setSelectedBin(b.id);
-    setBinSearch(b.name);
+    setSelectedBinId(b.id);
     setTara(b.tara);
-    setShowBinDropdown(false);
+    setIsBinModalOpen(false);
+    setBinSearchQuery('');
   };
 
   const handleStartSession = () => {
@@ -129,7 +118,7 @@ const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
   };
 
   const handleAddItem = () => {
-    if (!selectedMetalId || !selectedBin || !gross) {
+    if (!selectedMetalId || !selectedBinId || !gross) {
       alert(t('fill_all_fields'));
       return;
     }
@@ -137,7 +126,7 @@ const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
     const newRecord: ScrapRecord = {
       id: crypto.randomUUID(),
       metalId: selectedMetalId,
-      binId: selectedBin,
+      binId: selectedBinId,
       gross: parseFloat(gross),
       tara: tara,
       netto: netto,
@@ -148,8 +137,7 @@ const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
 
     setSessionRecords(prev => [newRecord, ...prev]);
     setGross('');
-    setSelectedBin('');
-    setBinSearch('');
+    setSelectedBinId('');
     setSelectedMetalId('');
     setTara(0);
   };
@@ -198,7 +186,6 @@ const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
   const labelClass = "block text-[10px] font-black text-slate-500 uppercase tracking-[0.25em] mb-2";
   const inputClass = "w-full h-16 bg-slate-900/80 border-2 border-slate-700 rounded-xl px-4 text-white text-lg font-black focus:outline-none focus:border-teal-500/50 transition-all font-mono uppercase text-center";
   const triggerButtonClass = "w-full h-16 bg-slate-900/80 border-2 border-slate-700 rounded-xl px-4 flex items-center justify-between group hover:border-teal-500/50 transition-all text-left";
-  const dropdownClass = "absolute z-[999] w-full mt-2 bg-slate-800 border-2 border-slate-700 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] max-h-60 overflow-y-auto custom-scrollbar animate-fade-in";
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-fade-in pb-20">
@@ -245,7 +232,7 @@ const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
                         >
                             <div className="flex flex-col min-w-0">
                                 <span className={`text-sm font-black uppercase truncate ${selectedMetalId ? 'text-white' : 'text-slate-600'}`}>
-                                    {selectedMetalObj ? selectedMetalObj.type : 'KLIKNI PRE VÝBER'}
+                                    {selectedMetalObj ? selectedMetalObj.type : 'VÝBER MATERIÁLU'}
                                 </span>
                                 {selectedMetalObj && (
                                     <span className="text-[10px] font-bold text-slate-500 uppercase truncate">{selectedMetalObj.description}</span>
@@ -255,36 +242,23 @@ const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
                         </button>
                     </div>
 
-                    {/* ZAPISOVATEĽNÝ VÝBER KONTAJNERA (ponechaný ako inline pre diverzitu UX) */}
-                    <div className="relative" ref={binContainerRef}>
+                    {/* MODAL TRIGGER: VÝBER KONTAJNERA */}
+                    <div className="relative">
                         <label className={labelClass}>{t('scrap_bin_select')}</label>
-                        <div className="relative">
-                            <input 
-                                type="text"
-                                value={binSearch}
-                                onChange={e => { setBinSearch(e.target.value.toUpperCase()); setSelectedBin(''); setTara(0); }}
-                                onFocus={() => setShowBinDropdown(true)}
-                                placeholder="HĽADAŤ KONTAJNER..."
-                                className={inputClass}
-                            />
-                            <div className="absolute left-4 top-6"><Icons.Search /></div>
-                        </div>
-                        {showBinDropdown && filteredBins.length > 0 && (
-                            <div className={dropdownClass}>
-                                <ul className="divide-y divide-slate-700/50">
-                                    {filteredBins.map(b => (
-                                        <li 
-                                            key={b.id} 
-                                            onClick={() => handleSelectBin(b)}
-                                            className="px-5 py-4 text-slate-200 hover:bg-blue-600 hover:text-white cursor-pointer transition-colors font-black text-sm uppercase flex justify-between"
-                                        >
-                                            <span>{b.name}</span>
-                                            <span className="text-teal-400 font-mono">{b.tara} kg</span>
-                                        </li>
-                                    ))}
-                                </ul>
+                        <button 
+                            onClick={() => setIsBinModalOpen(true)}
+                            className={triggerButtonClass}
+                        >
+                            <div className="flex flex-col min-w-0">
+                                <span className={`text-sm font-black uppercase truncate ${selectedBinId ? 'text-white' : 'text-slate-600'}`}>
+                                    {selectedBinObj ? selectedBinObj.name : 'VÝBER KONTAJNERA'}
+                                </span>
+                                {selectedBinObj && (
+                                    <span className="text-[10px] font-bold text-teal-500 uppercase truncate">{selectedBinObj.tara} kg tara</span>
+                                )}
                             </div>
-                        )}
+                            <Icons.ChevronRight />
+                        </button>
                     </div>
 
                     <div className="relative">
@@ -366,7 +340,7 @@ const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
         </>
       )}
 
-      {/* --- METAL SELECTION MODAL (NEW) --- */}
+      {/* --- METAL SELECTION MODAL --- */}
       {isMetalModalOpen && createPortal(
           <div className="fixed inset-0 z-[12000] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 animate-fade-in" onClick={() => setIsMetalModalOpen(false)}>
               <div className="bg-slate-900 border-2 border-teal-500/50 rounded-[2.5rem] shadow-[0_0_100px_rgba(20,184,166,0.2)] w-full max-w-4xl p-8 sm:p-10 relative overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
@@ -416,6 +390,70 @@ const ScrapWeighingTab: React.FC<ScrapWeighingTabProps> = (props) => {
 
                   <button 
                       onClick={() => setIsMetalModalOpen(false)}
+                      className="w-full py-5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] transition-all border border-slate-700 shadow-inner"
+                  >
+                      {t('btn_cancel')}
+                  </button>
+              </div>
+          </div>,
+          document.body
+      )}
+
+      {/* --- BIN SELECTION MODAL --- */}
+      {isBinModalOpen && createPortal(
+          <div className="fixed inset-0 z-[12000] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 animate-fade-in" onClick={() => setIsBinModalOpen(false)}>
+              <div className="bg-slate-900 border-2 border-blue-500/50 rounded-[2.5rem] shadow-[0_0_100px_rgba(59,130,246,0.2)] w-full max-w-4xl p-8 sm:p-10 relative overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                  <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-6">
+                      <div>
+                          <h3 className="text-3xl font-black text-white uppercase tracking-tighter">VÝBER KONTAJNERA</h3>
+                          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Zvoľte kontajner pre váženie</p>
+                      </div>
+                      <button onClick={() => setIsBinModalOpen(false)} className="text-slate-500 hover:text-white transition-colors text-2xl font-black p-2">×</button>
+                  </div>
+
+                  <div className="relative mb-6">
+                      <input 
+                          type="text"
+                          value={binSearchQuery}
+                          onChange={e => setBinSearchQuery(e.target.value.toUpperCase())}
+                          placeholder="FILTROVAŤ KONTAJNERY..."
+                          className="w-full h-14 bg-slate-950 border-2 border-slate-800 rounded-2xl px-6 pl-14 text-white font-black uppercase focus:border-blue-500 outline-none transition-all shadow-inner"
+                          autoFocus
+                      />
+                      <div className="absolute left-6 top-5"><Icons.Search /></div>
+                  </div>
+
+                  <div className="flex-grow overflow-y-auto custom-scrollbar pr-2 mb-8">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {filteredBins.map(b => (
+                              <button
+                                  key={b.id}
+                                  onClick={() => handleSelectBin(b)}
+                                  className={`p-6 rounded-3xl border-2 transition-all flex flex-col items-start text-left group active:scale-[0.97] min-h-[100px] ${selectedBinId === b.id ? 'bg-blue-600/10 border-blue-500 shadow-lg shadow-blue-500/20' : 'bg-slate-800/40 border-slate-700 hover:border-blue-500/40 hover:bg-slate-800'}`}
+                              >
+                                  <div className="flex justify-between items-start w-full mb-2">
+                                      <span className={`text-3xl font-black uppercase tracking-tight leading-none ${selectedBinId === b.id ? 'text-blue-400' : 'text-white'}`}>
+                                          {b.name}
+                                      </span>
+                                      <div className="p-2 bg-slate-950/50 rounded-lg text-teal-400">
+                                          <Icons.Cube />
+                                      </div>
+                                  </div>
+                                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-auto">
+                                      Tara: <span className="text-white">{b.tara} kg</span>
+                                  </span>
+                              </button>
+                          ))}
+                          {filteredBins.length === 0 && (
+                              <div className="col-span-full py-20 text-center text-slate-600 font-black uppercase tracking-widest italic opacity-50">
+                                  Nenašli sa žiadne kontajnery
+                              </div>
+                          )}
+                      </div>
+                  </div>
+
+                  <button 
+                      onClick={() => setIsBinModalOpen(false)}
                       className="w-full py-5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] transition-all border border-slate-700 shadow-inner"
                   >
                       {t('btn_cancel')}
