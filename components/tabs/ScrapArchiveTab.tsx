@@ -132,6 +132,7 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                 "Datum vazenia": new Date(item.timestamp).toLocaleDateString('sk-SK'),
                 "Cas vazenia": new Date(item.timestamp).toLocaleTimeString('sk-SK'),
                 "Material": metal?.type || '???',
+                "Popis materialu": metal?.description || '-',
                 "Kontajner": bin?.name || '???',
                 "Brutto (kg)": item.gross,
                 "Tara (kg)": item.tara,
