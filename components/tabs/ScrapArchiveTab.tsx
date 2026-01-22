@@ -18,6 +18,7 @@ interface ScrapArchiveTabProps {
 }
 
 declare var XLSX: any;
+declare var jspdf: any;
 
 const Icons = {
     Archive: () => <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>,
@@ -26,6 +27,7 @@ const Icons = {
     ChevronDown: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>,
     Calendar: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
     Download: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>,
+    FileText: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
     Dollar: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
     Refresh: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
 };
@@ -119,6 +121,112 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
         });
         setIsExternalValueModalOpen(false);
         setTargetSanonId(null);
+    };
+
+    const handleDownloadPDF = (archive: any) => {
+        if (!archive.items || archive.items.length === 0 || typeof jspdf === 'undefined') return;
+        const { jsPDF } = jspdf;
+        const doc = new jsPDF();
+
+        // Hlavička
+        doc.setFontSize(22); doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "bold");
+        doc.text("CLAMASON SLOVAKIA", 20, 25);
+        doc.setFontSize(12); doc.text("DODACI LIST - KOVOVY ODPAD (ARCHIV)", 20, 32);
+        
+        doc.setFontSize(10); doc.setFont("helvetica", "normal");
+        const dispatchDateStr = new Date(archive.dispatchDate).toLocaleDateString('sk-SK');
+        const finalizedDateStr = new Date(archive.finalizedAt || Date.now()).toLocaleDateString('sk-SK');
+        
+        doc.text(`Datum expedicie: ${dispatchDateStr}`, 140, 25);
+        doc.text(`Datum finalizacie: ${finalizedDateStr}`, 140, 30);
+        doc.text(`Zodpovedny: ${props.resolveName(archive.finalizedBy)}`, 140, 35);
+        doc.setLineWidth(0.5); doc.line(20, 40, 190, 40);
+
+        // Tabuľka položiek
+        const tableBody = archive.items.map((r: ScrapRecord) => {
+            const metal = props.metals.find(m => m.id === r.metalId);
+            const bin = props.bins.find(b => b.id === r.binId);
+            return [
+                new Date(r.timestamp).toLocaleDateString('sk-SK'),
+                metal?.type || '???',
+                bin?.name || '???',
+                r.gross.toString(),
+                r.tara.toString(),
+                r.netto.toString()
+            ];
+        });
+
+        (doc as any).autoTable({
+            startY: 50,
+            head: [['Datum vazenia', 'Material', 'Kontajner', 'Brutto (kg)', 'Tara (kg)', 'Netto (kg)']],
+            body: tableBody,
+            theme: 'grid',
+            headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
+            styles: { fontSize: 9, cellPadding: 3 },
+            columnStyles: { 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right', fontStyle: 'bold' } }
+        });
+
+        // NOVÁ STRANA PRE SUMÁR V ARCHÍVE
+        doc.addPage();
+        doc.setFontSize(18); doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "bold");
+        doc.text("SUMAR DOKUMENTU (ARCHIV)", 20, 25);
+        doc.setLineWidth(0.5); doc.line(20, 30, 190, 30);
+
+        // Sumár podľa kovu
+        const metalSummaryMap: Record<string, { weight: number, desc: string }> = {};
+        archive.items.forEach((r: ScrapRecord) => {
+            const metal = props.metals.find(m => m.id === r.metalId);
+            const name = metal?.type || 'Neznamy';
+            const desc = metal?.description || '';
+            if (!metalSummaryMap[name]) metalSummaryMap[name] = { weight: 0, desc };
+            metalSummaryMap[name].weight += r.netto;
+        });
+
+        doc.setFontSize(11); doc.setFont("helvetica", "bold");
+        doc.text("SUMAR CISTEJ VAHY PODLA MATERIALU (NETTO):", 20, 45);
+        doc.setFont("helvetica", "normal");
+        let summaryY = 55;
+        Object.entries(metalSummaryMap).forEach(([name, data]) => {
+            doc.text(data.desc ? `${name} (${data.desc}):` : `${name}:`, 20, summaryY);
+            doc.setFont("helvetica", "bold");
+            doc.text(`${data.weight} kg`, 190, summaryY, { align: 'right' });
+            doc.setFont("helvetica", "normal");
+            summaryY += 8;
+        });
+
+        doc.setLineWidth(0.2); doc.line(20, summaryY + 4, 190, summaryY + 4);
+        summaryY += 15;
+        
+        doc.setFontSize(12); doc.setFont("helvetica", "bold");
+        const totalBrutto = archive.items.reduce((acc: number, curr: ScrapRecord) => acc + curr.gross, 0);
+        doc.text(`CELKOVA HMOTNOST BRUTTO:`, 20, summaryY);
+        doc.text(`${totalBrutto} kg`, 190, summaryY, { align: 'right' });
+        
+        summaryY += 8;
+        doc.setFontSize(10); doc.setFont("helvetica", "normal");
+        doc.text(`POCET POLOZIEK CELKOM:`, 20, summaryY);
+        doc.text(`${archive.items.length}`, 190, summaryY, { align: 'right' });
+
+        summaryY += 20;
+        doc.setFontSize(10); doc.setFont("helvetica", "bold"); doc.text("DOPLNKOVE INFORMACIE:", 20, summaryY);
+        doc.setDrawColor(200, 200, 200); doc.rect(20, summaryY + 4, 170, 25);
+        
+        summaryY += 50;
+        doc.setFontSize(11); doc.setTextColor(0, 0, 0); doc.text(`DATUM EXPEDICIE: ...........................................................`, 20, summaryY);
+        
+        const signatureY = 240;
+        doc.setLineWidth(0.2); doc.line(20, signatureY, 80, signatureY); doc.line(120, signatureY, 180, signatureY);
+        doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.text("Odovzdal (Clamason Slovakia)", 30, signatureY + 5); doc.text("Prevzal (Dopravca / Sklad)", 135, signatureY + 5);
+        
+        // Pätka
+        const totalPages = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i); doc.setFontSize(8); doc.setTextColor(150, 150, 150);
+            doc.text("Vygenerovane systemom Clamason Task Manager Intelligence - ARCHIV", 105, 285, { align: 'center' });
+            doc.text(`Strana ${i} / ${totalPages}`, 190, 285, { align: 'right' });
+        }
+        
+        doc.save(`Dodaci_list_srot_ARCHIV_${archive.dispatchDate}.pdf`);
     };
 
     const handleExportSanon = (archive: any) => {
@@ -249,18 +357,23 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-10">
+                                        <div className="flex items-center gap-8">
                                             <div className="text-center">
+                                                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">POLOŽIEK</p>
+                                                <p className="text-xl font-black text-white font-mono">{items.length}</p>
+                                            </div>
+
+                                            <div className="text-center border-l border-white/5 pl-8">
                                                 <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">HMOTNOSŤ</p>
                                                 <p className="text-xl font-black text-teal-400 font-mono">{totalWeight} <span className="text-xs font-normal text-slate-600">kg</span></p>
                                             </div>
                                             
-                                            <div className="text-center border-l border-white/5 pl-10">
+                                            <div className="text-center border-l border-white/5 pl-8">
                                                 <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">INTERNÝ ODHAD</p>
                                                 <p className="text-xl font-black text-amber-400 font-mono">{totalValue.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-normal text-slate-600">€</span></p>
                                             </div>
 
-                                            <div className="text-center border-l border-white/5 pl-10">
+                                            <div className="text-center border-l border-white/5 pl-8">
                                                 <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">CENA ODBERATEĽA</p>
                                                 <p className={`text-xl font-black font-mono ${externalValue > 0 ? 'text-green-500' : 'text-slate-700'}`}>
                                                     {externalValue > 0 ? externalValue.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '---'} 
@@ -284,6 +397,13 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                                                 <Icons.Dollar />
                                             </button>
                                         )}
+                                        <button 
+                                            onClick={() => handleDownloadPDF(archive)}
+                                            className="p-3 bg-rose-900/20 text-rose-500 hover:bg-rose-500 hover:text-white rounded-xl transition-all shadow-sm"
+                                            title="Stiahnuť PDF Dodací list"
+                                        >
+                                            <Icons.FileText />
+                                        </button>
                                         <button 
                                             onClick={() => handleExportSanon(archive)}
                                             className="p-3 bg-emerald-900/20 text-emerald-500 hover:bg-emerald-500 hover:text-white rounded-xl transition-all shadow-sm"

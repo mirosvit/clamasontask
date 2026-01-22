@@ -25,33 +25,92 @@ const Icons = {
     FileText: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
     Alert: () => <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
     Check: () => <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>,
+    Sort: ({ active, direction }: { active: boolean, direction: 'asc' | 'desc' }) => (
+        <svg className={`w-3 h-3 transition-all ${active ? 'text-teal-400' : 'text-slate-600 opacity-30 group-hover:opacity-100'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {active && direction === 'asc' ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 15l7-7 7 7" />
+            ) : active && direction === 'desc' ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
+            ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M7 10l5-5 5 5M7 14l5 5 5-5" />
+            )}
+        </svg>
+    )
 };
 
 const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
     const { t, language } = useLanguage();
     
-    // State pre modaly
+    // Sort State
+    const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
+
+    // Modals state
     const [isExpediteModalOpen, setIsExpediteModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeliveryNoteModalOpen, setIsDeliveryNoteModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDeliveryNoteGenerated, setIsDeliveryNoteGenerated] = useState(false);
     
-    // State pre expedíciu
     const [dispatchDate, setDispatchDate] = useState(new Date().toISOString().split('T')[0]);
 
-    // State pre editáciu
     const [editingItem, setEditingItem] = useState<ScrapRecord | null>(null);
     const [editGross, setEditGross] = useState('');
     const [editMetalId, setEditMetalId] = useState('');
     const [editBinId, setEditBinId] = useState('');
 
-    // Reset stavu vygenerovaného listu pri zmene obsahu skladu
     useEffect(() => {
         setIsDeliveryNoteGenerated(false);
     }, [props.actualScrap.length]);
 
-    // Výpočet aktuálnej hodnoty skladu
+    // SORTING LOGIC
+    const sortedScrap = useMemo(() => {
+        let items = [...props.actualScrap];
+        if (sortConfig !== null) {
+            items.sort((a, b) => {
+                let aVal: any;
+                let bVal: any;
+
+                switch (sortConfig.key) {
+                    case 'time':
+                        aVal = a.timestamp;
+                        bVal = b.timestamp;
+                        break;
+                    case 'worker':
+                        aVal = props.resolveName(a.worker).toLowerCase();
+                        bVal = props.resolveName(b.worker).toLowerCase();
+                        break;
+                    case 'metal':
+                        aVal = (props.metals.find(m => m.id === a.metalId)?.type || '').toLowerCase();
+                        bVal = (props.metals.find(m => m.id === b.metalId)?.type || '').toLowerCase();
+                        break;
+                    case 'bin':
+                        aVal = (props.bins.find(bin => bin.id === a.binId)?.name || '').toLowerCase();
+                        bVal = (props.bins.find(bin => bin.id === b.binId)?.name || '').toLowerCase();
+                        break;
+                    case 'netto':
+                        aVal = a.netto;
+                        bVal = b.netto;
+                        break;
+                    default:
+                        aVal = 0; bVal = 0;
+                }
+
+                if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+        return items;
+    }, [props.actualScrap, sortConfig, props.metals, props.bins, props.resolveName]);
+
+    const requestSort = (key: string) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
     const currentWarehouseValue = useMemo(() => {
         const now = new Date();
         const month = now.getMonth() + 1;
@@ -74,11 +133,9 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
 
     const handleSaveEdit = async () => {
         if (!editingItem || !editGross || !editMetalId || !editBinId) return;
-        
         const bin = props.bins.find(b => b.id === editBinId);
         const grossVal = parseFloat(editGross) || 0;
         const taraVal = bin ? bin.tara : 0;
-        
         await props.onUpdateRecord(editingItem.id, {
             metalId: editMetalId,
             binId: editBinId,
@@ -86,50 +143,29 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
             tara: taraVal,
             netto: Math.max(grossVal - taraVal, 0)
         });
-        
         setIsEditModalOpen(false);
         setEditingItem(null);
     };
 
     const confirmDeliveryNote = () => {
         if (props.actualScrap.length === 0 || typeof jspdf === 'undefined') return;
-
         const { jsPDF } = jspdf;
         const doc = new jsPDF();
-        
-        // 1. Hlavička
-        doc.setFontSize(22);
-        doc.setTextColor(0, 0, 0);
-        doc.setFont("helvetica", "bold");
+        doc.setFontSize(22); doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "bold");
         doc.text("CLAMASON SLOVAKIA", 20, 25);
-        
-        doc.setFontSize(12);
-        doc.text("DODACI LIST - KOVOVY ODPAD", 20, 32);
-        
-        // 2. Info blok
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
+        doc.setFontSize(12); doc.text("DODACI LIST - KOVOVY ODPAD", 20, 32);
+        doc.setFontSize(10); doc.setFont("helvetica", "normal");
         const dateStr = new Date().toLocaleDateString('sk-SK');
         const timeStr = new Date().toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' });
         doc.text(`Datum vystavenia: ${dateStr}`, 140, 25);
         doc.text(`Cas vystavenia: ${timeStr}`, 140, 30);
         doc.text(`Vystavil: ${props.resolveName(props.currentUser)}`, 140, 35);
-        
-        doc.setLineWidth(0.5);
-        doc.line(20, 40, 190, 40);
+        doc.setLineWidth(0.5); doc.line(20, 40, 190, 40);
 
-        // 3. Tabuľka dát
         const tableBody = props.actualScrap.map(r => {
             const metal = props.metals.find(m => m.id === r.metalId);
             const bin = props.bins.find(b => b.id === r.binId);
-            return [
-                new Date(r.timestamp).toLocaleDateString('sk-SK'),
-                metal?.type || '???',
-                bin?.name || '???',
-                r.gross.toString(),
-                r.tara.toString(),
-                r.netto.toString()
-            ];
+            return [new Date(r.timestamp).toLocaleDateString('sk-SK'), metal?.type || '???', bin?.name || '???', r.gross.toString(), r.tara.toString(), r.netto.toString()];
         });
 
         (doc as any).autoTable({
@@ -139,108 +175,72 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
             theme: 'grid',
             headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
             styles: { fontSize: 9, cellPadding: 3 },
-            columnStyles: {
-                3: { halign: 'right' },
-                4: { halign: 'right' },
-                5: { halign: 'right', fontStyle: 'bold' }
-            }
+            columnStyles: { 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right', fontStyle: 'bold' } }
         });
 
-        let finalY = (doc as any).lastAutoTable.finalY || 70;
+        // VŽDY NOVÁ STRANA PRE SUMÁR
+        doc.addPage();
+        doc.setFontSize(18); doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "bold");
+        doc.text("SUMAR DOKUMENTU", 20, 25);
+        doc.setLineWidth(0.5); doc.line(20, 30, 190, 30);
 
-        // Kontrola pretečenia na novú stranu pre sumáre
-        if (finalY > 170) { 
-            doc.addPage();
-            finalY = 20; 
-        }
-
-        // --- SUMÁR PODĽA MATERIÁLU ---
         const metalSummaryMap: Record<string, { weight: number, desc: string }> = {};
         props.actualScrap.forEach(r => {
             const metal = props.metals.find(m => m.id === r.metalId);
             const name = metal?.type || 'Neznamy';
             const desc = metal?.description || '';
-            if (!metalSummaryMap[name]) {
-                metalSummaryMap[name] = { weight: 0, desc };
-            }
+            if (!metalSummaryMap[name]) metalSummaryMap[name] = { weight: 0, desc };
             metalSummaryMap[name].weight += r.netto;
         });
 
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "bold");
-        doc.text("SUMAR CISTEJ VAHY PODLA MATERIALU (NETTO):", 20, finalY + 12);
+        doc.setFontSize(11); doc.setFont("helvetica", "bold");
+        doc.text("SUMAR CISTEJ VAHY PODLA MATERIALU (NETTO):", 20, 45);
         doc.setFont("helvetica", "normal");
-        
-        let summaryY = finalY + 18;
+        let summaryY = 55;
         Object.entries(metalSummaryMap).forEach(([name, data]) => {
-            const label = data.desc ? `${name} (${data.desc}):` : `${name}:`;
-            doc.text(label, 20, summaryY);
+            doc.text(data.desc ? `${name} (${data.desc}):` : `${name}:`, 20, summaryY);
             doc.setFont("helvetica", "bold");
-            // Posunutý totál váhy na pravý okraj (190)
             doc.text(`${data.weight} kg`, 190, summaryY, { align: 'right' });
             doc.setFont("helvetica", "normal");
-            summaryY += 6;
+            summaryY += 8;
         });
 
-        // 4. Celkové Totály
-        const totalGross = props.actualScrap.reduce((acc, curr) => acc + curr.gross, 0);
-        const itemCount = props.actualScrap.length;
-
-        doc.setLineWidth(0.2);
-        // Roztiahnutá čiara pod sumárom na celú šírku
-        doc.line(20, summaryY + 2, 190, summaryY + 2);
+        doc.setLineWidth(0.2); doc.line(20, summaryY + 4, 190, summaryY + 4);
+        summaryY += 15;
         
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
-        doc.text(`CELKOVA HMOTNOST BRUTTO: ${totalGross} kg`, 20, summaryY + 10);
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text(`POCET POLOZIEK: ${itemCount}`, 20, summaryY + 16);
-
-        // --- DOPLNKOVÉ INFORMÁCIE ---
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "bold");
-        doc.text("DOPLNKOVE INFORMACIE:", 20, summaryY + 26);
-        doc.setDrawColor(200, 200, 200);
-        doc.rect(20, summaryY + 28, 170, 20); // Prázdny box na poznámky
+        doc.setFontSize(12); doc.setFont("helvetica", "bold");
+        doc.text(`CELKOVA HMOTNOST BRUTTO:`, 20, summaryY);
+        doc.text(`${props.actualScrap.reduce((acc, curr) => acc + curr.gross, 0)} kg`, 190, summaryY, { align: 'right' });
         
-        // 5. Dátum expedície a podpisy
-        doc.setFontSize(10);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`DATUM EXPEDICIE: ...........................................`, 20, summaryY + 58);
+        summaryY += 8;
+        doc.setFontSize(10); doc.setFont("helvetica", "normal");
+        doc.text(`POCET POLOZIEK CELKOM:`, 20, summaryY);
+        doc.text(`${props.actualScrap.length}`, 190, summaryY, { align: 'right' });
 
-        const signatureY = summaryY + 90;
-        doc.setLineWidth(0.2);
-        doc.line(20, signatureY, 80, signatureY);
-        doc.line(120, signatureY, 180, signatureY);
+        summaryY += 20;
+        doc.setFontSize(10); doc.setFont("helvetica", "bold"); doc.text("DOPLNKOVE INFORMACIE:", 20, summaryY);
+        doc.setDrawColor(200, 200, 200); doc.rect(20, summaryY + 4, 170, 25);
         
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        doc.text("Odovzdal (Clamason Slovakia)", 30, signatureY + 5);
-        doc.text("Prevzal (Dopravca)", 135, signatureY + 5);
-
-        // 6. Finálna pätička s číslovaním strán
+        summaryY += 50;
+        doc.setFontSize(11); doc.setTextColor(0, 0, 0); doc.text(`DATUM EXPEDICIE: ...........................................................`, 20, summaryY);
+        
+        const signatureY = 240;
+        doc.setLineWidth(0.2); doc.line(20, signatureY, 80, signatureY); doc.line(120, signatureY, 180, signatureY);
+        doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.text("Odovzdal (Clamason Slovakia)", 30, signatureY + 5); doc.text("Prevzal (Dopravca / Sklad)", 135, signatureY + 5);
+        
         const totalPages = doc.internal.getNumberOfPages();
         for (let i = 1; i <= totalPages; i++) {
-            doc.setPage(i);
-            doc.setFontSize(8);
-            doc.setTextColor(150, 150, 150);
+            doc.setPage(i); doc.setFontSize(8); doc.setTextColor(150, 150, 150);
             doc.text("Vygenerovane systemom Clamason Task Manager Intelligence", 105, 285, { align: 'center' });
             doc.text(`Strana ${i} / ${totalPages}`, 190, 285, { align: 'right' });
         }
-
-        // 7. Uloženie
         doc.save(`Dodaci_list_srot_${new Date().toISOString().split('T')[0]}.pdf`);
-
         setIsDeliveryNoteGenerated(true);
         setIsDeliveryNoteModalOpen(false);
     };
 
     const handleExpediteConfirm = async () => {
-        if (!dispatchDate) {
-            alert(language === 'sk' ? "Vyberte dátum expedície." : "Select dispatch date.");
-            return;
-        }
+        if (!dispatchDate) { alert(language === 'sk' ? "Vyberte dátum expedície." : "Select dispatch date."); return; }
         setIsSubmitting(true);
         try {
             const sanonId = await props.onExpedite(props.currentUser, dispatchDate);
@@ -249,14 +249,8 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
                 setIsExpediteModalOpen(false);
                 setIsDeliveryNoteGenerated(false);
             }
-        } catch (e) {
-            alert("Chyba pri expedícii.");
-        } finally {
-            setIsSubmitting(false);
-        }
+        } catch (e) { alert("Chyba pri expedícii."); } finally { setIsSubmitting(false); }
     };
-
-    const totalNetto = useMemo(() => props.actualScrap.reduce((acc, curr) => acc + curr.netto, 0), [props.actualScrap]);
 
     const cardClass = "bg-gray-800/40 border border-slate-700/50 rounded-3xl p-6 shadow-2xl backdrop-blur-sm relative overflow-hidden";
     const labelClass = "block text-[10px] font-black text-slate-500 uppercase tracking-[0.25em] mb-2";
@@ -264,8 +258,6 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
 
     return (
         <div className="max-w-7xl mx-auto space-y-8 animate-fade-in pb-20">
-            
-            {/* UI HEADER AREA */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 no-print">
                 <div>
                     <h1 className="text-3xl font-black text-white uppercase tracking-tighter leading-none">{t('scrap_warehouse_title')}</h1>
@@ -276,45 +268,42 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
                         <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Odhadovaná hodnota: <span className="text-amber-400 font-black">{currentWarehouseValue.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span></p>
                     </div>
                 </div>
-                
                 <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-                    {/* BUTTON: DELIVERY NOTE (PDF) */}
-                    <button 
-                        disabled={props.actualScrap.length === 0}
-                        onClick={() => setIsDeliveryNoteModalOpen(true)}
-                        className="w-full sm:w-auto h-14 px-10 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-2xl font-black text-sm uppercase tracking-widest border-b-4 border-emerald-900 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3"
-                    >
+                    <button disabled={props.actualScrap.length === 0} onClick={() => setIsDeliveryNoteModalOpen(true)} className="w-full sm:w-auto h-14 px-10 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-2xl font-black text-sm uppercase tracking-widest border-b-4 border-emerald-900 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3">
                         <Icons.FileText /> {t('scrap_btn_delivery_note')}
                     </button>
-
-                    {/* BUTTON: EXPEDITE */}
-                    <button 
-                        disabled={props.actualScrap.length === 0 || !isDeliveryNoteGenerated}
-                        onClick={() => setIsExpediteModalOpen(true)}
-                        className={`w-full sm:w-auto h-14 px-10 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-2xl font-black text-sm uppercase tracking-widest border-b-4 border-indigo-900 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${!isDeliveryNoteGenerated && props.actualScrap.length > 0 ? 'ring-2 ring-indigo-500 ring-offset-4 ring-offset-gray-900 animate-pulse' : ''}`}
-                    >
+                    <button disabled={props.actualScrap.length === 0 || !isDeliveryNoteGenerated} onClick={() => setIsExpediteModalOpen(true)} className={`w-full sm:w-auto h-14 px-10 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-2xl font-black text-sm uppercase tracking-widest border-b-4 border-indigo-900 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${!isDeliveryNoteGenerated && props.actualScrap.length > 0 ? 'ring-2 ring-indigo-500 ring-offset-4 ring-offset-gray-900 animate-pulse' : ''}`}>
                         <Icons.Dispatch /> {t('scrap_btn_dispatch')}
                     </button>
                 </div>
             </div>
 
-            {/* LIST AREA */}
             <div className={`${cardClass} no-print`}>
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-slate-950/50 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-slate-800">
-                                <th className="p-4">Dátum / Čas</th>
-                                <th className="p-4">Skladník</th>
-                                <th className="p-4">Typ kovu</th>
-                                <th className="p-4">Kontajner</th>
-                                <th className="p-4 text-right">Netto (kg)</th>
+                                <th className="p-4 cursor-pointer hover:text-teal-400 transition-colors group" onClick={() => requestSort('time')}>
+                                    <div className="flex items-center gap-2">Dátum / Čas <Icons.Sort active={sortConfig?.key === 'time'} direction={sortConfig?.direction || 'asc'} /></div>
+                                </th>
+                                <th className="p-4 cursor-pointer hover:text-teal-400 transition-colors group" onClick={() => requestSort('worker')}>
+                                    <div className="flex items-center gap-2">Skladník <Icons.Sort active={sortConfig?.key === 'worker'} direction={sortConfig?.direction || 'asc'} /></div>
+                                </th>
+                                <th className="p-4 cursor-pointer hover:text-teal-400 transition-colors group" onClick={() => requestSort('metal')}>
+                                    <div className="flex items-center gap-2">Typ kovu <Icons.Sort active={sortConfig?.key === 'metal'} direction={sortConfig?.direction || 'asc'} /></div>
+                                </th>
+                                <th className="p-4 cursor-pointer hover:text-teal-400 transition-colors group" onClick={() => requestSort('bin')}>
+                                    <div className="flex items-center gap-2">Kontajner <Icons.Sort active={sortConfig?.key === 'bin'} direction={sortConfig?.direction || 'asc'} /></div>
+                                </th>
+                                <th className="p-4 text-right cursor-pointer hover:text-teal-400 transition-colors group" onClick={() => requestSort('netto')}>
+                                    <div className="flex items-center justify-end gap-2">Netto (kg) <Icons.Sort active={sortConfig?.key === 'netto'} direction={sortConfig?.direction || 'asc'} /></div>
+                                </th>
                                 <th className="p-4 w-24"></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800/50">
-                            {props.actualScrap.length > 0 ? (
-                                props.actualScrap.map(r => {
+                            {sortedScrap.length > 0 ? (
+                                sortedScrap.map(r => {
                                     const metal = props.metals.find(m => m.id === r.metalId);
                                     const bin = props.bins.find(b => b.id === r.binId);
                                     return (
@@ -329,156 +318,61 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
                                             <td className="p-4 text-right font-black text-teal-400 font-mono text-lg">{r.netto} kg</td>
                                             <td className="p-4 text-center">
                                                 <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button onClick={() => handleOpenEdit(r)} className="p-2 bg-slate-800 text-teal-400 hover:text-white hover:bg-teal-600 rounded-lg transition-all">
-                                                        <Icons.Edit />
-                                                    </button>
-                                                    <button onClick={() => { if(window.confirm(t('confirm_delete_msg'))) props.onDeleteRecord(r.id); }} className="p-2 bg-slate-800 text-red-500 hover:text-white hover:bg-red-600 rounded-lg transition-all">
-                                                        <Icons.Trash />
-                                                    </button>
+                                                    <button onClick={() => handleOpenEdit(r)} className="p-2 bg-slate-800 text-teal-400 hover:text-white hover:bg-teal-600 rounded-lg transition-all"><Icons.Edit /></button>
+                                                    <button onClick={() => { if(window.confirm(t('confirm_delete_msg'))) props.onDeleteRecord(r.id); }} className="p-2 bg-slate-800 text-red-500 hover:text-white hover:bg-red-600 rounded-lg transition-all"><Icons.Trash /></button>
                                                 </div>
                                             </td>
                                         </tr>
                                     );
                                 })
                             ) : (
-                                <tr>
-                                    <td colSpan={6} className="py-32 text-center text-slate-700">
-                                        <div className="flex flex-col items-center gap-4">
-                                            <Icons.Box />
-                                            <p className="font-black uppercase tracking-[0.3em] text-xs italic">{t('scrap_empty_warehouse')}</p>
-                                        </div>
-                                    </td>
-                                </tr>
+                                <tr><td colSpan={6} className="py-32 text-center text-slate-700"><div className="flex flex-col items-center gap-4"><Icons.Box /><p className="font-black uppercase tracking-[0.3em] text-xs italic">{t('scrap_empty_warehouse')}</p></div></td></tr>
                             )}
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            {/* DELIVERY NOTE CONFIRMATION MODAL */}
             {isDeliveryNoteModalOpen && createPortal(
                 <div className="fixed inset-0 z-[12000] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 animate-fade-in no-print" onClick={() => setIsDeliveryNoteModalOpen(false)}>
                     <div className="bg-slate-900 border-2 border-emerald-500/50 rounded-[2.5rem] shadow-2xl w-full max-w-lg p-10 relative overflow-hidden text-center" onClick={e => e.stopPropagation()}>
-                        <div className="w-20 h-20 bg-emerald-500/10 border border-emerald-500/30 rounded-full flex items-center justify-center mx-auto mb-6 text-emerald-500">
-                            <Icons.FileText />
-                        </div>
-                        <h3 className="text-3xl font-black text-white uppercase tracking-tighter mb-4">
-                            {language === 'sk' ? 'STIAHNUŤ DODACÍ LIST?' : 'DOWNLOAD DELIVERY NOTE?'}
-                        </h3>
-                        
-                        <p className="text-sm text-slate-400 font-bold uppercase leading-relaxed mb-10">
-                            {language === 'sk' 
-                                ? "Systém vygeneruje a stiahne profesionálny PDF dokument. Po stiahnutí sa odomkne možnosť finálnej expedície šrotu do archívu." 
-                                : "The system will generate and download a professional PDF document. After downloading, the option for final scrap expedition to archive will be unlocked."
-                            }
-                        </p>
-
+                        <div className="w-20 h-20 bg-emerald-500/10 border border-emerald-500/30 rounded-full flex items-center justify-center mx-auto mb-6 text-emerald-500"><Icons.FileText /></div>
+                        <h3 className="text-3xl font-black text-white uppercase tracking-tighter mb-4">{language === 'sk' ? 'STIAHNUŤ DODACÍ LIST?' : 'DOWNLOAD DELIVERY NOTE?'}</h3>
+                        <p className="text-sm text-slate-400 font-bold uppercase leading-relaxed mb-10">{language === 'sk' ? "Systém vygeneruje a stiahne profesionálny PDF dokument. Po stiahnutí sa odomkne možnosť finálnej expedície šrotu do archívu." : "The system will generate and download a professional PDF document. After downloading, the option for final scrap expedition to archive will be unlocked."}</p>
                         <div className="grid grid-cols-2 gap-4">
-                            <button 
-                                onClick={() => setIsDeliveryNoteModalOpen(false)} 
-                                className="h-14 bg-slate-800 text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:text-white transition-all"
-                            >
-                                {t('btn_cancel')}
-                            </button>
-                            <button 
-                                onClick={confirmDeliveryNote} 
-                                className="h-14 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest border-b-4 border-emerald-800 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2"
-                            >
-                                <Icons.Check /> {language === 'sk' ? 'STIAHNUŤ PDF' : 'DOWNLOAD PDF'}
-                            </button>
+                            <button onClick={() => setIsDeliveryNoteModalOpen(false)} className="h-14 bg-slate-800 text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:text-white transition-all">{t('btn_cancel')}</button>
+                            <button onClick={confirmDeliveryNote} className="h-14 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest border-b-4 border-emerald-800 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2"><Icons.Check /> {language === 'sk' ? 'STIAHNUŤ PDF' : 'DOWNLOAD PDF'}</button>
                         </div>
                     </div>
                 </div>,
                 document.body
             )}
 
-            {/* EXPEDITE MODAL */}
             {isExpediteModalOpen && createPortal(
                 <div className="fixed inset-0 z-[12000] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 animate-fade-in no-print" onClick={() => !isSubmitting && setIsExpediteModalOpen(false)}>
                     <div className="bg-slate-900 border-2 border-indigo-500/50 rounded-[2.5rem] shadow-2xl w-full max-w-lg p-10 relative overflow-hidden text-center" onClick={e => e.stopPropagation()}>
-                        <div className="w-20 h-20 bg-indigo-500/10 border border-indigo-500/30 rounded-full flex items-center justify-center mx-auto mb-6 text-indigo-500">
-                            <Icons.Dispatch />
-                        </div>
-                        <h3 className="text-3xl font-black text-white uppercase tracking-tighter mb-4">
-                            {t('scrap_dispatch_modal_title')}
-                        </h3>
-                        
-                        <div className="space-y-4 mb-10">
-                            <p className="text-sm text-slate-400 font-bold uppercase leading-relaxed">
-                                {t('scrap_dispatch_modal_desc')}
-                                <br />
-                                <span className="text-white text-lg font-black">{props.actualScrap.length} položiek</span>
-                            </p>
-                            
-                            <div className="mt-6">
-                                <label className={labelClass}>{t('scrap_dispatch_date')}</label>
-                                <input 
-                                    type="date" 
-                                    value={dispatchDate} 
-                                    onChange={e => setDispatchDate(e.target.value)}
-                                    className={inputClass}
-                                />
-                                <p className="text-[10px] text-slate-500 mt-2 font-bold uppercase italic">* Tento dátum určí názov archívneho šanónu.</p>
-                            </div>
-                        </div>
-
+                        <div className="w-20 h-20 bg-indigo-500/10 border border-indigo-500/30 rounded-full flex items-center justify-center mx-auto mb-6 text-indigo-500"><Icons.Dispatch /></div>
+                        <h3 className="text-3xl font-black text-white uppercase tracking-tighter mb-4">{t('scrap_dispatch_modal_title')}</h3>
+                        <div className="space-y-4 mb-10"><p className="text-sm text-slate-400 font-bold uppercase leading-relaxed">{t('scrap_dispatch_modal_desc')}<br /><span className="text-white text-lg font-black">{props.actualScrap.length} položiek</span></p><div className="mt-6"><label className={labelClass}>{t('scrap_dispatch_date')}</label><input type="date" value={dispatchDate} onChange={e => setDispatchDate(e.target.value)} className={inputClass} /><p className="text-[10px] text-slate-500 mt-2 font-bold uppercase italic">* Tento dátum určí názov archívneho šanónu.</p></div></div>
                         <div className="grid grid-cols-2 gap-4">
-                            <button 
-                                disabled={isSubmitting}
-                                onClick={() => setIsExpediteModalOpen(false)} 
-                                className="h-14 bg-slate-800 text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:text-white transition-all disabled:opacity-30"
-                            >
-                                ZRUŠIŤ
-                            </button>
-                            <button 
-                                disabled={isSubmitting}
-                                onClick={handleExpediteConfirm} 
-                                className="h-14 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest border-b-4 border-indigo-800 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 disabled:bg-slate-700 disabled:border-slate-800"
-                            >
-                                {isSubmitting ? '...' : 'POTVRDIŤ EXPEDÍCIU'}
-                            </button>
+                            <button disabled={isSubmitting} onClick={() => setIsExpediteModalOpen(false)} className="h-14 bg-slate-800 text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:text-white transition-all disabled:opacity-30">ZRUŠIŤ</button>
+                            <button disabled={isSubmitting} onClick={handleExpediteConfirm} className="h-14 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest border-b-4 border-indigo-800 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 disabled:bg-slate-700 disabled:border-slate-800">{isSubmitting ? '...' : 'POTVRDIŤ EXPEDÍCIU'}</button>
                         </div>
                     </div>
                 </div>,
                 document.body
             )}
 
-            {/* EDIT MODAL */}
             {isEditModalOpen && editingItem && createPortal(
                 <div className="fixed inset-0 z-[12000] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 animate-fade-in no-print" onClick={() => setIsEditModalOpen(false)}>
                     <div className="bg-slate-900 border-2 border-teal-500/50 rounded-[2.5rem] shadow-2xl w-full max-w-lg p-10 relative overflow-hidden" onClick={e => e.stopPropagation()}>
-                        <h3 className="text-3xl font-black text-white uppercase tracking-tighter mb-8 flex items-center gap-3">
-                            <Icons.Edit /> {t('scrap_edit_title')}
-                        </h3>
-                        
-                        <div className="space-y-6 mb-10">
-                            <div>
-                                <label className={labelClass}>{t('scrap_metal_select')}</label>
-                                <select value={editMetalId} onChange={e => setEditMetalId(e.target.value)} className={inputClass}>
-                                    {props.metals.map(m => <option key={m.id} value={m.id}>{m.type}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className={labelClass}>{t('scrap_bin_select')}</label>
-                                <select value={editBinId} onChange={e => setEditBinId(e.target.value)} className={inputClass}>
-                                    {props.bins.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className={labelClass}>{t('scrap_gross')}</label>
-                                <input type="number" value={editGross} onChange={e => setEditGross(e.target.value)} className={`${inputClass} !text-3xl text-teal-400`} />
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <button onClick={() => setIsEditModalOpen(false)} className="h-14 bg-slate-800 text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:text-white transition-all">ZRUŠIŤ</button>
-                            <button onClick={handleSaveEdit} className="h-14 bg-teal-600 hover:bg-teal-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest border-b-4 border-teal-800 shadow-xl transition-all active:scale-95">ULOŽIŤ ZMENY</button>
-                        </div>
+                        <h3 className="text-3xl font-black text-white uppercase tracking-tighter mb-8 flex items-center gap-3"><Icons.Edit /> {t('scrap_edit_title')}</h3>
+                        <div className="space-y-6 mb-10"><div><label className={labelClass}>{t('scrap_metal_select')}</label><select value={editMetalId} onChange={e => setEditMetalId(e.target.value)} className={inputClass}>{props.metals.map(m => <option key={m.id} value={m.id}>{m.type}</option>)}</select></div><div><label className={labelClass}>{t('scrap_bin_select')}</label><select value={editBinId} onChange={e => setEditBinId(e.target.value)} className={inputClass}>{props.bins.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div><div><label className={labelClass}>{t('scrap_gross')}</label><input type="number" value={editGross} onChange={e => setEditGross(e.target.value)} className={`${inputClass} !text-3xl text-teal-400`} /></div></div>
+                        <div className="grid grid-cols-2 gap-4"><button onClick={() => setIsEditModalOpen(false)} className="h-14 bg-slate-800 text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:text-white transition-all">ZRUŠIŤ</button><button onClick={handleSaveEdit} className="h-14 bg-teal-600 hover:bg-teal-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest border-b-4 border-teal-800 shadow-xl transition-all active:scale-95">ULOŽIŤ ZMENY</button></div>
                     </div>
                 </div>,
                 document.body
             )}
-
         </div>
     );
 };
