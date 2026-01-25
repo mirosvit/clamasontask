@@ -58,7 +58,11 @@ export const useTaskData = (
   }, []);
 
   // 3. WRAPPERS PRE SERVICE
-  const onAddTask = useCallback(async (pn: string, wp: string | null, qty: string, unit: string, prio: PriorityLevel, isLog?: boolean, note?: string, isProd?: boolean, src?: string | null, tgt?: string | null) => {
+  const onAddTask = useCallback(async (
+    pn: string, wp: string | null, qty: string, unit: string, prio: PriorityLevel, 
+    isLog?: boolean, note?: string, isProd?: boolean, src?: string | null, tgt?: string | null,
+    startNow?: boolean
+  ) => {
     const user = localStorage.getItem('app_user') || 'Unknown';
     
     let finalWorkplace = wp || '';
@@ -70,7 +74,7 @@ export const useTaskData = (
     // Špeciálne ošetrenie pre šrot (Scrap)
     if (pn === "Váženie šrotu") {
         finalIsLog = true;
-        finalIsProd = false; // Musí byť false pre správne vetvenie v analytike
+        finalIsProd = false; 
 
         if (scrapConfig?.scrapLogisticsOpId && logisticsOperations) {
             const foundOp = logisticsOperations.find(o => o.id === scrapConfig.scrapLogisticsOpId);
@@ -98,7 +102,8 @@ export const useTaskData = (
         targetSectorId: finalTarget
     };
 
-    if (pn === "Počítanie zásob" || pn === "Váženie šrotu") {
+    // OKAMŽITÉ SPUSTENIE (Rýchle akcie / Inventúra / Šrot)
+    if (startNow || pn === "Počítanie zásob" || pn === "Váženie šrotu") {
         taskData.isInProgress = true;
         taskData.inProgressBy = user;
         taskData.startedAt = Date.now();

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo, memo } from 'react';
 import { useLanguage } from './LanguageContext';
 import { db } from '../firebase';
@@ -187,13 +186,13 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
       </div>
 
       {isDropdownVisible && filteredParts.length > 0 && (
-        <div className="absolute z-[999] w-full mt-2 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl max-h-60 overflow-y-auto">
+        <div className="absolute z-[999] w-full mt-2 bg-gray-800 border-2 border-gray-600 rounded-2xl shadow-2xl max-h-72 overflow-y-auto">
           <ul className="divide-y divide-gray-700">
             {filteredParts.map((part, index) => (
               <li
                 key={index}
                 onClick={() => handleSelectPart(part)}
-                className="px-4 py-3 text-gray-300 hover:bg-teal-600 hover:text-white cursor-pointer transition-colors duration-150 font-mono text-base font-bold"
+                className="px-6 py-5 text-gray-300 hover:bg-teal-600 hover:text-white cursor-pointer transition-colors duration-150 font-mono text-lg font-black"
               >
                 {part}
               </li>

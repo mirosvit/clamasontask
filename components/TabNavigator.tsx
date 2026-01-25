@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { TAB_CONFIG, DEFAULT_TAB_ORDER } from '../constants/uiConstants';
 import { SystemConfig } from '../types/appTypes';
@@ -26,11 +26,17 @@ const TabNavigator: React.FC<TabNavigatorProps> = ({
   const navBarRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const currentOrder = systemConfig?.tabOrder || DEFAULT_TAB_ORDER;
+  // Ochrana pred starou verziou databázy: Zlúčime uložené poradie s novými tabmi v kóde
+  const currentOrder = useMemo(() => {
+    const savedOrder = systemConfig?.tabOrder || DEFAULT_TAB_ORDER;
+    const allKnownIds = TAB_CONFIG.map(t => t.id);
+    const missingInSaved = allKnownIds.filter(id => !savedOrder.includes(id));
+    return [...savedOrder, ...missingInSaved];
+  }, [systemConfig?.tabOrder]);
 
   const ADMIN_TAB_IDS = ['settings', 'permissions'];
   const STAT_TAB_IDS = ['map', 'analytics', 'logs'];
-  const LOG_TAB_IDS = ['logistics', 'catalog']; 
+  const LOG_TAB_IDS = ['logistics', 'catalog', 'missing']; 
   const SCRAP_TAB_IDS = ['scrap_weighing', 'scrap_warehouse', 'scrap_archive', 'scrap_analytics']; 
   const PARTS_TAB_IDS: string[] = []; 
   

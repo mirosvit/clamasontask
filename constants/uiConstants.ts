@@ -26,6 +26,7 @@ export interface TabDefinition {
 export const TAB_CONFIG: TabDefinition[] = [
   { id: 'entry', labelKey: 'tab_entry', permission: 'perm_tab_entry' },
   { id: 'tasks', labelKey: 'tab_tasks', permission: 'perm_tab_tasks', badgeKey: 'tasks' },
+  { id: 'quick_action', labelKey: 'tab_quick_action', permission: 'perm_tab_quick_action', color: 'border-fuchsia-500 text-fuchsia-400' },
   { id: 'bom', labelKey: 'tab_bom', permission: 'perm_tab_bom' },
   { id: 'catalog', labelKey: 'tab_catalog', permission: 'perm_tab_catalog' },
   { id: 'missing', labelKey: 'tab_missing', permission: 'perm_tab_missing' },

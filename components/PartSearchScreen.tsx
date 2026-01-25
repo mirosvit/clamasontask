@@ -4,6 +4,7 @@ import AppHeader from './AppHeader';
 import TabNavigator from './TabNavigator';
 import ProductionEntry from './tabs/ProductionEntry';
 import TaskList from './tabs/TaskList';
+import QuickActionTab from './tabs/QuickActionTab';
 import BOMScreen from './tabs/BOMScreen';
 import MissingItemsTab from './tabs/MissingItemsTab';
 import InventoryTab from './tabs/InventoryTab';
@@ -64,7 +65,7 @@ interface PartSearchScreenProps {
     onLogout: () => void;
 
     // Task Actions
-    onAddTask: (partNumber: string, workplace: string | null, quantity: string | null, quantityUnit: string | null, priority: PriorityLevel, isLogistics?: boolean, noteOrPlate?: string, isProduction?: boolean, sourceSectorId?: string | null, targetSectorId?: string | null) => Promise<void>;
+    onAddTask: (partNumber: string, workplace: string | null, quantity: string | null, quantityUnit: string | null, priority: PriorityLevel, isLogistics?: boolean, noteOrPlate?: string, isProduction?: boolean, sourceSectorId?: string | null, targetSectorId?: string | null, startNow?: boolean) => Promise<void>;
     onUpdateTask: (id: string, updates: Partial<Task>) => Promise<void>;
     onDeleteTask: (id: string) => Promise<void>;
     onToggleTask: (id: string, sectorId?: string) => Promise<void>;
@@ -347,6 +348,10 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                             hasPermission={hasPermission}
                             resolveName={resolveName}
                         />
+                    )}
+
+                    {activeTab === 'quick_action' && hasPermission('perm_tab_quick_action') && (
+                        <QuickActionTab />
                     )}
 
                     {activeTab === 'bom' && hasPermission('perm_tab_bom') && (

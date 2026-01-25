@@ -21,6 +21,7 @@ const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, onAddRole, onDel
           perms: [
               'perm_tab_entry', 
               'perm_tab_tasks', 
+              'perm_tab_quick_action',
               'perm_tab_bom', 
               'perm_tab_catalog',
               'perm_tab_missing', 
@@ -65,7 +66,7 @@ const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, onAddRole, onDel
       },
       {
           name: 'perm_group_settings',
-          perms: ['perm_view_setup', 'perm_settings_users', 'perm_settings_parts', 'perm_settings_wp', 'perm_settings_bom', 'perm_settings_system', 'perm_settings_maint']
+          perms: ['perm_view_setup', 'perm_settings_users', 'perm_settings_parts', 'perm_settings_wp', 'perm_settings_bom', 'perm_settings_qa_architect', 'perm_settings_csdb', 'perm_settings_system', 'perm_settings_maint']
       },
       {
           name: 'perm_group_mgmt',

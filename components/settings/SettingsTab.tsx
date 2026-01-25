@@ -14,6 +14,8 @@ import YearlyClosing from './YearlyClosing';
 import AdminNotesSection from './AdminNotesSection';
 import PartsSection from './PartsSection';
 import ScrapSection from './ScrapSection';
+import QuickActionArchitectSection from './QuickActionArchitectSection';
+import CustomerSupplierSection from './CustomerSupplierSection';
 
 interface SettingsTabProps {
   currentUser: string;
@@ -36,7 +38,9 @@ const Icons = {
   Summary: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
   Yearly: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
   Notes: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>,
-  Scrap: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+  Scrap: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>,
+  Puzzle: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 011-1h1a2 2 0 100-4H7a1 1 0 01-1-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>,
+  CSDB: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
 };
 
 const SettingsTab: React.FC<SettingsTabProps> = (props) => {
@@ -49,7 +53,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
       return (u?.nickname || username).toUpperCase();
   };
 
-  // OPTIMALIZOVANÝ CHECK: Už nie data.permissions.some, ale role.permissions.includes
   const hasPermission = (permName: string) => {
       if (props.currentUserRole === 'ADMIN') return true;
       const roleObj = data.roles.find(r => r.name === props.currentUserRole);
@@ -63,8 +66,10 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
       { id: 'users', label: t('sect_users_manage'), icon: <Icons.Users />, perm: 'perm_settings_users' },
       { id: 'parts', label: t('sect_parts'), icon: <Icons.Parts />, perm: 'perm_settings_parts' },
       { id: 'wp', label: t('sect_wp'), icon: <Icons.Workplaces />, perm: 'perm_settings_wp' },
+      { id: 'csdb', label: t('sect_csdb'), icon: <Icons.CSDB />, perm: 'perm_settings_csdb' },
       { id: 'bom', label: t('sect_bom'), icon: <Icons.BOM />, perm: 'perm_settings_bom' },
       { id: 'scrap', label: t('sect_scrap'), icon: <Icons.Scrap />, perm: 'perm_scrap_manage' },
+      { id: 'qa_architect', label: t('sect_qa_architect'), icon: <Icons.Puzzle />, perm: 'perm_settings_qa_architect' },
       { id: 'system', label: 'SYSTÉM', icon: <Icons.System />, perm: 'perm_settings_system' },
       { id: 'maint', label: 'ÚDRŽBA', icon: <Icons.Archive />, perm: 'perm_settings_maint' },
       { id: 'yearly', label: language === 'sk' ? 'UZÁVIERKA' : 'CLOSING', icon: <Icons.Yearly />, perm: 'perm_manage_roles' },
@@ -73,7 +78,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
         all.push({ id: 'notes', label: 'POZNÁMKY', icon: <Icons.Notes />, perm: 'perm_view_setup' });
     }
     return all.filter(tile => hasPermission(tile.perm));
-  }, [language, t, props.currentUserRole, data.roles]); // data.permissions odstránené zo závislostí
+  }, [language, t, props.currentUserRole, data.roles]);
 
   const [activeSubTab, setActiveSubTab] = useState<string | null>(navTiles[0]?.id || null);
 
@@ -102,7 +107,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
         resolveName={resolveName}
       />
 
-      <div className={`grid gap-3 mb-8 ${navTiles.length <= 4 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-4 lg:grid-cols-9'}`}>
+      <div className={`grid gap-3 mb-8 ${navTiles.length <= 4 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-5 lg:grid-cols-11'}`}>
         {navTiles.map(tile => {
           const isActive = activeSubTab === tile.id;
           return (
@@ -118,7 +123,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
               <div className={`mb-3 transition-transform group-hover:scale-110 ${isActive ? (tile.id === 'notes' ? 'text-amber-500' : 'text-teal-400') : 'text-slate-600'}`}>
                 {tile.icon}
               </div>
-              <span className={`text-[10px] font-black uppercase tracking-widest text-center leading-tight ${isActive ? (tile.id === 'notes' ? 'text-amber-500' : 'text-teal-400') : 'text-slate-500'}`}>
+              <span className={`text-[9px] font-black uppercase tracking-widest text-center leading-tight ${isActive ? (tile.id === 'notes' ? 'text-amber-500' : 'text-teal-400') : 'text-slate-500'}`}>
                 {tile.label}
               </span>
             </button>
@@ -184,6 +189,16 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             onUpdateSystemConfig={props.onUpdateSystemConfig}
           />
         )}
+        {activeSubTab === 'csdb' && (
+          <CustomerSupplierSection 
+            customers={data.customers}
+            suppliers={data.suppliers}
+            onAdd={data.onAddCSItem}
+            onBatchAdd={data.onBatchAddCSItems}
+            onDelete={data.onDeleteCSItem}
+            onDeleteAll={data.onDeleteAllCSItems}
+          />
+        )}
         {activeSubTab === 'bom' && (
           <BOMSection 
             bomMap={data.bomMap} 
@@ -211,6 +226,9 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             onDeletePrice={data.onDeleteScrapPrice}
             onUpdateScrapConfig={data.onUpdateScrapConfig}
           />
+        )}
+        {activeSubTab === 'qa_architect' && (
+          <QuickActionArchitectSection />
         )}
         {activeSubTab === 'system' && (
           <SystemSection 

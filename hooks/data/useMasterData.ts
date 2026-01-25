@@ -15,7 +15,7 @@ import {
   writeBatch,
   getDocs
 } from 'firebase/firestore';
-import { DBItem, MapSector, PartRequest, BOMRequest, BOMComponent, MapObstacle } from '../../types/appTypes';
+import { DBItem, MapSector, PartRequest, BOMRequest, BOMComponent, MapObstacle, CSItem, QuickActionConfig } from '../../types/appTypes';
 
 export const useMasterData = () => {
   const [partsMap, setPartsMap] = useState<Record<string, string>>({});
@@ -26,6 +26,10 @@ export const useMasterData = () => {
   const [mapObstacles, setMapObstacles] = useState<MapObstacle[]>([]);
   const [partRequests, setPartRequests] = useState<PartRequest[]>([]);
   const [bomRequests, setBomRequests] = useState<BOMRequest[]>([]);
+  const [quickActions, setQuickActions] = useState<QuickActionConfig[]>([]);
+  
+  const [customers, setCustomers] = useState<CSItem[]>([]);
+  const [suppliers, setSuppliers] = useState<CSItem[]>([]);
 
   useEffect(() => {
     const unsubWp = onSnapshot(query(collection(db, 'workplaces'), orderBy('value')), s => setWorkplaces(s.docs.map(d => ({id:d.id, ...d.data()} as DBItem))));
@@ -66,6 +70,10 @@ export const useMasterData = () => {
         setBomMap(cleanMap);
     });
 
+    const unsubQuickActions = onSnapshot(doc(db, 'settings', 'quick_actions'), (s) => {
+        setQuickActions(s.exists() ? (s.data().items || []) : []);
+    });
+
     const unsubObstacles = onSnapshot(doc(db, 'settings', 'map_layout'), (docSnap) => {
         if (docSnap.exists()) {
             setMapObstacles(docSnap.data().obstacles || []);
@@ -74,13 +82,70 @@ export const useMasterData = () => {
         }
     });
 
+    const unsubCustomers = onSnapshot(doc(db, 'CSDB', 'customers'), (s) => {
+        setCustomers(s.exists() ? (s.data().items || []) : []);
+    });
+    const unsubSuppliers = onSnapshot(doc(db, 'CSDB', 'suppliers'), (s) => {
+        setSuppliers(s.exists() ? (s.data().items || []) : []);
+    });
+
     return () => { 
         unsubWp(); unsubLogOps(); unsubSectors(); unsubPartReq(); unsubBomReq();
         unsubParts(); unsubBOM(); unsubObstacles();
+        unsubCustomers(); unsubSuppliers(); unsubQuickActions();
     };
   }, []);
 
-  // --- ACTIONS ---
+  const onAddQuickAction = async (config: Omit<QuickActionConfig, 'id'>) => {
+      const newAction = { ...config, id: crypto.randomUUID() };
+      await setDoc(doc(db, 'settings', 'quick_actions'), { items: arrayUnion(newAction) }, { merge: true });
+  };
+
+  const onDeleteQuickAction = async (id: string) => {
+      const ref = doc(db, 'settings', 'quick_actions');
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+          const filtered = (snap.data().items || []).filter((i: any) => i.id !== id);
+          await updateDoc(ref, { items: filtered });
+      }
+  };
+
+  // CSDB Actions
+  const onAddCSItem = async (category: 'customers' | 'suppliers', name: string, description: string = '') => {
+      try {
+          const newItem: CSItem = { id: crypto.randomUUID(), name: name.toUpperCase(), description };
+          await setDoc(doc(db, 'CSDB', category), { items: arrayUnion(newItem) }, { merge: true });
+      } catch (e) { console.error(e); }
+  };
+
+  const onBatchAddCSItems = async (category: 'customers' | 'suppliers', lines: string[]) => {
+      try {
+          const itemsToAdd = lines.map(line => {
+              if (!line.trim()) return null;
+              const [n, d] = line.split(';');
+              return { id: crypto.randomUUID(), name: n.trim().toUpperCase(), description: d ? d.trim() : '' };
+          }).filter(Boolean);
+          if (itemsToAdd.length > 0) {
+              await setDoc(doc(db, 'CSDB', category), { items: arrayUnion(...itemsToAdd) }, { merge: true });
+          }
+      } catch (e) { console.error(e); }
+  };
+
+  const onDeleteCSItem = async (category: 'customers' | 'suppliers', id: string) => {
+      try {
+          const ref = doc(db, 'CSDB', category);
+          const snap = await getDoc(ref);
+          if (snap.exists()) {
+              const current = snap.data().items || [];
+              const filtered = current.filter((i: any) => i.id !== id);
+              await updateDoc(ref, { items: filtered });
+          }
+      } catch (e) { console.error(e); }
+  };
+
+  const onDeleteAllCSItems = async (category: 'customers' | 'suppliers') => {
+      try { await setDoc(doc(db, 'CSDB', category), { items: [] }); } catch (e) { console.error(e); }
+  };
 
   // Obstacles
   const onAddMapObstacle = async (obs: Omit<MapObstacle, 'id'>) => {
@@ -258,12 +323,15 @@ export const useMasterData = () => {
 
   return {
     partsMap, bomMap, workplaces, logisticsOperations, mapSectors, mapObstacles, partRequests, bomRequests,
+    customers, suppliers, quickActions,
     onAddWorkplace, onUpdateWorkplace, onDeleteWorkplace, onDeleteAllWorkplaces, onBatchAddWorkplaces,
     onAddLogisticsOperation, onUpdateLogisticsOperation, onDeleteLogisticsOperation, onDeleteAllLogisticsOperations,
     onAddMapSector, onUpdateMapSector, onDeleteMapSector,
     onAddMapObstacle, onDeleteMapObstacle,
     onAddPart, onBatchAddParts, onDeletePart, onDeleteAllParts,
     onAddBOMItem, onBatchAddBOMItems, onDeleteBOMItem, onDeleteAllBOMItems,
+    onAddCSItem, onBatchAddCSItems, onDeleteCSItem, onDeleteAllCSItems,
+    onAddQuickAction, onDeleteQuickAction,
     onRequestPart, onDeletePartRequest, 
     onRequestBOM, onDeleteBOMRequest
   };

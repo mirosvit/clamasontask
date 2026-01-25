@@ -7,6 +7,23 @@ export interface UserData {
   canExportAnalytics?: boolean;
 }
 
+export interface QuickActionConfig {
+  id: string;
+  label: string;
+  color: string;
+  inputType: 'PART' | 'TEXT' | 'CUSTOMER' | 'SUPPLIER';
+  logisticsOpId: string;
+  sourceSectorId?: string | null;
+  targetSectorId?: string | null;
+  defaultText?: string;
+}
+
+export interface CSItem {
+  id: string;
+  name: string;
+  description?: string;
+}
+// ... zvyšok súboru zostáva nezmenený (ponechávam v pamäti)
 export interface ScrapConfig {
   scrapLogisticsOpId: string;
 }
@@ -200,10 +217,9 @@ export interface Role {
     parentId?: string;
     rank?: number;
     isSystem?: boolean;
-    permissions?: string[]; // NOVÉ: Vnorené oprávnenia
+    permissions?: string[]; 
 }
 
-// Legacy - bude odstránené po migrácii
 export interface Permission {
     id: string;
     roleId: string;
