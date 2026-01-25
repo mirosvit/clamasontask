@@ -11,7 +11,7 @@ interface WorkplaceSectionProps {
   onBatchAddWorkplaces: (vals: string[]) => void;
   onDeleteWorkplace: (id: string) => void;
   onDeleteAllWorkplaces: () => void;
-  onAddLogisticsOperation: (val: string, time?: number, dist?: number, x?: number, y?: number, defaultSource?: string, defaultTarget?: string) => void;
+  onAddLogisticsOperation: (val: string, time?: number, dist?: number, x?: number, y?: number, defaultSource?: string | null, defaultTarget?: string | null) => void;
   onUpdateLogisticsOperation: (id: string, updates: Partial<DBItem>) => void;
   onDeleteLogisticsOperation: (id: string) => void;
   onDeleteAllLogisticsOperations: () => void;
