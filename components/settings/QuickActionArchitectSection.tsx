@@ -145,7 +145,7 @@ const QuickActionArchitectSection: React.FC = () => {
                 <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Existujúce rýchle akcie ({data.quickActions.length})</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {data.quickActions.map(action => (
-                        <div key={action.id} className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex items-center justify-between group hover:border-slate-700 transition-all">
+                        <div key={action.id} className="bg-slate-900 border border-slate-700 p-5 rounded-2xl flex items-center justify-between group hover:border-slate-700 transition-all">
                             <div className="flex items-center gap-4">
                                 <div className={`w-3 h-10 rounded-full ${action.color}`}></div>
                                 <div>

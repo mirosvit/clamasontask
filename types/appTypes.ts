@@ -15,7 +15,7 @@ export interface QuickActionConfig {
   logisticsOpId: string;
   sourceSectorId?: string | null;
   targetSectorId?: string | null;
-  defaultText?: string;
+  defaultText?: string | null;
 }
 
 export interface CSItem {
@@ -23,7 +23,7 @@ export interface CSItem {
   name: string;
   description?: string;
 }
-// ... zvyšok súboru zostáva nezmenený (ponechávam v pamäti)
+
 export interface ScrapConfig {
   scrapLogisticsOpId: string;
 }
@@ -70,8 +70,8 @@ export interface DBItem {
   coordX?: number;
   coordY?: number;
   distancePx?: number;
-  defaultSourceSectorId?: string;
-  defaultTargetSectorId?: string;
+  defaultSourceSectorId?: string | null;
+  defaultTargetSectorId?: string | null;
 }
 
 export interface MapSector {
@@ -125,10 +125,10 @@ export interface Task {
   priority?: PriorityLevel; 
   completionTime?: string;
   completedBy?: string | null;
-  status?: 'completed' | 'incorrectly_entered';
+  status?: 'completed' | 'incorrectly_entered' | 'open' | 'audit_error' | 'unpacked';
   isMissing?: boolean;
   missingReportedBy?: string | null;
-  missingReason?: string;
+  missingReason?: string | null;
   isInProgress?: boolean;
   inProgressBy?: string | null;
   createdAt?: number; 
@@ -153,10 +153,10 @@ export interface Task {
   expireAt?: number;
   searchExhausted?: boolean;
   searchedBy?: string | null;
-  pickedFromSectorId?: string;
+  pickedFromSectorId?: string | null;
   // Logistické trasovanie
-  sourceSectorId?: string;
-  targetSectorId?: string;
+  sourceSectorId?: string | null;
+  targetSectorId?: string | null;
   // Anti-Cheat flag pre analytiku
   isInvalid?: boolean; 
 }
