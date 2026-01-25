@@ -191,7 +191,7 @@ export const useMasterData = () => {
   };
 
   // Logistics Operations
-  const onAddLogisticsOperation = async (val: string, time: number = 0, dist: number = 0, x: number = 0, y: number = 0, defaultSource?: string, defaultTarget?: string) => { 
+  const onAddLogisticsOperation = async (val: string, time: number = 0, dist: number = 0, x: number = 0, y: number = 0, defaultSource?: string | null, defaultTarget?: string | null) => { 
       await addDoc(collection(db, 'logistics_operations'), { 
           value: val, 
           standardTime: time, 

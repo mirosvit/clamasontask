@@ -59,7 +59,7 @@ const TransactionLogTab: React.FC<TransactionLogTabProps> = ({
     loadHistory();
   }, [dateFrom, dateTo, fetchSanons, historicalData.length]);
 
-  const resolveSector = (sectorId?: string) => {
+  const resolveSector = (sectorId?: string | null) => {
       if (!sectorId) return '';
       const s = mapSectors.find(x => x.id === sectorId);
       return s ? s.name : sectorId;

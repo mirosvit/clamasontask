@@ -104,7 +104,7 @@ interface PartSearchScreenProps {
     onDeleteWorkplace: (id: string) => Promise<void>;
     onDeleteAllWorkplaces: () => Promise<void>;
 
-    onAddLogisticsOperation: (val: string, time?: number, dist?: number, x?: number, y?: number, defaultSource?: string, defaultTarget?: string) => Promise<void>;
+    onAddLogisticsOperation: (val: string, time?: number, dist?: number, x?: number, y?: number, defaultSource?: string | null, defaultTarget?: string | null) => Promise<void>;
     onUpdateLogisticsOperation: (id: string, updates: Partial<DBItem>) => Promise<void>;
     onDeleteLogisticsOperation: (id: string) => Promise<void>;
     onDeleteAllLogisticsOperations: () => Promise<void>;
