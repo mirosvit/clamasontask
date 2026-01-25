@@ -25,6 +25,7 @@ const Icons = {
     FileText: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
     Alert: () => <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
     Check: () => <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>,
+    Search: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>,
     Sort: ({ active, direction }: { active: boolean, direction: 'asc' | 'desc' }) => (
         <svg className={`w-3 h-3 transition-all ${active ? 'text-teal-400' : 'text-slate-600 opacity-30 group-hover:opacity-100'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             {active && direction === 'asc' ? (
@@ -41,7 +42,8 @@ const Icons = {
 const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
     const { t, language } = useLanguage();
     
-    // Sort State
+    // Search & Sort State
+    const [searchQuery, setSearchQuery] = useState('');
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
 
     // Modals state
@@ -62,9 +64,27 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
         setIsDeliveryNoteGenerated(false);
     }, [props.actualScrap.length]);
 
-    // SORTING LOGIC
-    const sortedScrap = useMemo(() => {
+    // FILTERING & SORTING LOGIC
+    const displayScrap = useMemo(() => {
         let items = [...props.actualScrap];
+
+        // 1. Search Filter
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase().trim();
+            items = items.filter(r => {
+                const metal = props.metals.find(m => m.id === r.metalId)?.type || '';
+                const bin = props.bins.find(b => b.id === r.binId)?.name || '';
+                const worker = props.resolveName(r.worker);
+                const date = new Date(r.timestamp).toLocaleDateString('sk-SK');
+                
+                return metal.toLowerCase().includes(q) || 
+                       bin.toLowerCase().includes(q) || 
+                       worker.toLowerCase().includes(q) || 
+                       date.includes(q);
+            });
+        }
+
+        // 2. Sorting
         if (sortConfig !== null) {
             items.sort((a, b) => {
                 let aVal: any;
@@ -101,7 +121,7 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
             });
         }
         return items;
-    }, [props.actualScrap, sortConfig, props.metals, props.bins, props.resolveName]);
+    }, [props.actualScrap, searchQuery, sortConfig, props.metals, props.bins, props.resolveName]);
 
     const requestSort = (key: string) => {
         let direction: 'asc' | 'desc' = 'asc';
@@ -111,17 +131,23 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
         setSortConfig({ key, direction });
     };
 
-    const currentWarehouseValue = useMemo(() => {
+    // WAREHOUSE STATISTICS (VALUE & WEIGHTS) - Now reacts to filtered data (displayScrap)
+    const warehouseStats = useMemo(() => {
         const now = new Date();
         const month = now.getMonth() + 1;
         const year = now.getFullYear();
 
-        return props.actualScrap.reduce((acc, item) => {
+        return displayScrap.reduce((acc, item) => {
             const priceObj = props.prices.find(p => p.metalId === item.metalId && p.month === month && p.year === year);
             const price = priceObj?.price || 0;
-            return acc + (item.netto * price);
-        }, 0);
-    }, [props.actualScrap, props.prices]);
+            
+            acc.totalValue += (item.netto * price);
+            acc.totalGross += item.gross;
+            acc.totalNetto += item.netto;
+            
+            return acc;
+        }, { totalValue: 0, totalGross: 0, totalNetto: 0 });
+    }, [displayScrap, props.prices]);
 
     const handleOpenEdit = (item: ScrapRecord) => {
         setEditingItem(item);
@@ -262,10 +288,14 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
                 <div>
                     <h1 className="text-3xl font-black text-white uppercase tracking-tighter leading-none">{t('scrap_warehouse_title')}</h1>
                     <div className="flex flex-wrap items-center gap-3 mt-3">
-                        <span className="bg-indigo-500/20 text-indigo-400 text-[9px] font-black px-3 py-1 rounded-full border border-indigo-500/30 uppercase tracking-widest">AKTUÁLNY SKLAD</span>
-                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Položiek: <span className="text-white">{props.actualScrap.length}</span></p>
+                        <span className="bg-indigo-500/20 text-indigo-400 text-[9px] font-black px-3 py-1 rounded-full border border-indigo-500/30 uppercase tracking-widest">{searchQuery ? 'FILTROVANÝ STAV' : 'STAV SKLADU'}</span>
+                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Položiek: <span className="text-white">{displayScrap.length}</span></p>
                         <div className="w-1 h-1 rounded-full bg-slate-700 mx-1"></div>
-                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Odhadovaná hodnota: <span className="text-amber-400 font-black">{currentWarehouseValue.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span></p>
+                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Brutto: <span className="text-white">{warehouseStats.totalGross.toLocaleString()} kg</span></p>
+                        <div className="w-1 h-1 rounded-full bg-slate-700 mx-1"></div>
+                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Netto: <span className="text-teal-400 font-black">{warehouseStats.totalNetto.toLocaleString()} kg</span></p>
+                        <div className="w-1 h-1 rounded-full bg-slate-700 mx-1"></div>
+                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Odhad: <span className="text-amber-400 font-black">{warehouseStats.totalValue.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span></p>
                     </div>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
@@ -279,6 +309,26 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
             </div>
 
             <div className={`${cardClass} no-print`}>
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+                    <div className="relative w-full md:w-96">
+                        <input 
+                            type="text" 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Hľadať v sklade..."
+                            className="w-full h-12 bg-slate-950/50 border border-slate-700 rounded-xl px-4 pl-12 text-white placeholder-slate-600 focus:outline-none focus:border-teal-500 transition-all font-bold uppercase"
+                        />
+                        <div className="absolute left-4 top-3 text-slate-500">
+                            <Icons.Search />
+                        </div>
+                    </div>
+                    {searchQuery && (
+                        <p className="text-[10px] font-black text-teal-500 uppercase tracking-widest animate-pulse">
+                            Zobrazených: {displayScrap.length} / {props.actualScrap.length}
+                        </p>
+                    )}
+                </div>
+
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-left border-collapse">
                         <thead>
@@ -302,8 +352,8 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800/50">
-                            {sortedScrap.length > 0 ? (
-                                sortedScrap.map(r => {
+                            {displayScrap.length > 0 ? (
+                                displayScrap.map(r => {
                                     const metal = props.metals.find(m => m.id === r.metalId);
                                     const bin = props.bins.find(b => b.id === r.binId);
                                     return (
@@ -326,7 +376,7 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
                                     );
                                 })
                             ) : (
-                                <tr><td colSpan={6} className="py-32 text-center text-slate-700"><div className="flex flex-col items-center gap-4"><Icons.Box /><p className="font-black uppercase tracking-[0.3em] text-xs italic">{t('scrap_empty_warehouse')}</p></div></td></tr>
+                                <tr><td colSpan={6} className="py-32 text-center text-slate-700"><div className="flex flex-col items-center gap-4"><Icons.Box /><p className="font-black uppercase tracking-[0.3em] text-xs italic">{searchQuery ? 'Žiadne výsledky vyhľadávania' : t('scrap_empty_warehouse')}</p></div></td></tr>
                             )}
                         </tbody>
                     </table>
