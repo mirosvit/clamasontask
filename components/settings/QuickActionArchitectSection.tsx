@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../LanguageContext';
 import { useData } from '../../context/DataContext';
 import { QuickActionConfig } from '../../types/appTypes';
@@ -18,6 +19,8 @@ const QuickActionArchitectSection: React.FC = () => {
     const { t } = useLanguage();
     const data = useData();
 
+    // Editor state
+    const [editingId, setEditingId] = useState<string | null>(null);
     const [label, setLabel] = useState('');
     const [selectedColor, setSelectedColor] = useState(COLORS[0].id);
     const [inputType, setInputType] = useState<QuickActionConfig['inputType']>('TEXT');
@@ -26,13 +29,38 @@ const QuickActionArchitectSection: React.FC = () => {
     const [targetSectorId, setTargetSectorId] = useState('');
     const [defaultText, setDefaultText] = useState('');
 
+    const handleReset = () => {
+        setEditingId(null);
+        setLabel('');
+        setSelectedColor(COLORS[0].id);
+        setInputType('TEXT');
+        setLogisticsOpId('');
+        setSourceSectorId('');
+        setTargetSectorId('');
+        setDefaultText('');
+    };
+
+    const handleEditClick = (action: QuickActionConfig) => {
+        setEditingId(action.id);
+        setLabel(action.label);
+        setSelectedColor(action.color);
+        setInputType(action.inputType);
+        setLogisticsOpId(action.logisticsOpId);
+        setSourceSectorId(action.sourceSectorId || '');
+        setTargetSectorId(action.targetSectorId || '');
+        setDefaultText(action.defaultText || '');
+        
+        // Scroll to top for visibility
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
     const handleSave = async () => {
         if (!label || !logisticsOpId) {
             alert("Vyplňte názov a operáciu.");
             return;
         }
 
-        await data.onAddQuickAction({
+        const payload = {
             label: label.toUpperCase(),
             color: selectedColor,
             inputType,
@@ -40,30 +68,41 @@ const QuickActionArchitectSection: React.FC = () => {
             sourceSectorId: sourceSectorId || null,
             targetSectorId: targetSectorId || null,
             defaultText: defaultText || null
-        });
+        };
 
-        // Reset
-        setLabel(''); setLogisticsOpId(''); setSourceSectorId(''); setTargetSectorId(''); setDefaultText('');
+        if (editingId) {
+            await data.onUpdateQuickAction(editingId, payload);
+        } else {
+            await data.onAddQuickAction(payload);
+        }
+
+        handleReset();
     };
 
-    const cardClass = "bg-slate-900/60 border border-slate-700/50 rounded-3xl p-6 shadow-xl";
     const labelClass = "block text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2";
     const inputClass = "w-full h-12 bg-slate-950 border border-slate-800 rounded-xl px-4 text-white text-sm font-bold focus:border-fuchsia-500 outline-none transition-all uppercase";
 
     return (
         <div className="space-y-8 animate-fade-in text-slate-200">
             {/* EDITOR */}
-            <div className="bg-gray-800/40 border border-slate-700/50 rounded-3xl p-8 shadow-2xl backdrop-blur-sm">
-                <div className="flex items-center gap-4 mb-10 border-b border-white/5 pb-8">
-                    <div className="p-4 bg-fuchsia-500/10 rounded-2xl border border-fuchsia-500/30 text-fuchsia-400">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 011-1h1a2 2 0 100-4H7a1 1 0 01-1-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
-                        </svg>
+            <div className={`bg-gray-800/40 border transition-all duration-500 rounded-3xl p-8 shadow-2xl backdrop-blur-sm ${editingId ? 'border-amber-500/50 bg-amber-500/5' : 'border-slate-700/50'}`}>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10 border-b border-white/5 pb-8">
+                    <div className="flex items-center gap-4">
+                        <div className={`p-4 rounded-2xl border transition-colors ${editingId ? 'bg-amber-500/20 border-amber-500/30 text-amber-400' : 'bg-fuchsia-500/10 border-fuchsia-500/30 text-fuchsia-400'}`}>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 011-1h1a2 2 0 100-4H7a1 1 0 01-1-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 className="text-2xl font-black text-white uppercase tracking-tighter leading-none">{editingId ? 'UPRAVIŤ AKCIU' : 'ARCHITECT'}</h3>
+                            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-2">{editingId ? 'Modifikácia existujúcej rýchlej akcie' : 'Definujte nové tlačidlá pre rýchle akcie'}</p>
+                        </div>
                     </div>
-                    <div>
-                        <h3 className="text-2xl font-black text-white uppercase tracking-tighter leading-none">ARCHITECT</h3>
-                        <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-2">Definujte nové tlačidlá pre rýchle akcie</p>
-                    </div>
+                    {editingId && (
+                        <button onClick={handleReset} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                            Zrušiť úpravu
+                        </button>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -134,9 +173,9 @@ const QuickActionArchitectSection: React.FC = () => {
                 <div className="mt-10 pt-8 border-t border-white/5 flex justify-end">
                     <button 
                         onClick={handleSave}
-                        className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-black px-12 py-4 rounded-2xl shadow-xl transition-all active:scale-95 uppercase tracking-[0.2em] text-xs border-b-4 border-fuchsia-800"
+                        className={`font-black px-12 py-4 rounded-2xl shadow-xl transition-all active:scale-95 uppercase tracking-[0.2em] text-xs border-b-4 ${editingId ? 'bg-amber-600 hover:bg-amber-500 text-white border-amber-800' : 'bg-fuchsia-600 hover:bg-fuchsia-500 text-white border-fuchsia-800'}`}
                     >
-                        Vytvoriť akciu
+                        {editingId ? 'Aktualizovať akciu' : 'Vytvoriť akciu'}
                     </button>
                 </div>
             </div>
@@ -146,7 +185,7 @@ const QuickActionArchitectSection: React.FC = () => {
                 <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Existujúce rýchle akcie ({data.quickActions.length})</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {data.quickActions.map(action => (
-                        <div key={action.id} className="bg-slate-900 border border-slate-700 p-5 rounded-2xl flex items-center justify-between group hover:border-slate-700 transition-all">
+                        <div key={action.id} className={`bg-slate-900 border transition-all p-5 rounded-2xl flex items-center justify-between group ${editingId === action.id ? 'border-amber-500 shadow-lg shadow-amber-500/10' : 'border-slate-700 hover:border-slate-600'}`}>
                             <div className="flex items-center gap-4">
                                 <div className={`w-3 h-10 rounded-full ${action.color}`}></div>
                                 <div>
@@ -154,12 +193,22 @@ const QuickActionArchitectSection: React.FC = () => {
                                     <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{action.inputType} • {data.logisticsOperations.find(o => o.id === action.logisticsOpId)?.value || 'Neznáma op.'}</p>
                                 </div>
                             </div>
-                            <button 
-                                onClick={() => data.onDeleteQuickAction(action.id)}
-                                className="p-2 text-slate-700 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            </button>
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                <button 
+                                    onClick={() => handleEditClick(action)}
+                                    className="p-2 text-slate-400 hover:text-amber-400 transition-all"
+                                    title="Upraviť akciu"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                </button>
+                                <button 
+                                    onClick={() => data.onDeleteQuickAction(action.id)}
+                                    className="p-2 text-slate-700 hover:text-red-500 transition-all"
+                                    title="Vymazať akciu"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                            </div>
                         </div>
                     ))}
                 </div>

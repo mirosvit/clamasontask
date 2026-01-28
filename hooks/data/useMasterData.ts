@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { db } from '../../firebase';
 import { 
@@ -99,6 +100,16 @@ export const useMasterData = () => {
   const onAddQuickAction = async (config: Omit<QuickActionConfig, 'id'>) => {
       const newAction = { ...config, id: crypto.randomUUID() };
       await setDoc(doc(db, 'settings', 'quick_actions'), { items: arrayUnion(newAction) }, { merge: true });
+  };
+
+  const onUpdateQuickAction = async (id: string, updates: Partial<QuickActionConfig>) => {
+      const ref = doc(db, 'settings', 'quick_actions');
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+          const currentItems = snap.data().items || [];
+          const newItems = currentItems.map((i: any) => i.id === id ? { ...i, ...updates } : i);
+          await updateDoc(ref, { items: newItems });
+      }
   };
 
   const onDeleteQuickAction = async (id: string) => {
@@ -296,7 +307,7 @@ export const useMasterData = () => {
           }
       } catch (e) { console.error(e); }
   };
-  const onDeleteAllBOMItems = async () => { try { await setDoc(doc(db, 'settings', 'bom'), { items: [] }); } catch (e) { console.error("Error clearing BOM:", e); } };
+  const onDeleteAllBOMItems = async () => { try { await setDoc(doc(db, 'settings', 'bom'), { items: [] }); } catch (e) { console.error(e); } };
 
   // Requests
   const onRequestPart = async (part: string) => {
@@ -331,7 +342,7 @@ export const useMasterData = () => {
     onAddPart, onBatchAddParts, onDeletePart, onDeleteAllParts,
     onAddBOMItem, onBatchAddBOMItems, onDeleteBOMItem, onDeleteAllBOMItems,
     onAddCSItem, onBatchAddCSItems, onDeleteCSItem, onDeleteAllCSItems,
-    onAddQuickAction, onDeleteQuickAction,
+    onAddQuickAction, onUpdateQuickAction, onDeleteQuickAction,
     onRequestPart, onDeletePartRequest, 
     onRequestBOM, onDeleteBOMRequest
   };
