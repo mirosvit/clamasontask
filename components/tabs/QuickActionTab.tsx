@@ -71,7 +71,7 @@ const QuickActionTab: React.FC = () => {
                 true, // startNow
                 true  // isActivity
             );
-            alert(language === 'sk' ? `Aktivita "${action.label}" spustená.` : `Activity "${action.label}" started.`);
+            // Alert odstránený na žiadosť používateľa
         } catch (e) {
             console.error(e);
         } finally {
