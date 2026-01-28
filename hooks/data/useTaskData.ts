@@ -61,7 +61,7 @@ export const useTaskData = (
   const onAddTask = useCallback(async (
     pn: string, wp: string | null, qty: string, unit: string, prio: PriorityLevel, 
     isLog?: boolean, note?: string, isProd?: boolean, src?: string | null, tgt?: string | null,
-    startNow?: boolean
+    startNow?: boolean, isAct?: boolean
   ) => {
     const user = localStorage.getItem('app_user') || 'Unknown';
     
@@ -95,6 +95,7 @@ export const useTaskData = (
         priority: prio || 'NORMAL',
         isLogistics: finalIsLog,
         isProduction: finalIsProd,
+        isActivity: !!isAct,
         createdBy: user,
         note: note || '',
         plate: finalIsLog ? (note || '') : '',

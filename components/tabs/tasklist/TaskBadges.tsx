@@ -24,6 +24,12 @@ const FactoryIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
+const SparklesIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-7.714 2.143L11 21l-2.286-6.857L1 12l7.714-2.143L11 3z" />
+  </svg>
+);
+
 const TaskBadges: React.FC<TaskBadgesProps> = ({ 
   task, isSystemInventoryTask, isAuditInProgress, isSearchingMode, isManualBlocked, isUrgent, resolveName
 }) => {
@@ -39,13 +45,19 @@ const TaskBadges: React.FC<TaskBadgesProps> = ({
 
   return (
     <div className="flex flex-wrap gap-2 mb-2.5">
-      {task.isProduction && !isScrap && (
+      {task.isActivity && (
+        <div className={`${baseBadgeClass} bg-indigo-500/20 text-indigo-400 border-indigo-500/30 shadow-indigo-900/10`}>
+          <SparklesIcon className="w-3 h-3" /> {language === 'sk' ? 'Support Activity' : 'SUPPORT'}
+        </div>
+      )}
+
+      {task.isProduction && !isScrap && !task.isActivity && (
         <div className={`${baseBadgeClass} bg-pink-500/10 text-pink-400 border-pink-500/20`}>
           <FactoryIcon className="w-3 h-3" /> {language === 'sk' ? 'VÝROBA' : 'PRODUCTION'}
         </div>
       )}
 
-      {task.isLogistics && !isInventory && (
+      {task.isLogistics && !isInventory && !task.isActivity && (
         <div className={`${baseBadgeClass} bg-indigo-500/10 text-indigo-400 border-indigo-500/20`}>
           <TruckIcon className="w-3 h-3" /> {t('status_logistics')}
         </div>

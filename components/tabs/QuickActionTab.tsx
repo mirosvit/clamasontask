@@ -34,6 +34,12 @@ const QuickActionTab: React.FC = () => {
     }, [activeAction, partnerSearch, data.customers, data.suppliers, language]);
 
     const handleActionClick = (action: QuickActionConfig) => {
+        // AK IDE O ACTIVITY - Vynechávame modal a hneď ukladáme
+        if (action.inputType === 'ACTIVITY') {
+            handleImmediateSubmit(action);
+            return;
+        }
+
         setActiveAction(action);
         setInputValue(action.defaultText || '');
         setPartnerSearch('');
@@ -45,6 +51,32 @@ const QuickActionTab: React.FC = () => {
         setInputValue('');
         setPartnerSearch('');
         setQty('1');
+    };
+
+    const handleImmediateSubmit = async (action: QuickActionConfig) => {
+        setIsSubmitting(true);
+        try {
+            const op = data.logisticsOperations.find(o => o.id === action.logisticsOpId);
+            await data.onAddTask(
+                (action.defaultText || action.label).toUpperCase(),
+                op?.value || 'Support Activity',
+                '1',
+                'pcs',
+                'NORMAL',
+                true,
+                action.label, 
+                false,
+                action.sourceSectorId || op?.defaultSourceSectorId,
+                action.targetSectorId || op?.defaultTargetSectorId,
+                true, // startNow
+                true  // isActivity
+            );
+            alert(language === 'sk' ? `Aktivita "${action.label}" spustená.` : `Activity "${action.label}" started.`);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleSubmit = async () => {
@@ -68,7 +100,8 @@ const QuickActionTab: React.FC = () => {
                 false,
                 activeAction.sourceSectorId || op?.defaultSourceSectorId,
                 activeAction.targetSectorId || op?.defaultTargetSectorId,
-                true // startNow parameter
+                true, // startNow parameter
+                false // isActivity
             );
 
             handleClose();
@@ -102,6 +135,7 @@ const QuickActionTab: React.FC = () => {
                     <button
                         key={action.id}
                         onClick={() => handleActionClick(action)}
+                        disabled={isSubmitting}
                         className={`group relative h-44 rounded-[2rem] border-2 border-white/5 ${action.color} shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex flex-col items-center justify-center p-8 text-center`}
                     >
                         <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity rounded-[2rem]"></div>
@@ -112,9 +146,16 @@ const QuickActionTab: React.FC = () => {
                              <span className="bg-white/20 px-3 py-1 rounded-full text-[9px] font-black text-white uppercase tracking-widest">
                                 {data.logisticsOperations.find(o => o.id === action.logisticsOpId)?.value || 'Logistika'}
                              </span>
+                             {action.inputType === 'ACTIVITY' && (
+                                <span className="bg-black/40 px-2 py-0.5 rounded text-[8px] font-black text-white uppercase">Support Activity</span>
+                             )}
                         </div>
                         <div className="absolute bottom-4 opacity-30 text-white group-hover:opacity-100 transition-opacity">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
+                            {action.inputType === 'ACTIVITY' ? (
+                                <svg className="w-5 h-5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                            ) : (
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
+                            )}
                         </div>
                     </button>
                 ))}

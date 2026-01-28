@@ -11,7 +11,7 @@ export interface QuickActionConfig {
   id: string;
   label: string;
   color: string;
-  inputType: 'PART' | 'TEXT' | 'CUSTOMER' | 'SUPPLIER';
+  inputType: 'PART' | 'TEXT' | 'CUSTOMER' | 'SUPPLIER' | 'ACTIVITY';
   logisticsOpId: string;
   sourceSectorId?: string | null;
   targetSectorId?: string | null;
@@ -143,6 +143,7 @@ export interface Task {
   inventoryHistory?: InventorySession[];
   isLogistics?: boolean; 
   isProduction?: boolean;
+  isActivity?: boolean;
   isAuditInProgress?: boolean;
   auditBy?: string | null;
   auditFinalBadge?: string | null;

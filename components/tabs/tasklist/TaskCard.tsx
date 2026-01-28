@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Task, PriorityLevel, DBItem } from '../../../types/appTypes';
 import { useLanguage } from '../../LanguageContext';
@@ -83,7 +82,9 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
     else if (isAuditInProgress) { bgClass = "bg-amber-500/20"; borderClass = "border-l-4 border-amber-500"; }
     else if (isSearchingMode) { bgClass = "bg-gray-800"; borderClass = "border-l-4 border-gray-600 shadow-inner"; }
     else if (props.isSystemInventoryTask) { bgClass = "bg-[#4169E1]/20"; borderClass = "border-l-4 border-[#4169E1]"; }
+    else if (task.isActivity && task.isInProgress) { bgClass = "bg-[#10b981]/20"; borderClass = "border-l-4 border-[#10b981]"; }
     else if (task.isInProgress) { bgClass = "bg-[#FFD700]/20"; borderClass = "border-l-4 border-[#FFD700]"; }
+    else if (task.isActivity) { bgClass = "bg-indigo-900/20"; borderClass = "border-l-4 border-indigo-500"; }
     else if (task.isMissing) { bgClass = "bg-red-900/20"; borderClass = "border-l-4 border-red-500"; }
     else if (task.isLogistics) { bgClass = "bg-sky-900/10"; borderClass = "border-l-4 border-sky-500"; }
     else {
@@ -172,7 +173,7 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
           </div>
           
           <div className="flex flex-wrap gap-2 items-center mt-1">
-            <span className={`text-lg font-bold uppercase tracking-wider ${task.isDone ? 'text-gray-600' : isManualBlocked ? 'text-gray-600' : props.isSystemInventoryTask ? 'text-[#4169E1]' : isAuditInProgress ? 'text-amber-500' : 'text-cyan-400'}`}>{task.workplace || "---"}</span>
+            <span className={`text-lg font-bold uppercase tracking-wider ${task.isDone ? 'text-gray-600' : isManualBlocked ? 'text-gray-600' : (task.isInProgress && !props.isSystemInventoryTask) ? (task.isActivity ? 'text-[#10b981]' : 'text-[#FFD700]') : task.isActivity ? 'text-indigo-400' : props.isSystemInventoryTask ? 'text-[#4169E1]' : isAuditInProgress ? 'text-amber-500' : 'text-cyan-400'}`}>{task.workplace || "---"}</span>
             {task.note && <span className="inline-block px-2 py-0.5 rounded bg-[#fef9c3] text-gray-800 text-xs font-bold shadow-sm border border-yellow-200 leading-tight">{task.note}</span>}
           </div>
 

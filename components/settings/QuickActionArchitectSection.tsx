@@ -102,6 +102,7 @@ const QuickActionArchitectSection: React.FC = () => {
                                 <option value="PART">ČÍSLO DIELU (KATALÓG)</option>
                                 <option value="CUSTOMER">VÝBER ZÁKAZNÍKA (CSDB)</option>
                                 <option value="SUPPLIER">VÝBER DODÁVATEĽA (CSDB)</option>
+                                <option value="ACTIVITY">POMOCNÁ AKTIVITA (BEZ VSTUPU)</option>
                             </select>
                         </div>
                     </div>
