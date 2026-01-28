@@ -12,6 +12,7 @@ interface ScrapArchiveTabProps {
     onUpdateScrapArchive: (sanonId: string, updates: any) => Promise<void>;
     onDeleteArchivedItem: (sanonId: string, itemId: string) => Promise<void>;
     onDeleteArchive: (id: string) => Promise<void>;
+    onDeleteAllArchives?: () => Promise<void>;
     onFetchArchives: (from: string, to: string) => Promise<any[]>;
     resolveName: (username?: string | null) => string;
     hasPermission: (perm: string) => boolean;
@@ -29,13 +30,24 @@ const Icons = {
     Download: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>,
     FileText: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
     Dollar: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
-    Refresh: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+    Refresh: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>,
+    Sort: ({ active, direction }: { active: boolean, direction: 'asc' | 'desc' }) => (
+        <svg className={`w-3 h-3 transition-all ${active ? 'text-teal-400' : 'text-slate-600 opacity-30 group-hover:opacity-100'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {active && direction === 'asc' ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 15l7-7 7 7" />
+            ) : active && direction === 'desc' ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
+            ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M7 10l5-5 5 5M7 14l5 5 5-5" />
+            )}
+        </svg>
+    )
 };
 
 const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
     const { t, language } = useLanguage();
     
-    // State pre filtre
+    // State pre filtre šanónov
     const [dateFrom, setDateFrom] = useState(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
     const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
     const [isLoading, setIsLoading] = useState(false);
@@ -47,6 +59,15 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
     const [editGross, setEditGross] = useState('');
     const [editMetalId, setEditMetalId] = useState('');
     const [editBinId, setEditBinId] = useState('');
+
+    // State pre lokálne zoradenie a filtrovanie položiek v detaile
+    const [itemSortConfig, setItemSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
+    const [itemFilters, setItemFilters] = useState<Record<string, string>>({
+        worker: '',
+        material: '',
+        bin: '',
+        netto: ''
+    });
 
     // State pre úpravu ceny odberateľa
     const [isExternalValueModalOpen, setIsExternalValueModalOpen] = useState(false);
@@ -61,7 +82,17 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
         });
     }, [props.scrapArchives]);
 
-    // HANDLER: Načítanie histórie na vyžiadanie
+    // Reset filtrov pri prepnutí šanónu
+    const handleExpandSanon = (id: string) => {
+        if (expandedSanonId === id) {
+            setExpandedSanonId(null);
+        } else {
+            setExpandedSanonId(id);
+            setItemSortConfig(null);
+            setItemFilters({ worker: '', material: '', bin: '', netto: '' });
+        }
+    };
+
     const handleLoadArchives = async () => {
         setIsLoading(true);
         try {
@@ -72,7 +103,6 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
         }
     };
 
-    // Pomocná funkcia na výpočet hodnoty šanónu
     const calculateSanonValue = (items: ScrapRecord[], dispatchDate: string) => {
         const dateObj = new Date(dispatchDate);
         const month = dateObj.getMonth() + 1;
@@ -83,6 +113,68 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
             const price = priceObj?.price || 0;
             return acc + (item.netto * price);
         }, 0);
+    };
+
+    const getProcessedItems = (items: ScrapRecord[]) => {
+        let result = [...(items || [])];
+
+        // 1. Filtrovanie
+        if (itemFilters.worker) {
+            const q = itemFilters.worker.toLowerCase();
+            result = result.filter(item => props.resolveName(item.worker).toLowerCase().includes(q));
+        }
+        if (itemFilters.material) {
+            const q = itemFilters.material.toLowerCase();
+            result = result.filter(item => {
+                const metal = props.metals.find(m => m.id === item.metalId);
+                return (metal?.type || '').toLowerCase().includes(q);
+            });
+        }
+        if (itemFilters.bin) {
+            const q = itemFilters.bin.toLowerCase();
+            result = result.filter(item => {
+                const bin = props.bins.find(b => b.id === item.binId);
+                return (bin?.name || '').toLowerCase().includes(q);
+            });
+        }
+        if (itemFilters.netto) {
+            const q = itemFilters.netto.toLowerCase();
+            result = result.filter(item => item.netto.toString().includes(q));
+        }
+
+        // 2. Zoradenie
+        if (itemSortConfig) {
+            result.sort((a, b) => {
+                let aVal: any, bVal: any;
+                switch (itemSortConfig.key) {
+                    case 'time': aVal = a.timestamp; bVal = b.timestamp; break;
+                    case 'worker': aVal = props.resolveName(a.worker); bVal = props.resolveName(b.worker); break;
+                    case 'material': 
+                        aVal = props.metals.find(m => m.id === a.metalId)?.type || ''; 
+                        bVal = props.metals.find(m => m.id === b.metalId)?.type || ''; 
+                        break;
+                    case 'bin': 
+                        aVal = props.bins.find(bn => bn.id === a.binId)?.name || ''; 
+                        bVal = props.bins.find(bn => bn.id === b.binId)?.name || ''; 
+                        break;
+                    case 'netto': aVal = a.netto; bVal = b.netto; break;
+                    default: return 0;
+                }
+                if (aVal < bVal) return itemSortConfig.direction === 'asc' ? -1 : 1;
+                if (aVal > bVal) return itemSortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+
+        return result;
+    };
+
+    const requestItemSort = (key: string) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (itemSortConfig && itemSortConfig.key === key && itemSortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setItemSortConfig({ key, direction });
     };
 
     const handleOpenEdit = (sanonId: string, item: ScrapRecord) => {
@@ -142,7 +234,6 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
         doc.text(`Zodpovedny: ${props.resolveName(archive.finalizedBy)}`, 140, 35);
         doc.setLineWidth(0.5); doc.line(20, 40, 190, 40);
 
-        // Tabuľka položiek
         const tableBody = archive.items.map((r: ScrapRecord) => {
             const metal = props.metals.find(m => m.id === r.metalId);
             const bin = props.bins.find(b => b.id === r.binId);
@@ -166,13 +257,11 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
             columnStyles: { 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right', fontStyle: 'bold' } }
         });
 
-        // NOVÁ STRANA PRE SUMÁR V ARCHÍVE
         doc.addPage();
         doc.setFontSize(18); doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "bold");
         doc.text("SUMAR DOKUMENTU (ARCHIV)", 20, 25);
         doc.setLineWidth(0.5); doc.line(20, 30, 190, 30);
 
-        // Sumár podľa kovu
         const metalSummaryMap: Record<string, { weight: number, desc: string }> = {};
         archive.items.forEach((r: ScrapRecord) => {
             const metal = props.metals.find(m => m.id === r.metalId);
@@ -218,7 +307,6 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
         doc.setLineWidth(0.2); doc.line(20, signatureY, 80, signatureY); doc.line(120, signatureY, 180, signatureY);
         doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.text("Odovzdal (Clamason Slovakia)", 30, signatureY + 5); doc.text("Prevzal (Dopravca / Sklad)", 135, signatureY + 5);
         
-        // Pätka
         const totalPages = doc.internal.getNumberOfPages();
         for (let i = 1; i <= totalPages; i++) {
             doc.setPage(i); doc.setFontSize(8); doc.setTextColor(150, 150, 150);
@@ -275,10 +363,10 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
 
     const labelClass = "block text-[10px] font-black text-slate-500 uppercase tracking-[0.25em] mb-2";
     const inputClass = "w-full h-14 bg-slate-900/80 border-2 border-slate-700 rounded-xl px-4 text-white text-lg font-black focus:outline-none focus:border-teal-500/50 transition-all font-mono uppercase text-center";
+    const filterInputClass = "w-full h-8 bg-slate-950/60 border border-slate-800 rounded-lg px-2 text-[10px] text-white focus:outline-none focus:border-teal-500/50 transition-all uppercase placeholder:text-slate-700 font-bold";
 
     return (
         <div className="max-w-7xl mx-auto space-y-6 pb-20 animate-fade-in">
-            {/* HLAVIČKA A FILTER */}
             <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl space-y-6">
                 <div className="flex items-center gap-4 border-b border-slate-800 pb-4">
                     <div className="p-3 bg-indigo-500/20 rounded-2xl border border-indigo-500/30 text-indigo-400">
@@ -322,7 +410,6 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                 </div>
             </div>
 
-            {/* ZOZNAM ARCHÍVOV */}
             <div className="space-y-4">
                 {!hasLoaded ? (
                     <div className="py-32 text-center bg-slate-900/20 rounded-[3rem] border-2 border-dashed border-slate-800">
@@ -335,6 +422,7 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                     sortedArchives.map(archive => {
                         const isExpanded = expandedSanonId === archive.id;
                         const items = archive.items || [];
+                        const processedItems = isExpanded ? getProcessedItems(items) : [];
                         const totalWeight = items.reduce((acc: number, curr: ScrapRecord) => acc + curr.netto, 0);
                         const totalValue = calculateSanonValue(items, archive.dispatchDate);
                         const externalValue = archive.externalValue || 0;
@@ -344,7 +432,7 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                             <div key={archive.id} className="bg-slate-900/60 border border-slate-800 rounded-3xl overflow-hidden transition-all shadow-xl">
                                 <div className="flex flex-col md:flex-row items-center w-full">
                                     <button 
-                                        onClick={() => setExpandedSanonId(isExpanded ? null : archive.id)}
+                                        onClick={() => handleExpandSanon(archive.id)}
                                         className="flex-grow p-6 flex flex-col md:flex-row justify-between items-center gap-6 hover:bg-white/[0.02] transition-colors"
                                     >
                                         <div className="flex items-center gap-6">
@@ -429,44 +517,125 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                                             <table className="w-full text-left border-collapse">
                                                 <thead>
                                                     <tr className="text-[9px] font-black text-slate-600 uppercase tracking-widest border-b border-slate-800">
-                                                        <th className="py-4 px-4">Čas váženia</th>
-                                                        <th className="py-4 px-4">Materiál</th>
-                                                        <th className="py-4 px-4">Kontajner</th>
-                                                        <th className="py-4 px-4 text-right">Netto (kg)</th>
+                                                        <th className="py-4 px-4 min-w-[120px]">
+                                                            <button 
+                                                                onClick={() => requestItemSort('time')}
+                                                                className="flex items-center gap-2 group hover:text-teal-400 transition-colors uppercase tracking-widest"
+                                                            >
+                                                                Čas váženia <Icons.Sort active={itemSortConfig?.key === 'time'} direction={itemSortConfig?.direction || 'asc'} />
+                                                            </button>
+                                                        </th>
+                                                        <th className="py-4 px-4 min-w-[150px]">
+                                                            <div className="space-y-2">
+                                                                <button 
+                                                                    onClick={() => requestItemSort('worker')}
+                                                                    className="flex items-center gap-2 group hover:text-teal-400 transition-colors uppercase tracking-widest"
+                                                                >
+                                                                    Skladník <Icons.Sort active={itemSortConfig?.key === 'worker'} direction={itemSortConfig?.direction || 'asc'} />
+                                                                </button>
+                                                                <input 
+                                                                    type="text" 
+                                                                    placeholder="FILTER..." 
+                                                                    className={filterInputClass} 
+                                                                    value={itemFilters.worker}
+                                                                    onChange={e => setItemFilters(prev => ({...prev, worker: e.target.value}))}
+                                                                />
+                                                            </div>
+                                                        </th>
+                                                        <th className="py-4 px-4 min-w-[150px]">
+                                                            <div className="space-y-2">
+                                                                <button 
+                                                                    onClick={() => requestItemSort('material')}
+                                                                    className="flex items-center gap-2 group hover:text-teal-400 transition-colors uppercase tracking-widest"
+                                                                >
+                                                                    Materiál <Icons.Sort active={itemSortConfig?.key === 'material'} direction={itemSortConfig?.direction || 'asc'} />
+                                                                </button>
+                                                                <input 
+                                                                    type="text" 
+                                                                    placeholder="FILTER..." 
+                                                                    className={filterInputClass} 
+                                                                    value={itemFilters.material}
+                                                                    onChange={e => setItemFilters(prev => ({...prev, material: e.target.value}))}
+                                                                />
+                                                            </div>
+                                                        </th>
+                                                        <th className="py-4 px-4 min-w-[150px]">
+                                                            <div className="space-y-2">
+                                                                <button 
+                                                                    onClick={() => requestItemSort('bin')}
+                                                                    className="flex items-center gap-2 group hover:text-teal-400 transition-colors uppercase tracking-widest"
+                                                                >
+                                                                    Kontajner <Icons.Sort active={itemSortConfig?.key === 'bin'} direction={itemSortConfig?.direction || 'asc'} />
+                                                                </button>
+                                                                <input 
+                                                                    type="text" 
+                                                                    placeholder="FILTER..." 
+                                                                    className={filterInputClass} 
+                                                                    value={itemFilters.bin}
+                                                                    onChange={e => setItemFilters(prev => ({...prev, bin: e.target.value}))}
+                                                                />
+                                                            </div>
+                                                        </th>
+                                                        <th className="py-4 px-4 text-right min-w-[120px]">
+                                                            <div className="space-y-2">
+                                                                <button 
+                                                                    onClick={() => requestItemSort('netto')}
+                                                                    className="flex items-center justify-end gap-2 group hover:text-teal-400 transition-colors uppercase tracking-widest w-full"
+                                                                >
+                                                                    Netto (kg) <Icons.Sort active={itemSortConfig?.key === 'netto'} direction={itemSortConfig?.direction || 'asc'} />
+                                                                </button>
+                                                                <input 
+                                                                    type="text" 
+                                                                    placeholder="FILTER..." 
+                                                                    className={filterInputClass + " text-right"} 
+                                                                    value={itemFilters.netto}
+                                                                    onChange={e => setItemFilters(prev => ({...prev, netto: e.target.value}))}
+                                                                />
+                                                            </div>
+                                                        </th>
                                                         {props.hasPermission('perm_scrap_edit') && <th className="py-4 px-4"></th>}
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-800/30">
-                                                    {(archive.items || []).map((item: ScrapRecord) => {
-                                                        const metal = props.metals.find(m => m.id === item.metalId);
-                                                        const bin = props.bins.find(b => b.id === item.binId);
-                                                        return (
-                                                            <tr key={item.id} className="text-sm hover:bg-white/[0.01] group">
-                                                                <td className="py-4 px-4 text-slate-500 font-mono">{new Date(item.timestamp).toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' })}</td>
-                                                                <td className="py-4 px-4 font-bold text-slate-300 uppercase">{metal?.type || '???'}</td>
-                                                                <td className="py-4 px-4 text-slate-500 uppercase">{bin?.name || '???'}</td>
-                                                                <td className="py-4 px-4 text-right font-black text-white font-mono">{item.netto} kg</td>
-                                                                {props.hasPermission('perm_scrap_edit') && (
-                                                                    <td className="py-4 px-4 text-right">
-                                                                        <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                            <button 
-                                                                                onClick={() => handleOpenEdit(archive.id, item)}
-                                                                                className="p-2 bg-slate-800 text-teal-500 hover:text-white hover:bg-teal-600 rounded-lg transition-all"
-                                                                            >
-                                                                                <Icons.Edit />
-                                                                            </button>
-                                                                            <button 
-                                                                                onClick={() => handleConfirmDeleteItem(archive.id, item.id)}
-                                                                                className="p-2 bg-slate-800 text-red-500 hover:text-white hover:bg-red-600 rounded-lg transition-all"
-                                                                            >
-                                                                                <Icons.Trash />
-                                                                            </button>
-                                                                        </div>
-                                                                    </td>
-                                                                )}
-                                                            </tr>
-                                                        );
-                                                    })}
+                                                    {processedItems.length > 0 ? (
+                                                        processedItems.map((item: ScrapRecord) => {
+                                                            const metal = props.metals.find(m => m.id === item.metalId);
+                                                            const bin = props.bins.find(b => b.id === item.binId);
+                                                            return (
+                                                                <tr key={item.id} className="text-sm hover:bg-white/[0.01] group">
+                                                                    <td className="py-4 px-4 text-slate-500 font-mono">{new Date(item.timestamp).toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' })}</td>
+                                                                    <td className="py-4 px-4 font-bold text-slate-400 uppercase">{props.resolveName(item.worker)}</td>
+                                                                    <td className="py-4 px-4 font-bold text-slate-300 uppercase">{metal?.type || '???'}</td>
+                                                                    <td className="py-4 px-4 text-slate-500 uppercase">{bin?.name || '???'}</td>
+                                                                    <td className="py-4 px-4 text-right font-black text-white font-mono">{item.netto} kg</td>
+                                                                    {props.hasPermission('perm_scrap_edit') && (
+                                                                        <td className="py-4 px-4 text-right">
+                                                                            <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                                <button 
+                                                                                    onClick={() => handleOpenEdit(archive.id, item)}
+                                                                                    className="p-2 bg-slate-800 text-teal-500 hover:text-white hover:bg-teal-600 rounded-lg transition-all"
+                                                                                >
+                                                                                    <Icons.Edit />
+                                                                                </button>
+                                                                                <button 
+                                                                                    onClick={() => handleConfirmDeleteItem(archive.id, item.id)}
+                                                                                    className="p-2 bg-slate-800 text-red-500 hover:text-white hover:bg-red-600 rounded-lg transition-all"
+                                                                                >
+                                                                                    <Icons.Trash />
+                                                                                </button>
+                                                                            </div>
+                                                                        </td>
+                                                                    )}
+                                                                </tr>
+                                                            );
+                                                        })
+                                                    ) : (
+                                                        <tr>
+                                                            <td colSpan={6} className="py-10 text-center text-slate-600 italic font-bold uppercase tracking-widest text-xs">
+                                                                {items.length > 0 ? "Žiadne položky nevyhovujú filtru" : "V tomto šanóne nie sú žiadne položky"}
+                                                            </td>
+                                                        </tr>
+                                                    )}
                                                 </tbody>
                                             </table>
                                         </div>

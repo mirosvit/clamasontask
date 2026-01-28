@@ -1,6 +1,6 @@
 export const commonLocales = {
   sk: {
-    login_title: "Clamason Task Manager\n v1.4.2",
+    login_title: "Clamason Task Manager\n v1.4.3",
     login_subtitle: "Zadajte svoje prihlasovacie údaje",
     username: "Užívateľské meno",
     password: "Heslo",
@@ -104,7 +104,7 @@ export const commonLocales = {
     confirm_clear_all_msg: "Naozaj chcete vymazať celý zoznam? Táto akcia je nevratná.",
   },
   en: {
-    login_title: "Clamason Task Manager\n v1.4.2",
+    login_title: "Clamason Task Manager\n v1.4.3",
     login_subtitle: "Enter your credentials",
     username: "Username",
     password: "Password",
