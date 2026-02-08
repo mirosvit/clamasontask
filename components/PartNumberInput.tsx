@@ -47,17 +47,17 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
 
   const filteredParts = useMemo(() => {
     const trimmedQuery = query.trim();
-    if (trimmedQuery === '') return parts.slice(0, 50);
+    if (trimmedQuery === '') return (parts || []).slice(0, 50);
 
     const q = trimmedQuery.toLowerCase();
     // Wildcard search support
     if (q.includes('*')) {
       const regexStr = q.replace(/\*/g, '.*');
       const regex = new RegExp(`^${regexStr}`, 'i');
-      return parts.filter(p => regex.test(p)).slice(0, 50);
+      return (parts || []).filter(p => p && regex.test(p)).slice(0, 50);
     }
     
-    return parts.filter(p => p.toLowerCase().includes(q)).slice(0, 50);
+    return (parts || []).filter(p => p && p.toLowerCase().includes(q)).slice(0, 50);
   }, [query, parts]);
 
   useEffect(() => {
@@ -87,7 +87,7 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
     setQuery(newValue);
     if (onInputChange) onInputChange(newValue);
     
-    const exactMatch = parts.find(p => p.toLowerCase() === newValue.trim().toLowerCase());
+    const exactMatch = (parts || []).find(p => p && p.toLowerCase() === newValue.trim().toLowerCase());
     if (exactMatch) {
       onPartSelect(exactMatch);
     } else {
@@ -133,7 +133,7 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
           if (snap.exists()) {
               const data = snap.data();
               const allMasterParts = (data.parts || []) as {p: string, d: string}[];
-              const found = allMasterParts.find(m => m.p.toUpperCase() === partToFind);
+              const found = allMasterParts.find(m => m.p && m.p.toUpperCase() === partToFind);
               
               if (found) {
                   setMasterSearchStatus('found');
@@ -152,7 +152,7 @@ const PartNumberInput: React.FC<PartNumberInputProps> = memo(({ parts, onPartSel
       }
   };
 
-  const isExactMatch = useMemo(() => parts.some(p => p.toLowerCase() === query.trim().toLowerCase()), [query, parts]);
+  const isExactMatch = useMemo(() => (parts || []).some(p => p && p.toLowerCase() === query.trim().toLowerCase()), [query, parts]);
   const hasWildcard = query.includes('*');
 
   // Booleans for state to avoid TS2367 errors due to narrowing in JSX

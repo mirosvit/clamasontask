@@ -31,6 +31,7 @@ const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, onAddRole, onDel
               'perm_scrap_list',
               'perm_scrap_archive',
               'perm_tab_scrap_analytics',
+              'perm_tab_instructions',
               'perm_tab_map',
               'perm_tab_logs',
               'perm_tab_erp',
@@ -66,11 +67,11 @@ const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, onAddRole, onDel
       },
       {
           name: 'perm_group_settings',
-          perms: ['perm_view_setup', 'perm_settings_users', 'perm_settings_parts', 'perm_settings_wp', 'perm_settings_bom', 'perm_settings_qa_architect', 'perm_settings_csdb', 'perm_settings_system', 'perm_settings_maint']
+          perms: ['perm_view_setup', 'perm_settings_users', 'perm_settings_parts', 'perm_settings_wp', 'perm_settings_bom', 'perm_settings_instructions', 'perm_settings_qa_architect', 'perm_settings_csdb', 'perm_settings_system', 'perm_settings_maint']
       },
       {
           name: 'perm_group_mgmt',
-          perms: ['perm_manage_users', 'perm_delete_users', 'perm_manage_db', 'perm_manage_logistics_ops', 'perm_manage_bom', 'perm_scrap_manage', 'perm_archive', 'perm_manage_breaks', 'perm_manage_roles'] 
+          perms: ['perm_manage_users', 'perm_delete_users', 'perm_manage_db', 'perm_manage_logistics_ops', 'perm_manage_bom', 'perm_manage_instructions', 'perm_scrap_manage', 'perm_archive', 'perm_manage_breaks', 'perm_manage_roles'] 
       }
     ];
 

@@ -1,6 +1,6 @@
 export const commonLocales = {
   sk: {
-    login_title: "Clamason Task Manager\n v1.4.3",
+    login_title: "Clamason Task Manager\n v1.4.5",
     login_subtitle: "Zadajte svoje prihlasovacie údaje",
     username: "Užívateľské meno",
     password: "Heslo",
@@ -47,6 +47,7 @@ export const commonLocales = {
     tab_scrap_warehouse: "Sklad šrotu",
     tab_scrap_archive: "Archív šrotu",
     tab_scrap_analytics: "Štatistika šrotu",
+    tab_instructions: "Inštrukcie",
     perm_tab_erp: "Viditeľnosť: Chyba odvodu",
     perm_erp_manage: "Akcia: ERP Riešiť/Hotovo",
     perm_erp_delete: "Akcia: ERP Mazať záznamy",
@@ -104,7 +105,7 @@ export const commonLocales = {
     confirm_clear_all_msg: "Naozaj chcete vymazať celý zoznam? Táto akcia je nevratná.",
   },
   en: {
-    login_title: "Clamason Task Manager\n v1.4.3",
+    login_title: "Clamason Task Manager\n v1.4.5",
     login_subtitle: "Enter your credentials",
     username: "Username",
     password: "Password",
@@ -151,6 +152,7 @@ export const commonLocales = {
     tab_scrap_warehouse: "Scrap Warehouse",
     tab_scrap_archive: "Scrap Archive",
     tab_scrap_analytics: "Scrap Statistics",
+    tab_instructions: "Instructions",
     perm_tab_erp: "View: Posting Error",
     perm_erp_manage: "Action: ERP Resolve/Finish",
     perm_erp_delete: "Action: ERP Delete records",

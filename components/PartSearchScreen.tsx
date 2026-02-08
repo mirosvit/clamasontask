@@ -20,6 +20,7 @@ import ScrapWeighingTab from './tabs/ScrapWeighingTab';
 import ScrapWarehouseTab from './tabs/ScrapWarehouseTab';
 import ScrapArchiveTab from './tabs/ScrapArchiveTab';
 import ScrapAnalyticsTab from './tabs/ScrapAnalyticsTab';
+import InstructionsTab from './tabs/InstructionsTab';
 import { Task, PriorityLevel, DBItem, Role, SystemConfig, MapSector, MapObstacle, BOMComponent, PartRequest, BOMRequest, AdminNote, ERPBlockage, ScrapBin, ScrapMetal, ScrapPrice, ScrapRecord } from '../types/appTypes';
 
 // --- MAIN DASHBOARD COMPONENT ---
@@ -467,6 +468,10 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                             scrapMetals={props.scrapMetals}
                             onFetchArchives={props.onFetchScrapArchives}
                         />
+                    )}
+
+                    {activeTab === 'instructions' && hasPermission('perm_tab_instructions') && (
+                        <InstructionsTab />
                     )}
 
                     {activeTab === 'map' && hasPermission('perm_tab_map') && (

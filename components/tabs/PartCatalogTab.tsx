@@ -15,7 +15,7 @@ const PartCatalogTab: React.FC<PartCatalogTabProps> = ({ parts, onSelectPart }) 
     const q = searchQuery.toLowerCase();
     if (!q) return parts;
     return parts.filter(p => 
-      p.value.toLowerCase().includes(q) || 
+      (p.value || '').toLowerCase().includes(q) || 
       (p.description && p.description.toLowerCase().includes(q))
     );
   }, [parts, searchQuery]);
@@ -55,7 +55,7 @@ const PartCatalogTab: React.FC<PartCatalogTabProps> = ({ parts, onSelectPart }) 
             >
               <div className="flex justify-between items-start mb-3">
                 <span className="bg-teal-500/10 text-teal-400 text-[10px] font-black px-2 py-0.5 rounded border border-teal-500/20 uppercase tracking-widest">DIEL</span>
-                <span className="text-gray-600 text-[10px] font-mono group-hover:text-teal-500/50 transition-colors">ID: {part.id.slice(-4)}</span>
+                <span className="text-gray-600 text-[10px] font-mono group-hover:text-teal-500/50 transition-colors">ID: {(part.id || '').slice(-4)}</span>
               </div>
               <h3 className="text-xl font-black text-white font-mono break-all leading-tight mb-2 group-hover:text-teal-400 transition-colors">{part.value}</h3>
               <p className="text-xs text-gray-500 font-medium leading-relaxed line-clamp-2 italic">

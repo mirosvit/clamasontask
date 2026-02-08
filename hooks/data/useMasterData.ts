@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { db } from '../../firebase';
 import { 
@@ -16,7 +15,7 @@ import {
   writeBatch,
   getDocs
 } from 'firebase/firestore';
-import { DBItem, MapSector, PartRequest, BOMRequest, BOMComponent, MapObstacle, CSItem, QuickActionConfig } from '../../types/appTypes';
+import { DBItem, MapSector, PartRequest, BOMRequest, BOMComponent, MapObstacle, CSItem, QuickActionConfig, Instruction } from '../../types/appTypes';
 
 export const useMasterData = () => {
   const [partsMap, setPartsMap] = useState<Record<string, string>>({});
@@ -28,6 +27,7 @@ export const useMasterData = () => {
   const [partRequests, setPartRequests] = useState<PartRequest[]>([]);
   const [bomRequests, setBomRequests] = useState<BOMRequest[]>([]);
   const [quickActions, setQuickActions] = useState<QuickActionConfig[]>([]);
+  const [instructions, setInstructions] = useState<Instruction[]>([]);
   
   const [customers, setCustomers] = useState<CSItem[]>([]);
   const [suppliers, setSuppliers] = useState<CSItem[]>([]);
@@ -90,12 +90,80 @@ export const useMasterData = () => {
         setSuppliers(s.exists() ? (s.data().items || []) : []);
     });
 
+    // POSILNENÝ LISTENER: Počúvame celú kolekciu 'instructions_library'
+    // Každý dokument v nej predstavuje jednu kategóriu (PROD, LOG, atď.)
+    const unsubInstructions = onSnapshot(collection(db, 'instructions_library'), (s) => {
+      const allInsts: Instruction[] = [];
+      s.docs.forEach(d => {
+        const data = d.data();
+        if (data.items && Array.isArray(data.items)) {
+          allInsts.push(...data.items);
+        }
+      });
+      setInstructions(allInsts);
+    });
+
     return () => { 
         unsubWp(); unsubLogOps(); unsubSectors(); unsubPartReq(); unsubBomReq();
         unsubParts(); unsubBOM(); unsubObstacles();
         unsubCustomers(); unsubSuppliers(); unsubQuickActions();
+        unsubInstructions();
     };
   }, []);
+
+  const onAddInstruction = async (inst: Omit<Instruction, 'id' | 'updatedAt'>) => {
+    const categoryDocId = inst.category;
+    const newItem = { ...inst, id: crypto.randomUUID(), updatedAt: Date.now() };
+    await setDoc(doc(db, 'instructions_library', categoryDocId), { 
+      items: arrayUnion(newItem) 
+    }, { merge: true });
+  };
+
+  const onUpdateInstruction = async (id: string, updates: Partial<Instruction>) => {
+    // Keďže nevieme v ktorom dokumente (kategórii) inštrukcia je, najskôr ju musíme nájsť
+    const oldInst = instructions.find(i => i.id === id);
+    if (!oldInst) return;
+
+    const oldCategory = oldInst.category;
+    const newCategory = updates.category || oldCategory;
+
+    // Ak sa zmenila kategória, musíme ju vymazať zo starého dokumentu a pridať do nového
+    if (oldCategory !== newCategory) {
+      const oldRef = doc(db, 'instructions_library', oldCategory);
+      const newRef = doc(db, 'instructions_library', newCategory);
+      
+      const oldSnap = await getDoc(oldRef);
+      if (oldSnap.exists()) {
+        const filtered = (oldSnap.data().items || []).filter((i: any) => i.id !== id);
+        await updateDoc(oldRef, { items: filtered });
+      }
+
+      const updatedObj = { ...oldInst, ...updates, updatedAt: Date.now() };
+      await setDoc(newRef, { items: arrayUnion(updatedObj) }, { merge: true });
+    } else {
+      // Ak kategória ostáva, len aktualizujeme pole v danom dokumente
+      const ref = doc(db, 'instructions_library', oldCategory);
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        const items = snap.data().items || [];
+        const newItems = items.map((i: any) => i.id === id ? { ...i, ...updates, updatedAt: Date.now() } : i);
+        await updateDoc(ref, { items: newItems });
+      }
+    }
+  };
+
+  const onDeleteInstruction = async (id: string) => {
+    const inst = instructions.find(i => i.id === id);
+    if (!inst) return;
+
+    const ref = doc(db, 'instructions_library', inst.category);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const items = snap.data().items || [];
+      const newItems = items.filter((i: any) => i.id !== id);
+      await updateDoc(ref, { items: newItems });
+    }
+  };
 
   const onAddQuickAction = async (config: Omit<QuickActionConfig, 'id'>) => {
       const newAction = { ...config, id: crypto.randomUUID() };
@@ -302,7 +370,7 @@ export const useMasterData = () => {
           const snap = await getDoc(ref);
           if (snap.exists()) {
               const currentItems = snap.data().items || [];
-              const newItems = currentItems.filter((i: any) => !(i.parent === parent && i.child === child));
+              const newItems = currentItems.map((i: any) => !(i.parent === parent && i.child === child));
               await updateDoc(ref, { items: newItems });
           }
       } catch (e) { console.error(e); }
@@ -334,7 +402,7 @@ export const useMasterData = () => {
 
   return {
     partsMap, bomMap, workplaces, logisticsOperations, mapSectors, mapObstacles, partRequests, bomRequests,
-    customers, suppliers, quickActions,
+    customers, suppliers, quickActions, instructions,
     onAddWorkplace, onUpdateWorkplace, onDeleteWorkplace, onDeleteAllWorkplaces, onBatchAddWorkplaces,
     onAddLogisticsOperation, onUpdateLogisticsOperation, onDeleteLogisticsOperation, onDeleteAllLogisticsOperations,
     onAddMapSector, onUpdateMapSector, onDeleteMapSector,
@@ -343,6 +411,7 @@ export const useMasterData = () => {
     onAddBOMItem, onBatchAddBOMItems, onDeleteBOMItem, onDeleteAllBOMItems,
     onAddCSItem, onBatchAddCSItems, onDeleteCSItem, onDeleteAllCSItems,
     onAddQuickAction, onUpdateQuickAction, onDeleteQuickAction,
+    onAddInstruction, onUpdateInstruction, onDeleteInstruction,
     onRequestPart, onDeletePartRequest, 
     onRequestBOM, onDeleteBOMRequest
   };

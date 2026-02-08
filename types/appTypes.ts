@@ -18,6 +18,15 @@ export interface QuickActionConfig {
   defaultText?: string | null;
 }
 
+export interface Instruction {
+  id: string;
+  title: string;
+  content: string;
+  category: 'PROD' | 'LOG' | 'SAFE' | 'OTHER';
+  author: string;
+  updatedAt: number;
+}
+
 export interface CSItem {
   id: string;
   name: string;
