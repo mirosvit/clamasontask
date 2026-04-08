@@ -370,7 +370,7 @@ export const useMasterData = () => {
           const snap = await getDoc(ref);
           if (snap.exists()) {
               const currentItems = snap.data().items || [];
-              const newItems = currentItems.map((i: any) => !(i.parent === parent && i.child === child));
+              const newItems = currentItems.filter((i: any) => !(i.parent === parent && i.child === child));
               await updateDoc(ref, { items: newItems });
           }
       } catch (e) { console.error(e); }
