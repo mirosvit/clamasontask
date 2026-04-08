@@ -190,7 +190,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, users, system
         )}
 
         <div className="text-center">
-          <h2 className="text-2xl font-black text-white mb-2 whitespace-pre-line leading-tight tracking-tight">
+          <h2 className="text-2xl font-black text-[#97c21e] mb-2 whitespace-pre-line leading-tight tracking-tight">
             {t('login_title')}
           </h2>
           {/* Jasnejšia farba podnadpisu */}
