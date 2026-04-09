@@ -243,8 +243,8 @@ export const useMasterData = () => {
   };
 
   // Workplaces
-  const onAddWorkplace = async (val: string, time: number = 0, x: number = 0, y: number = 0) => {
-      await addDoc(collection(db, 'workplaces'), { value: val, standardTime: time, coordX: x, coordY: y });
+  const onAddWorkplace = async (val: string, time: number = 0, x: number = 0, y: number = 0, additionalMessage?: string) => {
+      await addDoc(collection(db, 'workplaces'), { value: val, standardTime: time, coordX: x, coordY: y, additionalMessage: additionalMessage || '' });
   };
   const onUpdateWorkplace = async (id: string, updates: Partial<DBItem>) => {
       await updateDoc(doc(db, 'workplaces', id), updates);

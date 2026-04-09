@@ -6,7 +6,7 @@ import { useLanguage } from '../LanguageContext';
 interface WorkplaceSectionProps {
   workplaces: DBItem[];
   logisticsOperations: DBItem[];
-  onAddWorkplace: (val: string, time?: number, x?: number, y?: number) => void;
+  onAddWorkplace: (val: string, time?: number, x?: number, y?: number, additionalMessage?: string) => void;
   onUpdateWorkplace: (id: string, updates: Partial<DBItem>) => void;
   onBatchAddWorkplaces: (vals: string[]) => void;
   onDeleteWorkplace: (id: string) => void;
@@ -107,7 +107,7 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo((props) => {
       if (editingWp.id) {
           props.onUpdateWorkplace(editingWp.id, editingWp);
       } else {
-          props.onAddWorkplace(editingWp.value, editingWp.standardTime, editingWp.coordX, editingWp.coordY);
+          props.onAddWorkplace(editingWp.value, editingWp.standardTime, editingWp.coordX, editingWp.coordY, editingWp.additionalMessage);
       }
       setIsWpModalOpen(false);
   };
@@ -217,6 +217,13 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo((props) => {
                                 <p className="text-lg font-black text-white font-mono">{w.standardTime ?? 2.0} <span className="text-xs font-normal text-slate-500">min</span></p>
                             </div>
                         </div>
+
+                        {w.additionalMessage && (
+                            <div className="mb-3 px-3 py-2 bg-indigo-500/5 border border-indigo-500/10 rounded-xl">
+                                <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">Dodatková správa</p>
+                                <p className="text-[10px] text-slate-300 italic leading-tight">{w.additionalMessage}</p>
+                            </div>
+                        )}
 
                         <div className="flex justify-center">
                             <div className="inline-flex items-center gap-2 text-[9px] font-mono font-bold bg-slate-950/30 px-3 py-1 rounded-full text-slate-500 border border-white/5">
@@ -460,6 +467,15 @@ const WorkplaceSection: React.FC<WorkplaceSectionProps> = memo((props) => {
                   </div>
 
                   <div className="grid grid-cols-2 gap-6 pt-2 border-t border-slate-800">
+                     <div className="col-span-2">
+                        <label className={labelClass}>DODATKOVÁ SPRÁVA (ZOBRAZENÁ V TASK LISTE)</label>
+                        <textarea 
+                           value={editingWp.additionalMessage || ''} 
+                           onChange={e => setEditingWp({...editingWp, additionalMessage: e.target.value})}
+                           className={`${inputClass} h-20 py-3 resize-none normal-case font-sans`}
+                           placeholder="NAPR. POUŽÍVAJ OCHRANNÉ RUKAVICE..."
+                        />
+                     </div>
                      <div>
                         <label className={labelClass}>X SÚRADNICA</label>
                         <input 

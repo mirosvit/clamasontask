@@ -81,6 +81,7 @@ export interface DBItem {
   distancePx?: number;
   defaultSourceSectorId?: string | null;
   defaultTargetSectorId?: string | null;
+  additionalMessage?: string;
 }
 
 export interface MapSector {

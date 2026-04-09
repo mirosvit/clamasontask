@@ -11,6 +11,7 @@ interface TaskListProps {
   currentUser: 'ADMIN' | 'USER' | 'LEADER';
   currentUserName: string;
   tasks: Task[];
+  workplaces: DBItem[];
   missingReasons: DBItem[];
   mapSectors: MapSector[];
   onToggleTask: (id: string, sectorId?: string) => void;
@@ -223,6 +224,7 @@ const TaskList: React.FC<TaskListProps> = (props) => {
           <TaskCard 
             key={task.id}
             task={task}
+            workplaces={props.workplaces}
             currentUserName={props.currentUserName}
             isSystemInventoryTask={isSystemTask}
             copiedId={copiedId}

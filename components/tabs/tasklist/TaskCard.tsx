@@ -6,6 +6,7 @@ import TaskActions from './TaskActions';
 
 interface TaskCardProps {
   task: Task;
+  workplaces: DBItem[];
   currentUserName: string;
   isSystemInventoryTask: boolean;
   copiedId: string | null;
@@ -120,6 +121,9 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
   const qtyNum = parseFloat(task.quantity || '0');
   const unitLabel = getUnitLabel(qtyNum, task.quantityUnit || '', props.isSystemInventoryTask);
 
+  const workplaceObj = props.workplaces?.find(w => w.value === task.workplace);
+  const additionalMessage = workplaceObj?.additionalMessage;
+
   return (
     <div className={`group relative flex flex-col sm:flex-row rounded-lg shadow-md overflow-hidden transition-all duration-200 items-stretch ${bgClass} ${borderClass} ${!task.isDone ? 'hover:shadow-lg' : ''}`}>
       {isUrgent && !isManualBlocked && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#FF8C00] animate-pulse z-50"></div>}
@@ -176,6 +180,14 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
             <span className={`text-lg font-bold uppercase tracking-wider ${task.isDone ? 'text-gray-600' : isManualBlocked ? 'text-gray-600' : (task.isInProgress && !props.isSystemInventoryTask) ? (task.isActivity ? 'text-[#10b981]' : 'text-[#FFD700]') : task.isActivity ? 'text-indigo-400' : props.isSystemInventoryTask ? 'text-[#4169E1]' : isAuditInProgress ? 'text-amber-500' : 'text-cyan-400'}`}>{task.workplace || "---"}</span>
             {task.note && <span className="inline-block px-2 py-0.5 rounded bg-[#fef9c3] text-gray-800 text-xs font-bold shadow-sm border border-yellow-200 leading-tight">{task.note}</span>}
           </div>
+
+          {additionalMessage && !task.isDone && (
+            <div className="mt-1 px-2 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-md inline-block">
+              <p className="text-[10px] text-indigo-300 font-bold italic leading-tight">
+                <span className="mr-1">💡</span>{additionalMessage}
+              </p>
+            </div>
+          )}
 
           {/* NOVÁ SEKICA: INFO O POUŽÍVATEĽOCH A ČASE */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 pt-3 border-t border-white/5 opacity-80">

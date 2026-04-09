@@ -99,7 +99,7 @@ interface PartSearchScreenProps {
     onDeletePart: (val: string) => Promise<void>;
     onDeleteAllParts: () => Promise<void>;
 
-    onAddWorkplace: (val: string, time?: number, x?: number, y?: number) => Promise<void>;
+    onAddWorkplace: (val: string, time?: number, x?: number, y?: number, additionalMessage?: string) => Promise<void>;
     onUpdateWorkplace: (id: string, updates: Partial<DBItem>) => Promise<void>;
     onBatchAddWorkplaces: (vals: string[]) => Promise<void>;
     onDeleteWorkplace: (id: string) => Promise<void>;
@@ -331,6 +331,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                             currentUser={props.currentUserRole as any}
                             currentUserName={props.currentUser}
                             tasks={props.tasks}
+                            workplaces={props.workplaces}
                             missingReasons={props.missingReasons}
                             mapSectors={props.mapSectors}
                             onToggleTask={props.onToggleTask}
