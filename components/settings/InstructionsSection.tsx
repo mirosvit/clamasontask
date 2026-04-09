@@ -134,12 +134,20 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = memo(({ instruct
                           </div>
                       </div>
                       <div>
-                          <label className={labelClass}>{t('inst_label_content')}</label>
+                          <div className="flex justify-between items-end mb-2">
+                              <label className={labelClass}>{t('inst_label_content')}</label>
+                              <div className="flex gap-3 text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">
+                                  <span>**Tučné**</span>
+                                  <span>*Kurzíva*</span>
+                                  <span>![Obrázok](url)</span>
+                                  <span># Nadpis</span>
+                              </div>
+                          </div>
                           <textarea 
                               value={content} 
                               onChange={e => setContent(e.target.value)} 
-                              className="w-full h-64 bg-slate-950 border border-slate-800 rounded-2xl p-6 text-white text-sm focus:border-teal-500 outline-none transition-all" 
-                              placeholder="Tu napíšte inštrukcie..."
+                              className="w-full h-64 bg-slate-950 border border-slate-800 rounded-2xl p-6 text-white text-sm focus:border-teal-500 outline-none transition-all font-sans" 
+                              placeholder="Tu napíšte inštrukcie (podporuje Markdown)..."
                           />
                       </div>
                       <div className="grid grid-cols-2 gap-4 mt-8">

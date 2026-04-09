@@ -2,6 +2,52 @@
 @tailwind components;
 @tailwind utilities;
 
+.markdown-body {
+  @apply text-slate-300 leading-relaxed;
+}
+.markdown-body h1 {
+  @apply text-2xl font-black text-white uppercase tracking-tighter mt-8 mb-4 border-b border-white/10 pb-2;
+}
+.markdown-body h2 {
+  @apply text-xl font-black text-white uppercase tracking-tighter mt-6 mb-3;
+}
+.markdown-body h3 {
+  @apply text-lg font-black text-teal-400 uppercase tracking-tight mt-4 mb-2;
+}
+.markdown-body p {
+  @apply mb-4;
+}
+.markdown-body ul {
+  @apply list-disc list-inside mb-4 space-y-1;
+}
+.markdown-body ol {
+  @apply list-decimal list-inside mb-4 space-y-1;
+}
+.markdown-body strong {
+  @apply font-black text-teal-400;
+}
+.markdown-body em {
+  @apply italic text-slate-400;
+}
+.markdown-body blockquote {
+  @apply border-l-4 border-teal-500 bg-teal-500/5 px-4 py-2 my-4 italic rounded-r-xl;
+}
+.markdown-body code {
+  @apply bg-slate-950 px-1.5 py-0.5 rounded font-mono text-sm text-pink-400 border border-white/5;
+}
+.markdown-body pre {
+  @apply bg-slate-950 p-4 rounded-2xl border border-white/5 overflow-x-auto my-4;
+}
+.markdown-body img {
+  @apply rounded-2xl border-2 border-slate-800 my-6 shadow-2xl max-w-full h-auto;
+}
+.markdown-body a {
+  @apply text-teal-400 underline hover:text-teal-300 transition-colors;
+}
+.markdown-body hr {
+  @apply border-white/10 my-8;
+}
+
 /* Custom scrollbar for better look in dark mode */
 .custom-scrollbar::-webkit-scrollbar {
   width: 8px;

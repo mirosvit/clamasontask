@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import ReactMarkdown from 'react-markdown';
 import { useLanguage } from '../LanguageContext';
 import { useData } from '../../context/DataContext';
 import { Instruction } from '../../types/appTypes';
@@ -142,8 +143,8 @@ const InstructionsTab: React.FC = () => {
                         </div>
 
                         <div className="flex-grow overflow-y-auto p-8 sm:p-12 custom-scrollbar">
-                            <div className="text-lg sm:text-xl text-slate-300 leading-relaxed font-medium">
-                                {formatContent(selectedInst.content)}
+                            <div className="markdown-body">
+                                <ReactMarkdown>{selectedInst.content}</ReactMarkdown>
                             </div>
                         </div>
 
