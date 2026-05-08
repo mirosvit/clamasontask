@@ -4,7 +4,6 @@ import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
 import { DBItem } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
-import MasterDbSyncModal from '../modals/MasterDbSyncModal';
 
 interface PartsSectionProps {
   parts: DBItem[];
@@ -20,7 +19,6 @@ const Icons = {
   Import: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>,
   Export: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4-4m0 0l4 4m-4-4v12" /></svg>,
   Trash: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
-  Sync: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>,
   Search: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>,
   Cube: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
 };
@@ -33,7 +31,6 @@ const PartsSection: React.FC<PartsSectionProps> = memo(({ parts, onAddPart, onBa
   const [partSearch, setPartSearch] = useState('');
   
   // Modals
-  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
@@ -103,12 +100,6 @@ const PartsSection: React.FC<PartsSectionProps> = memo(({ parts, onAddPart, onBa
               </p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
-            <button 
-              onClick={() => setIsSyncModalOpen(true)}
-              className="flex-1 sm:flex-none h-10 px-4 bg-[#97bc1e]/10 hover:bg-[#97bc1e]/20 text-[#97bc1e] rounded-lg border border-[#97bc1e]/30 font-black uppercase text-[10px] tracking-widest transition-all flex items-center justify-center gap-2 whitespace-nowrap"
-            >
-              <Icons.Sync /> SYNCHRO
-            </button>
             <button 
                 onClick={() => setIsImportModalOpen(true)} 
                 className="h-10 bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 rounded-lg shadow-md transition-all flex items-center justify-center border border-slate-700" 
@@ -266,13 +257,6 @@ const PartsSection: React.FC<PartsSectionProps> = memo(({ parts, onAddPart, onBa
          document.body
       )}
 
-      <MasterDbSyncModal 
-        isOpen={isSyncModalOpen} 
-        onClose={() => setIsSyncModalOpen(false)}
-        onSyncSuccess={(count) => {
-            alert(`Synchronizácia úspešná. Pridaných ${count} unikátnych dielov.`);
-        }}
-      />
     </div>
   );
 });
