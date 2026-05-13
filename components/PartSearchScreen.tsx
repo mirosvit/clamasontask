@@ -57,7 +57,7 @@ interface PartSearchScreenProps {
     onUpdateScrapArchive: (sanonId: string, updates: any) => Promise<void>;
     onDeleteArchivedScrapItem: (sanonId: string, itemId: string) => Promise<void>;
     onDeleteScrapArchive: (id: string) => Promise<void>;
-    onExpediteScrap: (worker: string, dispatchDate: string) => Promise<string | undefined>;
+    onExpediteScrap: (worker: string, dispatchDate: string, selectedIds?: string[]) => Promise<string | undefined>;
     onFinalizeScrapArchive: (date: string, worker: string, items: ScrapRecord[]) => Promise<string | undefined>;
     onFetchScrapArchives: (from: string, to: string) => Promise<any[]>;
 

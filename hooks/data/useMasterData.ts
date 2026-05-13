@@ -111,6 +111,17 @@ export const useMasterData = () => {
     };
   }, []);
 
+  // --- POMOCNÉ FUNKCIE PRE BEZPEČNOSŤ (1MB LIMIT) ---
+  const checkDocSize = (data: any, limit: number = 900000): boolean => {
+      const size = new Blob([JSON.stringify(data)]).size;
+      const isOk = size < limit;
+      if (!isOk) {
+          console.warn(`Firestore limit warning: Document size ${size} bytes exceeds safe limit ${limit}`);
+          alert('Chyba: Dáta sú príliš veľké pre jeden dokument. Prosím, rozdeľte import alebo kontaktujte správcu.');
+      }
+      return isOk;
+  };
+
   const onAddInstruction = async (inst: Omit<Instruction, 'id' | 'updatedAt'>) => {
     const categoryDocId = inst.category;
     const newItem = { ...inst, id: crypto.randomUUID(), updatedAt: Date.now() };
@@ -309,6 +320,10 @@ export const useMasterData = () => {
   };
   const onBatchAddParts = async (vals: string[]) => {
     try {
+      const ref = doc(db, 'settings', 'parts');
+      const snap = await getDoc(ref);
+      const existingItems = snap.exists() ? (snap.data().items || []) : [];
+      
       const itemsToAdd: any[] = [];
       vals.forEach((valLine) => {
         if (!valLine.trim()) return;
@@ -320,7 +335,13 @@ export const useMasterData = () => {
           }); 
         }
       });
-      if (itemsToAdd.length > 0) { await setDoc(doc(db, 'settings', 'parts'), { items: arrayUnion(...itemsToAdd) }, { merge: true }); }
+      
+      const finalItems = [...existingItems, ...itemsToAdd];
+      if (!checkDocSize({ items: finalItems })) return;
+
+      if (itemsToAdd.length > 0) { 
+        await setDoc(ref, { items: arrayUnion(...itemsToAdd) }, { merge: true }); 
+      }
     } catch (error) { console.error("Error batch adding parts:", error); throw error; }
   };
   const onDeletePart = async (val: string) => {
@@ -349,6 +370,10 @@ export const useMasterData = () => {
   };
   const onBatchAddBOMItems = async (vals: string[]) => {
       try {
+          const ref = doc(db, 'settings', 'bom');
+          const snap = await getDoc(ref);
+          const existingItems = snap.exists() ? (snap.data().items || []) : [];
+
           const itemsToAdd: any[] = [];
           vals.forEach(line => {
               if (!line.trim()) return;
@@ -361,7 +386,13 @@ export const useMasterData = () => {
                   }); 
               }
           });
-          if (itemsToAdd.length > 0) { await setDoc(doc(db, 'settings', 'bom'), { items: arrayUnion(...itemsToAdd) }, { merge: true }); }
+
+          const finalItems = [...existingItems, ...itemsToAdd];
+          if (!checkDocSize({ items: finalItems })) return;
+
+          if (itemsToAdd.length > 0) { 
+              await setDoc(ref, { items: arrayUnion(...itemsToAdd) }, { merge: true }); 
+          }
       } catch (e) { console.error(e); }
   };
   const onDeleteBOMItem = async (parent: string, child: string) => {

@@ -115,8 +115,18 @@ export const useScrapWeighing = () => {
       setScrapSanons(prev => prev.filter(s => s.id !== id));
   };
 
-  const onExpediteScrap = async (worker: string, dispatchDate?: string) => {
+  const onExpediteScrap = async (worker: string, dispatchDate?: string, selectedIds?: string[]) => {
       if (actualScrap.length === 0) return;
+
+      let itemsToArchive = actualScrap;
+      let remainingItems: ScrapRecord[] = [];
+
+      if (selectedIds && selectedIds.length > 0) {
+          itemsToArchive = actualScrap.filter(i => selectedIds.includes(i.id));
+          remainingItems = actualScrap.filter(i => !selectedIds.includes(i.id));
+      }
+
+      if (itemsToArchive.length === 0) return;
 
       const dateObj = dispatchDate ? new Date(dispatchDate) : new Date();
       const dd = String(dateObj.getDate()).padStart(2, '0');
@@ -129,14 +139,14 @@ export const useScrapWeighing = () => {
       const archiveDoc = {
           id: sanonId,
           dispatchDate: dispatchDate || dateObj.toISOString().split('T')[0],
-          items: actualScrap,
+          items: itemsToArchive,
           finalizedBy: worker,
           finalizedAt: timestamp,
           externalValue: 0 
       };
 
       await setDoc(doc(db, 'scrap_archives', sanonId), archiveDoc);
-      await updateDoc(doc(db, 'scrap', 'actualscrap'), { items: [] });
+      await updateDoc(doc(db, 'scrap', 'actualscrap'), { items: remainingItems });
       
       return sanonId;
   };

@@ -11,7 +11,7 @@ interface ScrapWarehouseTabProps {
     prices: ScrapPrice[];
     onDeleteRecord: (id: string) => Promise<void>;
     onUpdateRecord: (id: string, updates: Partial<ScrapRecord>) => Promise<void>;
-    onExpedite: (worker: string, dispatchDate: string) => Promise<string | undefined>;
+    onExpedite: (worker: string, dispatchDate: string, selectedIds?: string[]) => Promise<string | undefined>;
     resolveName: (username?: string | null) => string;
 }
 
@@ -53,6 +53,9 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDeliveryNoteGenerated, setIsDeliveryNoteGenerated] = useState(false);
     
+    // Selection state
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
     const [dispatchDate, setDispatchDate] = useState(new Date().toISOString().split('T')[0]);
 
     const [editingItem, setEditingItem] = useState<ScrapRecord | null>(null);
@@ -62,6 +65,8 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
 
     useEffect(() => {
         setIsDeliveryNoteGenerated(false);
+        // Automaticky označiť všetky nové položky
+        setSelectedIds(props.actualScrap.map(s => s.id));
     }, [props.actualScrap.length]);
 
     // FILTERING & SORTING LOGIC
@@ -131,6 +136,22 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
         setSortConfig({ key, direction });
     };
 
+    const selectedItems = useMemo(() => {
+        return props.actualScrap.filter(s => selectedIds.includes(s.id));
+    }, [props.actualScrap, selectedIds]);
+
+    const handleToggleSelection = (id: string) => {
+        setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    };
+
+    const handleToggleAll = () => {
+        if (selectedIds.length === props.actualScrap.length) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(props.actualScrap.map(s => s.id));
+        }
+    };
+
     // WAREHOUSE STATISTICS (VALUE & WEIGHTS) - Now reacts to filtered data (displayScrap)
     const warehouseStats = useMemo(() => {
         const now = new Date();
@@ -174,7 +195,7 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
     };
 
     const confirmDeliveryNote = () => {
-        if (props.actualScrap.length === 0 || typeof jspdf === 'undefined') return;
+        if (selectedItems.length === 0 || typeof jspdf === 'undefined') return;
         const { jsPDF } = jspdf;
         const doc = new jsPDF();
         doc.setFontSize(22); doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "bold");
@@ -188,7 +209,7 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
         doc.text(`Vystavil: ${props.resolveName(props.currentUser)}`, 140, 35);
         doc.setLineWidth(0.5); doc.line(20, 40, 190, 40);
 
-        const tableBody = props.actualScrap.map(r => {
+        const tableBody = selectedItems.map(r => {
             const metal = props.metals.find(m => m.id === r.metalId);
             const bin = props.bins.find(b => b.id === r.binId);
             return [new Date(r.timestamp).toLocaleDateString('sk-SK'), metal?.type || '???', bin?.name || '???', r.gross.toString(), r.tara.toString(), r.netto.toString()];
@@ -211,7 +232,7 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
         doc.setLineWidth(0.5); doc.line(20, 30, 190, 30);
 
         const metalSummaryMap: Record<string, { weight: number, desc: string }> = {};
-        props.actualScrap.forEach(r => {
+        selectedItems.forEach(r => {
             const metal = props.metals.find(m => m.id === r.metalId);
             const name = metal?.type || 'Neznamy';
             const desc = metal?.description || '';
@@ -236,12 +257,12 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
         
         doc.setFontSize(12); doc.setFont("helvetica", "bold");
         doc.text(`CELKOVA HMOTNOST BRUTTO:`, 20, summaryY);
-        doc.text(`${props.actualScrap.reduce((acc, curr) => acc + curr.gross, 0)} kg`, 190, summaryY, { align: 'right' });
+        doc.text(`${selectedItems.reduce((acc, curr) => acc + curr.gross, 0)} kg`, 190, summaryY, { align: 'right' });
         
         summaryY += 8;
         doc.setFontSize(10); doc.setFont("helvetica", "normal");
         doc.text(`POCET POLOZIEK CELKOM:`, 20, summaryY);
-        doc.text(`${props.actualScrap.length}`, 190, summaryY, { align: 'right' });
+        doc.text(`${selectedItems.length}`, 190, summaryY, { align: 'right' });
 
         summaryY += 20;
         doc.setFontSize(10); doc.setFont("helvetica", "bold"); doc.text("DOPLNKOVE INFORMACIE:", 20, summaryY);
@@ -267,13 +288,15 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
 
     const handleExpediteConfirm = async () => {
         if (!dispatchDate) { alert(language === 'sk' ? "Vyberte dátum expedície." : "Select dispatch date."); return; }
+        if (selectedIds.length === 0) { alert(language === 'sk' ? "Vyberte položky na expedíciu." : "Select items to expedite."); return; }
         setIsSubmitting(true);
         try {
-            const sanonId = await props.onExpedite(props.currentUser, dispatchDate);
+            const sanonId = await props.onExpedite(props.currentUser, dispatchDate, selectedIds);
             if (sanonId) {
                 alert(language === 'sk' ? `Expedícia úspešná. Archív: ${sanonId}` : `Expedition successful. Archive: ${sanonId}`);
                 setIsExpediteModalOpen(false);
                 setIsDeliveryNoteGenerated(false);
+                setSelectedIds([]);
             }
         } catch (e) { alert("Chyba pri expedícii."); } finally { setIsSubmitting(false); }
     };
@@ -299,10 +322,10 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
                     </div>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-                    <button disabled={props.actualScrap.length === 0} onClick={() => setIsDeliveryNoteModalOpen(true)} className="w-full sm:w-auto h-14 px-10 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-2xl font-black text-sm uppercase tracking-widest border-b-4 border-emerald-900 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3">
+                    <button disabled={selectedIds.length === 0} onClick={() => setIsDeliveryNoteModalOpen(true)} className="w-full sm:w-auto h-14 px-10 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-2xl font-black text-sm uppercase tracking-widest border-b-4 border-emerald-900 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3">
                         <Icons.FileText /> {t('scrap_btn_delivery_note')}
                     </button>
-                    <button disabled={props.actualScrap.length === 0 || !isDeliveryNoteGenerated} onClick={() => setIsExpediteModalOpen(true)} className={`w-full sm:w-auto h-14 px-10 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-2xl font-black text-sm uppercase tracking-widest border-b-4 border-indigo-900 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${!isDeliveryNoteGenerated && props.actualScrap.length > 0 ? 'ring-2 ring-indigo-500 ring-offset-4 ring-offset-gray-900 animate-pulse' : ''}`}>
+                    <button disabled={selectedIds.length === 0 || !isDeliveryNoteGenerated} onClick={() => setIsExpediteModalOpen(true)} className={`w-full sm:w-auto h-14 px-10 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-2xl font-black text-sm uppercase tracking-widest border-b-4 border-indigo-900 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${!isDeliveryNoteGenerated && selectedIds.length > 0 ? 'ring-2 ring-indigo-500 ring-offset-4 ring-offset-gray-900 animate-pulse' : ''}`}>
                         <Icons.Dispatch /> {t('scrap_btn_dispatch')}
                     </button>
                 </div>
@@ -333,6 +356,16 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-slate-950/50 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-slate-800">
+                                <th className="p-4 w-12">
+                                    <div className="flex items-center justify-center">
+                                        <input 
+                                            type="checkbox" 
+                                            className="w-5 h-5 rounded border-slate-700 bg-slate-900 text-teal-500 focus:ring-teal-500/50"
+                                            checked={selectedIds.length === props.actualScrap.length && props.actualScrap.length > 0}
+                                            onChange={handleToggleAll}
+                                        />
+                                    </div>
+                                </th>
                                 <th className="p-4 cursor-pointer hover:text-teal-400 transition-colors group" onClick={() => requestSort('time')}>
                                     <div className="flex items-center gap-2">Dátum / Čas <Icons.Sort active={sortConfig?.key === 'time'} direction={sortConfig?.direction || 'asc'} /></div>
                                 </th>
@@ -357,7 +390,17 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
                                     const metal = props.metals.find(m => m.id === r.metalId);
                                     const bin = props.bins.find(b => b.id === r.binId);
                                     return (
-                                        <tr key={r.id} className="hover:bg-white/[0.02] transition-colors group text-sm">
+                                        <tr key={r.id} className={`hover:bg-white/[0.02] transition-colors group text-sm ${selectedIds.includes(r.id) ? 'bg-teal-500/5' : ''}`}>
+                                            <td className="p-4">
+                                                <div className="flex items-center justify-center">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        className="w-5 h-5 rounded border-slate-700 bg-slate-900 text-teal-500 focus:ring-teal-500/50"
+                                                        checked={selectedIds.includes(r.id)}
+                                                        onChange={() => handleToggleSelection(r.id)}
+                                                    />
+                                                </div>
+                                            </td>
                                             <td className="p-4">
                                                 <div className="text-white font-bold">{new Date(r.timestamp).toLocaleDateString('sk-SK')}</div>
                                                 <div className="text-[10px] text-slate-500 font-mono">{new Date(r.timestamp).toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' })}</div>
@@ -403,7 +446,7 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
                     <div className="bg-slate-900 border-2 border-indigo-500/50 rounded-[2.5rem] shadow-2xl w-full max-w-lg p-10 relative overflow-hidden text-center" onClick={e => e.stopPropagation()}>
                         <div className="w-20 h-20 bg-indigo-500/10 border border-indigo-500/30 rounded-full flex items-center justify-center mx-auto mb-6 text-indigo-500"><Icons.Dispatch /></div>
                         <h3 className="text-3xl font-black text-white uppercase tracking-tighter mb-4">{t('scrap_dispatch_modal_title')}</h3>
-                        <div className="space-y-4 mb-10"><p className="text-sm text-slate-400 font-bold uppercase leading-relaxed">{t('scrap_dispatch_modal_desc')}<br /><span className="text-white text-lg font-black">{props.actualScrap.length} položiek</span></p><div className="mt-6"><label className={labelClass}>{t('scrap_dispatch_date')}</label><input type="date" value={dispatchDate} onChange={e => setDispatchDate(e.target.value)} className={inputClass} /><p className="text-[10px] text-slate-500 mt-2 font-bold uppercase italic">* Tento dátum určí názov archívneho šanónu.</p></div></div>
+                        <div className="space-y-4 mb-10"><p className="text-sm text-slate-400 font-bold uppercase leading-relaxed">{t('scrap_dispatch_modal_desc')}<br /><span className="text-white text-lg font-black">{selectedIds.length} položiek</span></p><div className="mt-6"><label className={labelClass}>{t('scrap_dispatch_date')}</label><input type="date" value={dispatchDate} onChange={e => setDispatchDate(e.target.value)} className={inputClass} /><p className="text-[10px] text-slate-500 mt-2 font-bold uppercase italic">* Tento dátum určí názov archívneho šanónu.</p></div></div>
                         <div className="grid grid-cols-2 gap-4">
                             <button disabled={isSubmitting} onClick={() => setIsExpediteModalOpen(false)} className="h-14 bg-slate-800 text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:text-white transition-all disabled:opacity-30">ZRUŠIŤ</button>
                             <button disabled={isSubmitting} onClick={handleExpediteConfirm} className="h-14 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest border-b-4 border-indigo-800 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 disabled:bg-slate-700 disabled:border-slate-800">{isSubmitting ? '...' : 'POTVRDIŤ EXPEDÍCIU'}</button>
