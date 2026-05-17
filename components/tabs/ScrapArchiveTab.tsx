@@ -73,6 +73,7 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
     const [isExternalValueModalOpen, setIsExternalValueModalOpen] = useState(false);
     const [targetSanonId, setTargetSanonId] = useState<string | null>(null);
     const [externalValInput, setExternalValInput] = useState('');
+    const [externalWeightInput, setExternalWeightInput] = useState('');
 
     const sortedArchives = useMemo(() => {
         return [...props.scrapArchives].sort((a, b) => {
@@ -203,13 +204,15 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
     const handleOpenExternalValue = (sanon: any) => {
         setTargetSanonId(sanon.id);
         setExternalValInput(String(sanon.externalValue || ''));
+        setExternalWeightInput(String(sanon.externalWeight || ''));
         setIsExternalValueModalOpen(true);
     };
 
     const handleSaveExternalValue = async () => {
         if (!targetSanonId) return;
         await props.onUpdateScrapArchive(targetSanonId, {
-            externalValue: parseFloat(externalValInput) || 0
+            externalValue: parseFloat(externalValInput) || 0,
+            externalWeight: parseFloat(externalWeightInput) || 0
         });
         setIsExternalValueModalOpen(false);
         setTargetSanonId(null);
@@ -458,11 +461,19 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                                             
                                             <div className="text-center border-l border-white/5 pl-8">
                                                 <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">INTERNÝ ODHAD</p>
-                                                <p className="text-xl font-black text-amber-400 font-mono">{totalValue.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-normal text-slate-600">€</span></p>
+                                                <p className="text-xl font-black text-amber-400 font-mono">{totalValue.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-normal text-slate-600">€</span></p>
                                             </div>
 
                                             <div className="text-center border-l border-white/5 pl-8">
-                                                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">CENA ODBERATEĽA</p>
+                                                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">VÁHA (ODB.)</p>
+                                                <p className={`text-xl font-black font-mono ${(archive.externalWeight || 0) > 0 ? 'text-teal-500' : 'text-slate-700'}`}>
+                                                    {(archive.externalWeight || 0) > 0 ? (archive.externalWeight || 0).toLocaleString('sk-SK') : '---'} 
+                                                    <span className="text-xs font-normal text-slate-600 ml-1">kg</span>
+                                                </p>
+                                            </div>
+
+                                            <div className="text-center border-l border-white/5 pl-8">
+                                                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">CENA (ODB.)</p>
                                                 <p className={`text-xl font-black font-mono ${externalValue > 0 ? 'text-green-500' : 'text-slate-700'}`}>
                                                     {externalValue > 0 ? externalValue.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '---'} 
                                                     <span className="text-xs font-normal text-slate-600 ml-1">€</span>
@@ -659,24 +670,43 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                         <div className="w-20 h-20 bg-amber-500/10 border border-amber-500/30 rounded-full flex items-center justify-center mx-auto mb-6 text-amber-500">
                             <Icons.Dollar />
                         </div>
-                        <h3 className="text-3xl font-black text-white uppercase tracking-tighter mb-4">Cena od odberateľa</h3>
-                        <p className="text-sm text-slate-400 font-bold uppercase leading-relaxed mb-8">Zadajte finálnu sumu, ktorú za tento vývoz potvrdil odberateľ.</p>
+                        <h3 className="text-3xl font-black text-white uppercase tracking-tighter mb-4">Údaje od odberateľa</h3>
+                        <p className="text-sm text-slate-400 font-bold uppercase leading-relaxed mb-8">Zadajte finálnu vahu a sumu, ktorú za tento vývoz potvrdil odberateľ.</p>
                         
-                        <div className="relative mb-10">
-                            <input 
-                                type="number" 
-                                value={externalValInput} 
-                                onChange={e => setExternalValInput(e.target.value)} 
-                                className={`${inputClass} !text-4xl text-amber-400`}
-                                placeholder="0.00"
-                                autoFocus
-                            />
-                            <span className="absolute right-6 bottom-4 text-xl font-black text-slate-700">€</span>
+                        <div className="space-y-6 mb-10">
+                            <div>
+                                <label className={labelClass}>Externá váha (kg)</label>
+                                <div className="relative">
+                                    <input 
+                                        type="number" 
+                                        value={externalWeightInput} 
+                                        onChange={e => setExternalWeightInput(e.target.value)} 
+                                        className={`${inputClass} !text-3xl text-teal-400`}
+                                        placeholder="0"
+                                        autoFocus
+                                    />
+                                    <span className="absolute right-6 bottom-4 text-xl font-black text-slate-700">kg</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label className={labelClass}>Cena odberateľa (€)</label>
+                                <div className="relative">
+                                    <input 
+                                        type="number" 
+                                        value={externalValInput} 
+                                        onChange={e => setExternalValInput(e.target.value)} 
+                                        className={`${inputClass} !text-3xl text-amber-400`}
+                                        placeholder="0.00"
+                                    />
+                                    <span className="absolute right-6 bottom-4 text-xl font-black text-slate-700">€</span>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <button onClick={() => setIsExternalValueModalOpen(false)} className="h-14 bg-slate-800 text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:text-white transition-all">ZRUŠIŤ</button>
-                            <button onClick={handleSaveExternalValue} className="h-14 bg-amber-600 hover:bg-amber-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest border-b-4 border-amber-800 shadow-xl transition-all active:scale-95">ULOŽIŤ SUMU</button>
+                            <button onClick={handleSaveExternalValue} className="h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest border-b-4 border-blue-800 shadow-xl transition-all active:scale-95 text-sm">ULOŽIŤ ÚDAJE</button>
                         </div>
                     </div>
                 </div>,

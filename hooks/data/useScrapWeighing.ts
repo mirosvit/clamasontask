@@ -142,7 +142,8 @@ export const useScrapWeighing = () => {
           items: itemsToArchive,
           finalizedBy: worker,
           finalizedAt: timestamp,
-          externalValue: 0 
+          externalValue: 0,
+          externalWeight: 0 
       };
 
       await setDoc(doc(db, 'scrap_archives', sanonId), archiveDoc);
@@ -163,7 +164,8 @@ export const useScrapWeighing = () => {
           items: records,
           finalizedBy: worker,
           finalizedAt: Date.now(),
-          externalValue: 0
+          externalValue: 0,
+          externalWeight: 0
       };
 
       await setDoc(doc(db, 'scrap_archives', sanonId), archiveDoc);

@@ -7,10 +7,11 @@ interface ScrapAnalyticsProps {
     totalNetto: number;
     totalValue: number;
     totalExternalValue: number;
+    totalExternalWeight: number;
     weightDistribution: { name: string, value: number }[];
-    trendData: { month: string, weight: number, value: number, externalValue: number, [key: string]: any }[];
+    trendData: { month: string, weight: number, value: number, externalValue: number, externalWeight: number, [key: string]: any }[];
   };
-  yearlyData: { month: string, externalValue: number, [key: string]: any }[];
+  yearlyData: { month: string, externalValue: number, externalWeight: number, [key: string]: any }[];
   selectedYear: number;
   onYearChange: (year: number) => void;
   prices: any[];
@@ -42,6 +43,9 @@ const ScrapAnalyticsSection: React.FC<ScrapAnalyticsProps> = ({ data, yearlyData
   const accuracy = data.totalValue > 0 ? (data.totalExternalValue / data.totalValue) * 100 : 100;
   const diff = data.totalExternalValue - data.totalValue;
 
+  const weightVariance = data.totalNetto > 0 ? ((data.totalExternalWeight - data.totalNetto) / data.totalNetto) * 100 : 0;
+  const weightDiff = data.totalExternalWeight - data.totalNetto;
+
   return (
     <div className="space-y-12 animate-fade-in">
       
@@ -69,21 +73,23 @@ const ScrapAnalyticsSection: React.FC<ScrapAnalyticsProps> = ({ data, yearlyData
                   <p className="text-4xl font-black text-white mt-2 font-mono">{data.totalNetto.toLocaleString()} <span className="text-sm font-normal text-slate-600">kg</span></p>
                 </div>
                 <div className="bg-slate-900/60 p-6 rounded-2xl border border-slate-800">
-                  <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">SKUTOČNÝ VÝNOS (ODBERATEĽ)</p>
-                  <p className="text-4xl font-black text-white mt-2 font-mono">{data.totalExternalValue.toLocaleString()} <span className="text-sm font-normal text-slate-600">€</span></p>
+                  <p className="text-[10px] font-black text-teal-400 uppercase tracking-widest">SKUTOČNÁ VÁHA (ODB.)</p>
+                  <div className="flex items-end gap-3 mt-2">
+                    <p className="text-4xl font-black text-white font-mono">{data.totalExternalWeight.toLocaleString()} <span className="text-sm font-normal text-slate-600">kg</span></p>
+                    <span className={`text-[10px] font-bold mb-1 ${Math.abs(weightVariance) < 2 ? 'text-green-500' : 'text-orange-500'}`}>
+                      ({weightVariance > 0 ? '+' : ''}{weightVariance.toFixed(1)}%)
+                    </span>
+                  </div>
                 </div>
                 <div className="bg-slate-900/60 p-6 rounded-2xl border border-slate-800">
-                  <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest">INTERNÝ ODHAD (CENNÍK)</p>
-                  <p className="text-2xl font-black text-slate-400 mt-2 font-mono">{data.totalValue.toLocaleString()} <span className="text-sm font-normal text-slate-600">€</span></p>
+                  <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">SKUTOČNÝ VÝNOS (ODB.)</p>
+                  <p className="text-4xl font-black text-white mt-2 font-mono">{data.totalExternalValue.toLocaleString()} <span className="text-sm font-normal text-slate-600">€</span></p>
                 </div>
                 <div className="bg-slate-900/60 p-6 rounded-2xl border border-slate-800 relative overflow-hidden">
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">PRESNOSŤ ODHADU</p>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">PRESNOSŤ HMOTNOSTI</p>
                   <div className="flex items-end gap-3 mt-2">
-                    <p className={`text-3xl font-black font-mono ${accuracy >= 95 && accuracy <= 105 ? 'text-green-500' : 'text-orange-500'}`}>{accuracy.toFixed(1)}%</p>
-                    <span className={`text-[10px] font-bold mb-1 ${diff >= 0 ? 'text-green-600' : 'text-red-500'}`}>({diff > 0 ? '+' : ''}{diff.toLocaleString()} €)</span>
-                  </div>
-                  <div className="absolute bottom-0 left-0 h-1 bg-teal-500/20 w-full">
-                    <div className="h-full bg-teal-500" style={{ width: `${Math.min(accuracy, 100)}%` }}></div>
+                    <p className={`text-3xl font-black font-mono ${Math.abs(weightVariance) < 2 ? 'text-green-500' : 'text-orange-500'}`}>{ (100 + weightVariance).toFixed(1) }%</p>
+                    <span className={`text-[10px] font-bold mb-1 ${weightDiff >= 0 ? 'text-green-600' : 'text-red-500'}`}>({weightDiff > 0 ? '+' : ''}{weightDiff.toLocaleString()} kg)</span>
                   </div>
                 </div>
               </div>
@@ -191,6 +197,39 @@ const ScrapAnalyticsSection: React.FC<ScrapAnalyticsProps> = ({ data, yearlyData
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+            <div className="bg-slate-900/60 p-6 rounded-2xl border border-slate-800 flex items-center justify-between">
+                <div>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">HLÁSENÁ VÁHA (ODB.)</p>
+                    <p className="text-3xl font-black text-white mt-1 font-mono">{data.totalExternalWeight.toLocaleString()} <span className="text-sm font-normal text-slate-600">kg</span></p>
+                </div>
+                <div className={`p-3 rounded-xl ${weightDiff >= 0 ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 12h12l3-12H3z" /></svg>
+                </div>
+            </div>
+            
+            <div className="bg-slate-900/60 p-6 rounded-2xl border border-slate-800 flex items-center justify-between">
+                <div>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">ROZDIEL VÁHY</p>
+                    <p className={`text-3xl font-black mt-1 font-mono ${weightDiff >= 0 ? 'text-green-500' : 'text-red-500'}`}>{weightDiff > 0 ? '+' : ''}{weightDiff.toLocaleString()} <span className="text-sm font-normal opacity-60">kg</span></p>
+                </div>
+                <div className="text-right">
+                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">ODCHÝLKA</p>
+                    <p className={`text-lg font-black ${Math.abs(weightVariance) < 2 ? 'text-green-500' : 'text-orange-500'}`}>{weightVariance > 0 ? '+' : ''}{weightVariance.toFixed(2)}%</p>
+                </div>
+            </div>
+
+            <div className="bg-slate-900/60 p-6 rounded-2xl border border-slate-800 flex items-center justify-between">
+                <div>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">VÝNOSNOSŤ (ODB.)</p>
+                    <p className="text-3xl font-black text-white mt-1 font-mono">{(data.totalExternalWeight > 0 ? data.totalExternalValue / data.totalExternalWeight : 0).toLocaleString('sk-SK', { maximumFractionDigits: 2 })} <span className="text-sm font-normal text-slate-600">€/kg</span></p>
+                </div>
+                <div className="p-3 bg-blue-500/10 rounded-xl text-blue-500">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
                 </div>
             </div>
         </div>
