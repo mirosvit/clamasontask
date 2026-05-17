@@ -179,6 +179,7 @@ export interface Notification {
     reportedBy: string;
     targetUser: string; 
     timestamp: number;
+    forceRefresh?: boolean;
 }
 
 export interface AdminNote {

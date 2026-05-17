@@ -122,7 +122,7 @@ export const useSystemData = () => {
     try { await deleteDoc(doc(db, 'notifications', id)); } catch (e) { console.error("Error clearing notification", e); }
   };
 
-  const onBroadcastNotification = async (message: string, author: string, targetUsernames?: string[]) => {
+  const onBroadcastNotification = async (message: string, author: string, targetUsernames?: string[], forceRefresh?: boolean) => {
     try {
       const batch = writeBatch(db);
       // Ak targetUsernames nie sú definované, odošleme všetkým
@@ -133,11 +133,12 @@ export const useSystemData = () => {
       recipients.forEach(user => {
         const notifRef = doc(collection(db, 'notifications'));
         batch.set(notifRef, {
-          partNumber: 'SYSTÉMOVÁ SPRÁVA',
+          partNumber: forceRefresh ? 'SYSTÉM' : 'SYSTÉMOVÁ SPRÁVA',
           reason: message,
           reportedBy: author,
           targetUser: user.username,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          forceRefresh: forceRefresh || false
         });
       });
       await batch.commit();

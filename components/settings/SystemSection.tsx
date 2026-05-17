@@ -51,6 +51,7 @@ const SystemSection: React.FC<SystemSectionProps> = ({
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [selectedRecipients, setSelectedRecipients] = useState<string[]>([]);
   const [selectAll, setSelectAll] = useState(true);
+  const [forceRefresh, setForceRefresh] = useState(false);
 
   // Tab Order State
   const [localTabOrder, setLocalTabOrder] = useState<string[]>([]);
@@ -137,9 +138,10 @@ const SystemSection: React.FC<SystemSectionProps> = ({
     setIsBroadcasting(true);
     const author = localStorage.getItem('app_user') || 'ADMIN';
     
-    await onBroadcastNotification(broadcastMsg, author, selectAll ? undefined : selectedRecipients);
+    await onBroadcastNotification(broadcastMsg, author, selectAll ? undefined : selectedRecipients, forceRefresh);
     
     setBroadcastMsg('');
+    setForceRefresh(false);
     setIsBroadcasting(false);
     alert(language === 'sk' ? 'Správa bola rozoslaná.' : 'Message broadcasted.');
   };
@@ -194,12 +196,28 @@ const SystemSection: React.FC<SystemSectionProps> = ({
               </div>
 
               <div className="flex gap-3">
-                  <textarea 
-                      value={broadcastMsg}
-                      onChange={(e) => setBroadcastMsg(e.target.value)}
-                      placeholder="ZADAJTE TEXT SPRÁVY..."
-                      className="w-full bg-slate-950 border border-indigo-500/30 rounded-2xl px-5 py-4 text-white text-sm focus:outline-none focus:border-indigo-500 transition-all font-medium placeholder-slate-700 resize-none h-24"
-                  />
+                  <div className="flex-1 space-y-4">
+                      <textarea 
+                          value={broadcastMsg}
+                          onChange={(e) => setBroadcastMsg(e.target.value)}
+                          placeholder="ZADAJTE TEXT SPRÁVY..."
+                          className="w-full bg-slate-950 border border-indigo-500/30 rounded-2xl px-5 py-4 text-white text-sm focus:outline-none focus:border-indigo-500 transition-all font-medium placeholder-slate-700 resize-none h-24"
+                      />
+                      <div className="flex items-center gap-3 px-2">
+                          <label className="relative inline-flex items-center cursor-pointer">
+                              <input 
+                                type="checkbox" 
+                                checked={forceRefresh}
+                                onChange={(e) => setForceRefresh(e.target.checked)}
+                                className="sr-only peer"
+                              />
+                              <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                          </label>
+                          <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">
+                              VYNÚTIŤ OBNOVENIE APLIKÁCIE (REFRESH)
+                          </span>
+                      </div>
+                  </div>
                   <button 
                       onClick={handleBroadcast}
                       disabled={isBroadcasting || !broadcastMsg.trim() || (!selectAll && selectedRecipients.length === 0)}
