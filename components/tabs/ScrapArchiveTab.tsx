@@ -436,51 +436,57 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                                 <div className="flex flex-col md:flex-row items-center w-full">
                                     <button 
                                         onClick={() => handleExpandSanon(archive.id)}
-                                        className="flex-grow p-6 flex flex-col md:flex-row justify-between items-center gap-6 hover:bg-white/[0.02] transition-colors"
+                                        className="flex-grow p-6 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 hover:bg-white/[0.02] transition-colors text-left"
                                     >
-                                        <div className="flex items-center gap-6">
-                                            <div className="p-3 bg-slate-800 rounded-xl text-slate-400">
+                                        <div className="flex items-center gap-4 w-full xl:w-auto shrink-0">
+                                            <div className="p-3 bg-slate-800 rounded-2xl text-slate-400">
                                                 <Icons.Calendar />
                                             </div>
                                             <div className="text-left">
                                                 <p className="text-lg font-black text-white uppercase tracking-tight">{displayDate}</p>
-                                                <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">{archive.id}</p>
+                                                <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest leading-none mt-1">{archive.id}</p>
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-8">
-                                            <div className="text-center">
-                                                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">POLOŽIEK</p>
-                                                <p className="text-xl font-black text-white font-mono">{items.length}</p>
-                                            </div>
+                                        <div className="flex items-center gap-6 xl:gap-8 w-full xl:w-auto flex-grow justify-between xl:justify-end">
+                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-y-4 gap-x-6 lg:gap-x-8 xl:gap-10 w-full flex-grow">
+                                                <div className="text-left xl:text-right border-l-2 xl:border-l-0 border-indigo-500/25 pl-3 xl:pl-0">
+                                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 leading-none">POLOŽIEK</p>
+                                                    <p className="text-xl font-black text-white font-mono leading-none">{items.length}</p>
+                                                </div>
 
-                                            <div className="text-center border-l border-white/5 pl-8">
-                                                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">HMOTNOSŤ</p>
-                                                <p className="text-xl font-black text-teal-400 font-mono">{totalWeight} <span className="text-xs font-normal text-slate-600">kg</span></p>
+                                                <div className="text-left xl:text-right border-l-2 xl:border-l border-indigo-500/25 xl:border-white/5 pl-3 xl:pl-6 xl:pl-8">
+                                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 leading-none">HMOTNOSŤ</p>
+                                                    <p className="text-xl font-black text-teal-400 font-mono leading-none">
+                                                        {totalWeight.toLocaleString('sk-SK')} <span className="text-xs font-normal text-slate-600">kg</span>
+                                                    </p>
+                                                </div>
+                                                
+                                                <div className="text-left xl:text-right border-l-2 xl:border-l border-indigo-500/25 xl:border-white/5 pl-3 xl:pl-6 xl:pl-8">
+                                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 leading-none">INTERNÝ ODHAD</p>
+                                                    <p className="text-xl font-black text-amber-500 font-mono leading-none">
+                                                        {totalValue.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-normal text-slate-600">€</span>
+                                                    </p>
+                                                </div>
+
+                                                <div className="text-left xl:text-right border-l-2 xl:border-l border-indigo-500/25 xl:border-white/5 pl-3 xl:pl-6 xl:pl-8">
+                                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 leading-none">VÁHA (ODB.)</p>
+                                                    <p className={`text-xl font-black font-mono leading-none ${(archive.externalWeight || 0) > 0 ? 'text-teal-400' : 'text-slate-700'}`}>
+                                                        {(archive.externalWeight || 0) > 0 ? (archive.externalWeight || 0).toLocaleString('sk-SK') : '---'} 
+                                                        {(archive.externalWeight || 0) > 0 && <span className="text-xs font-normal text-slate-600 ml-1">kg</span>}
+                                                    </p>
+                                                </div>
+
+                                                <div className="text-left xl:text-right border-l-2 xl:border-l border-indigo-500/25 xl:border-white/5 pl-3 xl:pl-6 xl:pl-8">
+                                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 leading-none">CENA (ODB.)</p>
+                                                    <p className={`text-xl font-black font-mono leading-none ${externalValue > 0 ? 'text-green-400 font-black' : 'text-slate-700'}`}>
+                                                        {externalValue > 0 ? externalValue.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '---'} 
+                                                        {externalValue > 0 && <span className="text-xs font-normal text-slate-600 ml-1">€</span>}
+                                                    </p>
+                                                </div>
                                             </div>
                                             
-                                            <div className="text-center border-l border-white/5 pl-8">
-                                                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">INTERNÝ ODHAD</p>
-                                                <p className="text-xl font-black text-amber-400 font-mono">{totalValue.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-normal text-slate-600">€</span></p>
-                                            </div>
-
-                                            <div className="text-center border-l border-white/5 pl-8">
-                                                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">VÁHA (ODB.)</p>
-                                                <p className={`text-xl font-black font-mono ${(archive.externalWeight || 0) > 0 ? 'text-teal-500' : 'text-slate-700'}`}>
-                                                    {(archive.externalWeight || 0) > 0 ? (archive.externalWeight || 0).toLocaleString('sk-SK') : '---'} 
-                                                    <span className="text-xs font-normal text-slate-600 ml-1">kg</span>
-                                                </p>
-                                            </div>
-
-                                            <div className="text-center border-l border-white/5 pl-8">
-                                                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">CENA (ODB.)</p>
-                                                <p className={`text-xl font-black font-mono ${externalValue > 0 ? 'text-green-500' : 'text-slate-700'}`}>
-                                                    {externalValue > 0 ? externalValue.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '---'} 
-                                                    <span className="text-xs font-normal text-slate-600 ml-1">€</span>
-                                                </p>
-                                            </div>
-
-                                            <div className={`transition-transform duration-300 ml-4 ${isExpanded ? 'rotate-180 text-teal-500' : 'text-slate-600'}`}>
+                                            <div className={`transition-transform duration-300 shrink-0 ${isExpanded ? 'rotate-180 text-teal-500' : 'text-slate-600'}`}>
                                                 <Icons.ChevronDown />
                                             </div>
                                         </div>
