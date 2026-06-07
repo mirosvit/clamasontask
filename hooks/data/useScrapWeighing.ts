@@ -173,9 +173,47 @@ export const useScrapWeighing = () => {
       return sanonId;
   };
 
+  const onAppendWarehouseItemsToArchive = async (sanonId: string, selectedIds: string[]) => {
+      const archiveRef = doc(db, 'scrap_archives', sanonId);
+      const actualRef = doc(db, 'scrap', 'actualscrap');
+      
+      const [archiveSnap, actualSnap] = await Promise.all([
+          getDoc(archiveRef),
+          getDoc(actualRef)
+      ]);
+      
+      if (archiveSnap.exists() && actualSnap.exists()) {
+          const archiveItems = (archiveSnap.data().items || []) as ScrapRecord[];
+          const actualItems = (actualSnap.data().items || []) as ScrapRecord[];
+          
+          const itemsToAppend = actualItems.filter(i => selectedIds.includes(i.id));
+          const remainingItems = actualItems.filter(i => !selectedIds.includes(i.id));
+          
+          const updatedArchiveItems = [...archiveItems, ...itemsToAppend];
+          
+          await Promise.all([
+              updateDoc(archiveRef, { items: updatedArchiveItems }),
+              updateDoc(actualRef, { items: remainingItems })
+          ]);
+          
+          setScrapSanons(prev => prev.map(s => s.id === sanonId ? { ...s, items: updatedArchiveItems } : s));
+      }
+  };
+
+  const onAddManualItemToArchive = async (sanonId: string, record: ScrapRecord) => {
+      const ref = doc(db, 'scrap_archives', sanonId);
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+          const items = (snap.data().items || []) as ScrapRecord[];
+          const newItems = [...items, record];
+          await updateDoc(ref, { items: newItems });
+          setScrapSanons(prev => prev.map(s => s.id === sanonId ? { ...s, items: newItems } : s));
+      }
+  };
+
   return {
     actualScrap, scrapSanons,
     onAddScrapRecord, onBulkAddScrapRecords, onDeleteScrapRecord, onUpdateScrapRecord, onExpediteScrap, onFinalizeScrapArchive, onUpdateArchivedScrapItem, onDeleteArchivedScrapItem, onDeleteScrapArchive, onUpdateScrapArchive,
-    onFetchScrapArchives
+    onFetchScrapArchives, onAppendWarehouseItemsToArchive, onAddManualItemToArchive
   };
 };

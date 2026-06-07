@@ -10,9 +10,12 @@ interface ScrapWarehouseTabProps {
     metals: ScrapMetal[];
     prices: ScrapPrice[];
     buyers: ScrapBuyer[];
+    scrapArchives?: any[];
     onDeleteRecord: (id: string) => Promise<void>;
     onUpdateRecord: (id: string, updates: Partial<ScrapRecord>) => Promise<void>;
     onExpedite: (worker: string, dispatchDate: string, selectedIds?: string[], buyerId?: string) => Promise<string | undefined>;
+    onAppendWarehouseItemsToArchive: (sanonId: string, selectedIds: string[]) => Promise<void>;
+    onFetchArchives?: (from: string, to: string) => Promise<any[]>;
     resolveName: (username?: string | null) => string;
 }
 
@@ -51,9 +54,18 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
     const [isExpediteModalOpen, setIsExpediteModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeliveryNoteModalOpen, setIsDeliveryNoteModalOpen] = useState(false);
+    const [isAppendModalOpen, setIsAppendModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDeliveryNoteGenerated, setIsDeliveryNoteGenerated] = useState(false);
     const [selectedBuyerId, setSelectedBuyerId] = useState('');
+    const [selectedArchiveId, setSelectedArchiveId] = useState('');
+    const [appendFromDate, setAppendFromDate] = useState(() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 14);
+        return d.toISOString().split('T')[0];
+    });
+    const [appendToDate, setAppendToDate] = useState(() => new Date().toISOString().split('T')[0]);
+    const [isFetchingArchives, setIsFetchingArchives] = useState(false);
     
     // Selection state
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -304,6 +316,43 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
         } catch (e) { alert("Chyba pri expedícii."); } finally { setIsSubmitting(false); }
     };
 
+    const handleAppendConfirm = async () => {
+        if (!selectedArchiveId) {
+            alert(language === 'sk' ? "Vyberte archívny šanón." : "Please select an archive folder.");
+            return;
+        }
+        if (selectedIds.length === 0) {
+            alert(language === 'sk' ? "Vyberte položky z tabuľky." : "Please select items from the table.");
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            await props.onAppendWarehouseItemsToArchive(selectedArchiveId, selectedIds);
+            alert(language === 'sk' ? "Zvolené kontajnery boli priradené do archívu." : "Selected containers were successfully assigned to the archive.");
+            setIsAppendModalOpen(false);
+            setSelectedIds([]);
+            setSelectedArchiveId('');
+        } catch (err) {
+            console.error(err);
+            alert("Chyba pri priraďovaní šrotu / Error appending scrap.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleFetchArchivesInModal = async () => {
+        if (!props.onFetchArchives) return;
+        setIsFetchingArchives(true);
+        try {
+            await props.onFetchArchives(appendFromDate, appendToDate);
+        } catch (err) {
+            console.error(err);
+            alert("Chyba pri sťahovaní archívov / Error fetching archives.");
+        } finally {
+            setIsFetchingArchives(false);
+        }
+    };
+
     const cardClass = "bg-gray-800/40 border border-slate-700/50 rounded-3xl p-6 shadow-2xl backdrop-blur-sm relative overflow-hidden";
     const labelClass = "block text-[10px] font-black text-slate-500 uppercase tracking-[0.25em] mb-2";
     const inputClass = "w-full h-14 bg-slate-900/80 border-2 border-slate-700 rounded-xl px-4 text-white text-lg font-black focus:outline-none focus:border-teal-500/50 transition-all font-mono uppercase text-center";
@@ -325,10 +374,14 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
                     </div>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-                    <button disabled={selectedIds.length === 0} onClick={() => setIsDeliveryNoteModalOpen(true)} className="w-full sm:w-auto h-14 px-10 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-2xl font-black text-sm uppercase tracking-widest border-b-4 border-emerald-900 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3">
+                    <button disabled={selectedIds.length === 0} onClick={() => setIsAppendModalOpen(true)} className="w-full sm:w-auto h-14 px-8 bg-amber-600 hover:bg-amber-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-2xl font-black text-xs uppercase tracking-widest border-b-4 border-amber-900 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                        PRIRADIŤ K ARCHÍVU
+                    </button>
+                    <button disabled={selectedIds.length === 0} onClick={() => setIsDeliveryNoteModalOpen(true)} className="w-full sm:w-auto h-14 px-8 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-2xl font-black text-xs uppercase tracking-widest border-b-4 border-emerald-900 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2">
                         <Icons.FileText /> {t('scrap_btn_delivery_note')}
                     </button>
-                    <button disabled={selectedIds.length === 0 || !isDeliveryNoteGenerated} onClick={() => setIsExpediteModalOpen(true)} className={`w-full sm:w-auto h-14 px-10 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-2xl font-black text-sm uppercase tracking-widest border-b-4 border-indigo-900 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${!isDeliveryNoteGenerated && selectedIds.length > 0 ? 'ring-2 ring-indigo-500 ring-offset-4 ring-offset-gray-900 animate-pulse' : ''}`}>
+                    <button disabled={selectedIds.length === 0 || !isDeliveryNoteGenerated} onClick={() => setIsExpediteModalOpen(true)} className={`w-full sm:w-auto h-14 px-8 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-2xl font-black text-xs uppercase tracking-widest border-b-4 border-indigo-900 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 ${!isDeliveryNoteGenerated && selectedIds.length > 0 ? 'ring-2 ring-indigo-500 ring-offset-4 ring-offset-gray-900 animate-pulse' : ''}`}>
                         <Icons.Dispatch /> {t('scrap_btn_dispatch')}
                     </button>
                 </div>
@@ -485,6 +538,88 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
                         <h3 className="text-3xl font-black text-white uppercase tracking-tighter mb-8 flex items-center gap-3"><Icons.Edit /> {t('scrap_edit_title')}</h3>
                         <div className="space-y-6 mb-10"><div><label className={labelClass}>{t('scrap_metal_select')}</label><select value={editMetalId} onChange={e => setEditMetalId(e.target.value)} className={inputClass}>{props.metals.map(m => <option key={m.id} value={m.id}>{m.type}</option>)}</select></div><div><label className={labelClass}>{t('scrap_bin_select')}</label><select value={editBinId} onChange={e => setEditBinId(e.target.value)} className={inputClass}>{props.bins.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div><div><label className={labelClass}>{t('scrap_gross')}</label><input type="number" value={editGross} onChange={e => setEditGross(e.target.value)} className={`${inputClass} !text-3xl text-teal-400`} /></div></div>
                         <div className="grid grid-cols-2 gap-4"><button onClick={() => setIsEditModalOpen(false)} className="h-14 bg-slate-800 text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:text-white transition-all">ZRUŠIŤ</button><button onClick={handleSaveEdit} className="h-14 bg-teal-600 hover:bg-teal-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest border-b-4 border-teal-800 shadow-xl transition-all active:scale-95">ULOŽIŤ ZMENY</button></div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {isAppendModalOpen && createPortal(
+                <div className="fixed inset-0 z-[12000] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 animate-fade-in no-print" onClick={() => !isSubmitting && setIsAppendModalOpen(false)}>
+                    <div className="bg-slate-900 border-2 border-amber-500/50 rounded-[2.5rem] shadow-2xl w-full max-w-xl p-10 relative overflow-hidden text-center" onClick={e => e.stopPropagation()}>
+                        <div className="w-20 h-20 bg-amber-500/10 border border-amber-500/30 rounded-full flex items-center justify-center mx-auto mb-6 text-amber-500">
+                            <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                        </div>
+                        <h3 className="text-3xl font-black text-white uppercase tracking-tighter mb-2">PRIRADIŤ K ARCHÍVU</h3>
+                        <p className="text-xs text-amber-400 font-bold uppercase tracking-wider mb-6">Priradenie vybraných {selectedIds.length} položiek k existujúcemu expedovanému šanónu</p>
+                        
+                        <div className="space-y-6 mb-8 text-left bg-slate-950/40 p-6 rounded-3xl border border-slate-800">
+                            <p className="text-[11px] text-slate-400 uppercase font-bold leading-relaxed">
+                                * Umožňuje pridať kontajnery vyvážené neskôr (alebo dodatočne dovezené) priamo pod existujúcu expedíciu, bez nutnosti vytvárať nový, samostatný archív.
+                            </p>
+                            
+                            {/* Rýchly filter rozsahov pre vyhľadanie archívov */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">HISTÓRIA OD / FROM</label>
+                                    <input 
+                                        type="date" 
+                                        value={appendFromDate} 
+                                        onChange={e => setAppendFromDate(e.target.value)} 
+                                        className="w-full h-10 bg-slate-900 border border-slate-700 rounded-lg px-3 text-white text-xs font-bold focus:border-amber-500 outline-none text-center" 
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">HISTÓRIA DO / TO</label>
+                                    <input 
+                                        type="date" 
+                                        value={appendToDate} 
+                                        onChange={e => setAppendToDate(e.target.value)} 
+                                        className="w-full h-10 bg-slate-900 border border-slate-700 rounded-lg px-3 text-white text-xs font-bold focus:border-amber-500 outline-none text-center" 
+                                    />
+                                </div>
+                            </div>
+
+                            <button 
+                                onClick={handleFetchArchivesInModal} 
+                                disabled={isFetchingArchives}
+                                className="w-full h-10 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 font-black text-[10px] uppercase tracking-widest rounded-xl transition-all border border-indigo-500/20"
+                            >
+                                {isFetchingArchives ? "VYHĽADÁVAM..." : "VYHĽADAŤ ARCHÍVY V INTERVALE"}
+                            </button>
+
+                            {/* Dropdown existujúcich archívov */}
+                            <div className="mt-4">
+                                <label className={labelClass}>ZVOĽTE ARCHÍVNY ŠANÓN / TARGET ARCHIVE</label>
+                                <select 
+                                    value={selectedArchiveId} 
+                                    onChange={e => setSelectedArchiveId(e.target.value)}
+                                    className="w-full h-14 bg-slate-900 border-2 border-slate-700 focus:border-amber-500 rounded-xl px-4 text-white text-sm font-bold uppercase outline-none"
+                                >
+                                    <option value="">-- NEVYBRANÝ / NONE --</option>
+                                    {props.scrapArchives && props.scrapArchives.map(archive => {
+                                        const displayDate = new Date(archive.dispatchDate).toLocaleDateString('sk-SK');
+                                        const buyer = props.buyers?.find(b => b.id === archive.buyerId);
+                                        const buyerText = buyer ? buyer.name : 'Bez odberateľa';
+                                        const count = archive.items?.length || 0;
+                                        return (
+                                            <option key={archive.id} value={archive.id}>
+                                                {displayDate} - {archive.id.replace("SCRAP_SANON_", "")} ({count} polož., {buyerText})
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                                {(!props.scrapArchives || props.scrapArchives.length === 0) && (
+                                    <p className="text-[10px] text-amber-500 mt-2 font-bold uppercase italic text-center">
+                                        * Súbory nie sú načítané. Kliknite na vyhľadať archívy vyššie.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <button disabled={isSubmitting} onClick={() => setIsAppendModalOpen(false)} className="h-14 bg-slate-800 text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:text-white transition-all disabled:opacity-30">ZRUŠIŤ</button>
+                            <button disabled={isSubmitting || !selectedArchiveId} onClick={handleAppendConfirm} className="h-14 bg-amber-600 hover:bg-amber-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest border-b-4 border-amber-800 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 disabled:bg-slate-700 disabled:border-slate-800 disabled:text-slate-500">{isSubmitting ? '...' : 'PRIRADIŤ DO ŠANÓNU'}</button>
+                        </div>
                     </div>
                 </div>,
                 document.body

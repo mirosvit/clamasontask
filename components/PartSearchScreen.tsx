@@ -61,6 +61,8 @@ interface PartSearchScreenProps {
     onExpediteScrap: (worker: string, dispatchDate: string, selectedIds?: string[], buyerId?: string) => Promise<string | undefined>;
     onFinalizeScrapArchive: (date: string, worker: string, items: ScrapRecord[]) => Promise<string | undefined>;
     onFetchScrapArchives: (from: string, to: string) => Promise<any[]>;
+    onAppendWarehouseItemsToArchive: (sanonId: string, selectedIds: string[]) => Promise<void>;
+    onAddManualItemToArchive: (sanonId: string, record: ScrapRecord) => Promise<void>;
 
     currentUser: string;
     currentUserRole: 'ADMIN' | 'USER' | 'LEADER';
@@ -441,9 +443,12 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                             metals={props.scrapMetals}
                             prices={props.scrapPrices}
                             buyers={props.scrapBuyers || []}
+                            scrapArchives={props.scrapSanons}
                             onDeleteRecord={props.onDeleteScrapRecord}
                             onUpdateRecord={props.onUpdateScrapRecord}
                             onExpedite={props.onExpediteScrap}
+                            onAppendWarehouseItemsToArchive={props.onAppendWarehouseItemsToArchive}
+                            onFetchArchives={props.onFetchScrapArchives}
                             resolveName={resolveName}
                         />
                     )}
@@ -460,6 +465,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                             onDeleteArchivedItem={props.onDeleteArchivedScrapItem}
                             onDeleteArchive={props.onDeleteScrapArchive}
                             onFetchArchives={props.onFetchScrapArchives}
+                            onAddManualItemToArchive={props.onAddManualItemToArchive}
                             resolveName={resolveName}
                             hasPermission={hasPermission}
                         />

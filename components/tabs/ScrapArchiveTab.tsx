@@ -16,6 +16,7 @@ interface ScrapArchiveTabProps {
     onDeleteArchive: (id: string) => Promise<void>;
     onDeleteAllArchives?: () => Promise<void>;
     onFetchArchives: (from: string, to: string) => Promise<any[]>;
+    onAddManualItemToArchive: (sanonId: string, record: ScrapRecord) => Promise<void>;
     resolveName: (username?: string | null) => string;
     hasPermission: (perm: string) => boolean;
 }
@@ -77,6 +78,15 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
     const [externalValInput, setExternalValInput] = useState('');
     const [externalWeightInput, setExternalWeightInput] = useState('');
     const [externalBuyerId, setExternalBuyerId] = useState('');
+
+    // State pre pridanie položky dodatočne (manual backfill)
+    const [isAddManualModalOpen, setIsAddManualModalOpen] = useState(false);
+    const [targetAddManualArchiveId, setTargetAddManualArchiveId] = useState('');
+    const [manualWorker, setManualWorker] = useState('');
+    const [manualMetalId, setManualMetalId] = useState('');
+    const [manualBinId, setManualBinId] = useState('');
+    const [manualGross, setManualGross] = useState('');
+    const [isSubmittingManual, setIsSubmittingManual] = useState(false);
 
     const sortedArchives = useMemo(() => {
         return [...props.scrapArchives].sort((a, b) => {
@@ -221,6 +231,57 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
         });
         setIsExternalValueModalOpen(false);
         setTargetSanonId(null);
+    };
+
+    const handleOpenAddManualItem = (sanonId: string) => {
+        setTargetAddManualArchiveId(sanonId);
+        setManualWorker('');
+        setManualMetalId(props.metals[0]?.id || '');
+        setManualBinId(props.bins[0]?.id || '');
+        setManualGross('');
+        setIsAddManualModalOpen(true);
+    };
+
+    const handleSaveManualItem = async () => {
+        if (!targetAddManualArchiveId) return;
+        if (!manualWorker.trim()) {
+            alert(language === 'sk' ? "Zadajte meno skladníka." : "Please enter worker name.");
+            return;
+        }
+        const grossVal = parseFloat(manualGross) || 0;
+        if (grossVal <= 0) {
+            alert(language === 'sk' ? "Zadajte brutto hmotnosť väčšiu ako 0." : "Please enter gross weight greater than 0.");
+            return;
+        }
+
+        const bin = props.bins.find(b => b.id === manualBinId);
+        const taraVal = bin ? bin.tara : 0;
+        const nettoVal = Math.max(grossVal - taraVal, 0);
+
+        setIsSubmittingManual(true);
+        try {
+            const newRecord: ScrapRecord = {
+                id: 'SCRAP_MANUAL_' + Date.now() + "_" + Math.floor(Math.random() * 1000),
+                timestamp: Date.now(),
+                worker: manualWorker.toLowerCase().trim(),
+                metalId: manualMetalId,
+                binId: manualBinId,
+                gross: grossVal,
+                tara: taraVal,
+                netto: nettoVal,
+                taskId: ''
+            };
+
+            await props.onAddManualItemToArchive(targetAddManualArchiveId, newRecord);
+            setIsAddManualModalOpen(false);
+            setTargetAddManualArchiveId('');
+            alert(language === 'sk' ? "Kontajner bol úspešne dodatočne pridaný." : "Container has been successfully backfilled.");
+        } catch (err) {
+            console.error(err);
+            alert("Chyba pri pridávaní kontajnera / Error adding manual container.");
+        } finally {
+            setIsSubmittingManual(false);
+        }
     };
 
     const handleDownloadPDF = (archive: any) => {
@@ -668,6 +729,17 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                                                 </tbody>
                                             </table>
                                         </div>
+                                        {props.hasPermission('perm_scrap_edit') && (
+                                            <div className="mt-4 flex justify-end border-t border-slate-800/30 pt-4">
+                                                <button 
+                                                    onClick={() => handleOpenAddManualItem(archive.id)}
+                                                    className="h-10 px-6 bg-amber-600 hover:bg-amber-500 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-2"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
+                                                    DODATOČNE PRIDAŤ KONTAJNER / ADD CONTAINER
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -775,6 +847,77 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                         <div className="grid grid-cols-2 gap-4">
                             <button onClick={() => setEditingItem(null)} className="h-14 bg-slate-800 text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:text-white transition-all">ZRUŠIŤ</button>
                             <button onClick={handleSaveEdit} className="h-14 bg-teal-600 hover:bg-teal-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest border-b-4 border-teal-800 shadow-xl transition-all active:scale-95">ULOŽIŤ ZMENY</button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {isAddManualModalOpen && createPortal(
+                <div className="fixed inset-0 z-[12000] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 animate-fade-in" onClick={() => !isSubmittingManual && setIsAddManualModalOpen(false)}>
+                    <div className="bg-slate-900 border-2 border-amber-500/50 rounded-[2.5rem] shadow-2xl w-full max-w-lg p-10 relative overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-3xl font-black text-white uppercase tracking-tighter mb-2 text-center animate-pulse">DODATOČNÝ ZÁPIS</h3>
+                        <p className="text-xs text-amber-500 font-bold uppercase tracking-wider mb-6 text-center">Pridanie položky do šanónu: {targetAddManualArchiveId.replace("SCRAP_SANON_", "")}</p>
+                        
+                        <div className="space-y-5 mb-8">
+                            <div>
+                                <label className={labelClass}>Meno skladníka / Worker</label>
+                                <input 
+                                    type="text" 
+                                    value={manualWorker}
+                                    onChange={e => setManualWorker(e.target.value)}
+                                    placeholder="Napr. Skladnik" 
+                                    className={`${inputClass} !text-base text-center`}
+                                    autoFocus
+                                />
+                            </div>
+
+                            <div>
+                                <label className={labelClass}>Výber materiálu / Metal type</label>
+                                <select 
+                                    value={manualMetalId} 
+                                    onChange={e => setManualMetalId(e.target.value)} 
+                                    className="w-full h-12 bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-xl px-4 text-white text-sm font-bold uppercase outline-none"
+                                >
+                                    {props.metals.map(m => (
+                                        <option key={m.id} value={m.id}>{m.type}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className={labelClass}>Výber kontajnera / Bin</label>
+                                <select 
+                                    value={manualBinId} 
+                                    onChange={e => setManualBinId(e.target.value)} 
+                                    className="w-full h-12 bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-xl px-4 text-white text-sm font-bold uppercase outline-none"
+                                >
+                                    {props.bins.map(b => (
+                                        <option key={b.id} value={b.id}>{b.name} (Tara: {b.tara} kg)</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className={labelClass}>Celková hmotnosť Brutto (kg)</label>
+                                <div className="relative">
+                                    <input 
+                                        type="number" 
+                                        value={manualGross} 
+                                        onChange={e => setManualGross(e.target.value)} 
+                                        className={`${inputClass} !text-3xl text-amber-400`}
+                                        placeholder="0"
+                                    />
+                                    <span className="absolute right-6 bottom-4 text-xl font-black text-slate-700">kg</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <button disabled={isSubmittingManual} onClick={() => setIsAddManualModalOpen(false)} className="h-14 bg-slate-800 text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:text-white transition-all">ZRUŠIŤ</button>
+                            <button disabled={isSubmittingManual} onClick={handleSaveManualItem} className="h-14 bg-amber-600 hover:bg-amber-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest border-b-4 border-amber-800 shadow-xl transition-all active:scale-95 text-center flex items-center justify-center gap-2">
+                                {isSubmittingManual ? '...' : 'PRIDAŤ POLOŽKU'}
+                            </button>
                         </div>
                     </div>
                 </div>,
