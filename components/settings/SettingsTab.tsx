@@ -209,6 +209,9 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             onBatchAddBOMItems={data.onBatchAddBOMItems} 
             onDeleteBOMItem={data.onDeleteBOMItem} 
             onDeleteAllBOMItems={data.onDeleteAllBOMItems} 
+            parts={partsList}
+            onAddPart={data.onAddPart}
+            onDeletePart={data.onDeletePart}
           />
         )}
         {activeSubTab === 'instructions' && (
