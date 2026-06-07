@@ -37,6 +37,12 @@ export interface ScrapConfig {
   scrapLogisticsOpId: string;
 }
 
+export interface ScrapBuyer {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface ScrapBin {
   id: string;
   name: string;

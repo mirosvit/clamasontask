@@ -220,13 +220,14 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             hasManagePermission={hasPermission('perm_manage_instructions')}
           />
         )}
-        {activeSubTab === 'scrap' && (
+         {activeSubTab === 'scrap' && (
           <ScrapSection 
             bins={data.scrapBins}
             metals={data.scrapMetals}
             prices={data.scrapPrices}
             scrapConfig={data.scrapConfig}
             logisticsOperations={data.logisticsOperations}
+            scrapBuyers={(data as any).scrapBuyers || []}
             onAddBin={data.onAddScrapBin}
             onBatchAddBins={data.onBatchAddScrapBins}
             onDeleteBin={data.onDeleteScrapBin}
@@ -237,6 +238,9 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             onAddPrice={data.onAddScrapPrice}
             onDeletePrice={data.onDeleteScrapPrice}
             onUpdateScrapConfig={data.onUpdateScrapConfig}
+            onAddBuyer={(data as any).onAddScrapBuyer}
+            onDeleteBuyer={(data as any).onDeleteScrapBuyer}
+            onUpdateBuyer={(data as any).onUpdateScrapBuyer}
           />
         )}
         {activeSubTab === 'qa_architect' && (

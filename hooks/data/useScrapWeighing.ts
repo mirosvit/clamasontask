@@ -115,7 +115,7 @@ export const useScrapWeighing = () => {
       setScrapSanons(prev => prev.filter(s => s.id !== id));
   };
 
-  const onExpediteScrap = async (worker: string, dispatchDate?: string, selectedIds?: string[]) => {
+  const onExpediteScrap = async (worker: string, dispatchDate?: string, selectedIds?: string[], buyerId?: string) => {
       if (actualScrap.length === 0) return;
 
       let itemsToArchive = actualScrap;
@@ -143,7 +143,8 @@ export const useScrapWeighing = () => {
           finalizedBy: worker,
           finalizedAt: timestamp,
           externalValue: 0,
-          externalWeight: 0 
+          externalWeight: 0,
+          buyerId: buyerId || ''
       };
 
       await setDoc(doc(db, 'scrap_archives', sanonId), archiveDoc);

@@ -1,13 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ScrapRecord, ScrapBin, ScrapMetal, ScrapPrice } from '../../types/appTypes';
+import { ScrapRecord, ScrapBin, ScrapMetal, ScrapPrice, ScrapBuyer } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
+import { getBuyerColorClasses } from '../settings/ScrapSection';
 
 interface ScrapArchiveTabProps {
     scrapArchives: any[];
     bins: ScrapBin[];
     metals: ScrapMetal[];
     prices: ScrapPrice[];
+    buyers: ScrapBuyer[];
     onUpdateArchivedItem: (sanonId: string, itemId: string, updates: Partial<ScrapRecord>) => Promise<void>;
     onUpdateScrapArchive: (sanonId: string, updates: any) => Promise<void>;
     onDeleteArchivedItem: (sanonId: string, itemId: string) => Promise<void>;
@@ -74,6 +76,7 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
     const [targetSanonId, setTargetSanonId] = useState<string | null>(null);
     const [externalValInput, setExternalValInput] = useState('');
     const [externalWeightInput, setExternalWeightInput] = useState('');
+    const [externalBuyerId, setExternalBuyerId] = useState('');
 
     const sortedArchives = useMemo(() => {
         return [...props.scrapArchives].sort((a, b) => {
@@ -205,6 +208,7 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
         setTargetSanonId(sanon.id);
         setExternalValInput(String(sanon.externalValue || ''));
         setExternalWeightInput(String(sanon.externalWeight || ''));
+        setExternalBuyerId(sanon.buyerId || '');
         setIsExternalValueModalOpen(true);
     };
 
@@ -212,7 +216,8 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
         if (!targetSanonId) return;
         await props.onUpdateScrapArchive(targetSanonId, {
             externalValue: parseFloat(externalValInput) || 0,
-            externalWeight: parseFloat(externalWeightInput) || 0
+            externalWeight: parseFloat(externalWeightInput) || 0,
+            buyerId: externalBuyerId || ''
         });
         setIsExternalValueModalOpen(false);
         setTargetSanonId(null);
@@ -431,6 +436,8 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                         const externalValue = archive.externalValue || 0;
                         const displayDate = new Date(archive.dispatchDate).toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric' });
                         
+                        const buyer = props.buyers?.find(b => b.id === archive.buyerId);
+                        
                         return (
                             <div key={archive.id} className="bg-slate-900/60 border border-slate-800 rounded-3xl overflow-hidden transition-all shadow-xl">
                                 <div className="flex flex-col md:flex-row items-center w-full">
@@ -445,6 +452,11 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                                             <div className="text-left">
                                                 <p className="text-lg font-black text-white uppercase tracking-tight">{displayDate}</p>
                                                 <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest leading-none mt-1">{archive.id}</p>
+                                                {buyer && (
+                                                    <span className={`inline-block text-[9px] font-black uppercase px-2 py-0.5 rounded border mt-2 tracking-wider ${getBuyerColorClasses(buyer.color)}`}>
+                                                        {buyer.name}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
 
@@ -707,6 +719,20 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                                     />
                                     <span className="absolute right-6 bottom-4 text-xl font-black text-slate-700">€</span>
                                 </div>
+                            </div>
+
+                            <div>
+                                <label className={labelClass}>Odberateľ šrotu (Firma)</label>
+                                <select 
+                                    value={externalBuyerId} 
+                                    onChange={e => setExternalBuyerId(e.target.value)} 
+                                    className="w-full h-12 bg-slate-950 border-2 border-amber-500/30 rounded-xl px-4 text-white text-sm font-black uppercase focus:border-amber-500 outline-none text-left"
+                                >
+                                    <option value="">-- NEVYBRANÝ / NONE --</option>
+                                    {props.buyers.map(b => (
+                                        <option key={b.id} value={b.id}>{b.name}</option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
 

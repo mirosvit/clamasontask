@@ -21,7 +21,7 @@ import ScrapWarehouseTab from './tabs/ScrapWarehouseTab';
 import ScrapArchiveTab from './tabs/ScrapArchiveTab';
 import ScrapAnalyticsTab from './tabs/ScrapAnalyticsTab';
 import InstructionsTab from './tabs/InstructionsTab';
-import { Task, PriorityLevel, DBItem, Role, SystemConfig, MapSector, MapObstacle, BOMComponent, PartRequest, BOMRequest, AdminNote, ERPBlockage, ScrapBin, ScrapMetal, ScrapPrice, ScrapRecord } from '../types/appTypes';
+import { Task, PriorityLevel, DBItem, Role, SystemConfig, MapSector, MapObstacle, BOMComponent, PartRequest, BOMRequest, AdminNote, ERPBlockage, ScrapBin, ScrapMetal, ScrapPrice, ScrapRecord, ScrapBuyer } from '../types/appTypes';
 
 // --- MAIN DASHBOARD COMPONENT ---
 interface PartSearchScreenProps {
@@ -47,6 +47,7 @@ interface PartSearchScreenProps {
     scrapBins: ScrapBin[];
     scrapMetals: ScrapMetal[];
     scrapPrices: ScrapPrice[];
+    scrapBuyers: ScrapBuyer[];
     actualScrap: ScrapRecord[];
     scrapSanons: any[];
     onAddScrapRecord: (record: ScrapRecord) => Promise<void>;
@@ -57,7 +58,7 @@ interface PartSearchScreenProps {
     onUpdateScrapArchive: (sanonId: string, updates: any) => Promise<void>;
     onDeleteArchivedScrapItem: (sanonId: string, itemId: string) => Promise<void>;
     onDeleteScrapArchive: (id: string) => Promise<void>;
-    onExpediteScrap: (worker: string, dispatchDate: string, selectedIds?: string[]) => Promise<string | undefined>;
+    onExpediteScrap: (worker: string, dispatchDate: string, selectedIds?: string[], buyerId?: string) => Promise<string | undefined>;
     onFinalizeScrapArchive: (date: string, worker: string, items: ScrapRecord[]) => Promise<string | undefined>;
     onFetchScrapArchives: (from: string, to: string) => Promise<any[]>;
 
@@ -439,6 +440,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                             bins={props.scrapBins}
                             metals={props.scrapMetals}
                             prices={props.scrapPrices}
+                            buyers={props.scrapBuyers || []}
                             onDeleteRecord={props.onDeleteScrapRecord}
                             onUpdateRecord={props.onUpdateScrapRecord}
                             onExpedite={props.onExpediteScrap}
@@ -452,6 +454,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                             bins={props.scrapBins}
                             metals={props.scrapMetals}
                             prices={props.scrapPrices}
+                            buyers={props.scrapBuyers || []}
                             onUpdateArchivedItem={props.onUpdateArchivedScrapItem}
                             onUpdateScrapArchive={props.onUpdateScrapArchive}
                             onDeleteArchivedItem={props.onDeleteArchivedScrapItem}

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ScrapRecord, ScrapBin, ScrapMetal, ScrapPrice } from '../../types/appTypes';
+import { ScrapRecord, ScrapBin, ScrapMetal, ScrapPrice, ScrapBuyer } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 
 interface ScrapWarehouseTabProps {
@@ -9,9 +9,10 @@ interface ScrapWarehouseTabProps {
     bins: ScrapBin[];
     metals: ScrapMetal[];
     prices: ScrapPrice[];
+    buyers: ScrapBuyer[];
     onDeleteRecord: (id: string) => Promise<void>;
     onUpdateRecord: (id: string, updates: Partial<ScrapRecord>) => Promise<void>;
-    onExpedite: (worker: string, dispatchDate: string, selectedIds?: string[]) => Promise<string | undefined>;
+    onExpedite: (worker: string, dispatchDate: string, selectedIds?: string[], buyerId?: string) => Promise<string | undefined>;
     resolveName: (username?: string | null) => string;
 }
 
@@ -52,6 +53,7 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
     const [isDeliveryNoteModalOpen, setIsDeliveryNoteModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDeliveryNoteGenerated, setIsDeliveryNoteGenerated] = useState(false);
+    const [selectedBuyerId, setSelectedBuyerId] = useState('');
     
     // Selection state
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -291,12 +293,13 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
         if (selectedIds.length === 0) { alert(language === 'sk' ? "Vyberte položky na expedíciu." : "Select items to expedite."); return; }
         setIsSubmitting(true);
         try {
-            const sanonId = await props.onExpedite(props.currentUser, dispatchDate, selectedIds);
+            const sanonId = await props.onExpedite(props.currentUser, dispatchDate, selectedIds, selectedBuyerId);
             if (sanonId) {
                 alert(language === 'sk' ? `Expedícia úspešná. Archív: ${sanonId}` : `Expedition successful. Archive: ${sanonId}`);
                 setIsExpediteModalOpen(false);
                 setIsDeliveryNoteGenerated(false);
                 setSelectedIds([]);
+                setSelectedBuyerId('');
             }
         } catch (e) { alert("Chyba pri expedícii."); } finally { setIsSubmitting(false); }
     };
@@ -446,7 +449,27 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
                     <div className="bg-slate-900 border-2 border-indigo-500/50 rounded-[2.5rem] shadow-2xl w-full max-w-lg p-10 relative overflow-hidden text-center" onClick={e => e.stopPropagation()}>
                         <div className="w-20 h-20 bg-indigo-500/10 border border-indigo-500/30 rounded-full flex items-center justify-center mx-auto mb-6 text-indigo-500"><Icons.Dispatch /></div>
                         <h3 className="text-3xl font-black text-white uppercase tracking-tighter mb-4">{t('scrap_dispatch_modal_title')}</h3>
-                        <div className="space-y-4 mb-10"><p className="text-sm text-slate-400 font-bold uppercase leading-relaxed">{t('scrap_dispatch_modal_desc')}<br /><span className="text-white text-lg font-black">{selectedIds.length} položiek</span></p><div className="mt-6"><label className={labelClass}>{t('scrap_dispatch_date')}</label><input type="date" value={dispatchDate} onChange={e => setDispatchDate(e.target.value)} className={inputClass} /><p className="text-[10px] text-slate-500 mt-2 font-bold uppercase italic">* Tento dátum určí názov archívneho šanónu.</p></div></div>
+                        <div className="space-y-4 mb-10">
+                            <p className="text-sm text-slate-400 font-bold uppercase leading-relaxed">{t('scrap_dispatch_modal_desc')}<br /><span className="text-white text-lg font-black">{selectedIds.length} položiek</span></p>
+                            <div className="mt-6 text-left">
+                                <label className={labelClass}>{t('scrap_dispatch_date')}</label>
+                                <input type="date" value={dispatchDate} onChange={e => setDispatchDate(e.target.value)} className={inputClass} />
+                                <p className="text-[10px] text-slate-500 mt-2 font-bold uppercase italic">* Tento dátum určí názov archívneho šanónu.</p>
+                            </div>
+                            <div className="mt-6 text-left">
+                                <label className={labelClass}>ODBERATEĽ SROTU (FIRMA) / BUYER COMPANY</label>
+                                <select 
+                                    value={selectedBuyerId} 
+                                    onChange={e => setSelectedBuyerId(e.target.value)} 
+                                    className="w-full h-12 bg-slate-950 border-2 border-indigo-500/30 rounded-xl px-4 text-white text-sm font-black uppercase focus:border-indigo-500 outline-none"
+                                >
+                                    <option value="">-- NEVYBRANÝ / NONE --</option>
+                                    {props.buyers.map(b => (
+                                        <option key={b.id} value={b.id}>{b.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
                         <div className="grid grid-cols-2 gap-4">
                             <button disabled={isSubmitting} onClick={() => setIsExpediteModalOpen(false)} className="h-14 bg-slate-800 text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:text-white transition-all disabled:opacity-30">ZRUŠIŤ</button>
                             <button disabled={isSubmitting} onClick={handleExpediteConfirm} className="h-14 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest border-b-4 border-indigo-800 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 disabled:bg-slate-700 disabled:border-slate-800">{isSubmitting ? '...' : 'POTVRDIŤ EXPEDÍCIU'}</button>

@@ -1,6 +1,6 @@
 import React, { useState, memo, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ScrapBin, ScrapMetal, ScrapPrice, ScrapConfig, DBItem } from '../../types/appTypes';
+import { ScrapBin, ScrapMetal, ScrapPrice, ScrapConfig, DBItem, ScrapBuyer } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 
 interface ScrapSectionProps {
@@ -9,6 +9,7 @@ interface ScrapSectionProps {
   prices: ScrapPrice[];
   scrapConfig: ScrapConfig;
   logisticsOperations: DBItem[];
+  scrapBuyers: ScrapBuyer[];
   onAddBin: (name: string, tara: number) => Promise<void>;
   onBatchAddBins: (lines: string[]) => Promise<void>;
   onDeleteBin: (id: string) => Promise<void>;
@@ -19,6 +20,9 @@ interface ScrapSectionProps {
   onAddPrice: (metalId: string, month: number, year: number, price: number) => Promise<void>;
   onDeletePrice: (id: string) => Promise<void>;
   onUpdateScrapConfig: (config: Partial<ScrapConfig>) => Promise<void>;
+  onAddBuyer: (name: string, color: string) => Promise<void>;
+  onDeleteBuyer: (id: string) => Promise<void>;
+  onUpdateBuyer: (id: string, updates: Partial<ScrapBuyer>) => Promise<void>;
 }
 
 const Icons = {
@@ -32,6 +36,23 @@ const Icons = {
   Import: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
 };
 
+export const getBuyerColorClasses = (color: string) => {
+  switch (color) {
+    case 'indigo': return 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30';
+    case 'emerald': return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+    case 'amber': return 'bg-amber-500/10 text-amber-400 border border-amber-500/30';
+    case 'rose': return 'bg-rose-500/10 text-rose-400 border border-rose-500/30';
+    case 'violet': return 'bg-violet-500/10 text-violet-400 border border-violet-500/30';
+    case 'cyan': return 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30';
+    case 'orange': return 'bg-orange-500/10 text-orange-400 border border-orange-500/30';
+    case 'blue': return 'bg-blue-500/10 text-blue-400 border border-blue-500/30';
+    case 'pink': return 'bg-pink-500/10 text-pink-400 border border-pink-500/30';
+    case 'purple': return 'bg-purple-500/10 text-purple-400 border border-purple-500/30';
+    case 'teal': return 'bg-teal-500/10 text-teal-400 border border-teal-500/30';
+    default: return 'bg-slate-500/10 text-slate-400 border border-slate-500/30';
+  }
+};
+
 const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
   const { t, language } = useLanguage();
   
@@ -39,9 +60,10 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
   const [binQuery, setBinQuery] = useState('');
   const [metalQuery, setMetalQuery] = useState('');
   const [priceQuery, setPriceQuery] = useState('');
+  const [buyerQuery, setBuyerQuery] = useState('');
 
   // Modals
-  const [modalType, setModalType] = useState<'bin' | 'metal' | 'price' | 'import_bins' | null>(null);
+  const [modalType, setModalType] = useState<'bin' | 'metal' | 'price' | 'import_bins' | 'buyer' | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Form States
@@ -54,6 +76,8 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
   const [priceMonth, setPriceMonth] = useState(new Date().getMonth() + 1);
   const [priceYear, setPriceYear] = useState(new Date().getFullYear());
   const [priceValue, setPriceValue] = useState('');
+  const [buyerName, setBuyerName] = useState('');
+  const [buyerColor, setBuyerColor] = useState('indigo');
 
   // Filtered Lists
   const filteredBins = useMemo(() => {
@@ -83,10 +107,17 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
     });
   }, [props.prices, props.metals, priceQuery]);
 
+  const filteredBuyers = useMemo(() => {
+    const q = buyerQuery.toLowerCase().trim();
+    if (!q) return props.scrapBuyers;
+    return props.scrapBuyers.filter(b => b.name.toLowerCase().includes(q));
+  }, [props.scrapBuyers, buyerQuery]);
+
   const resetForms = () => {
     setBinName(''); setBinTara(''); setBulkBins('');
     setMetalType(''); setMetalDesc('');
     setPriceMetalId(''); setPriceValue('');
+    setBuyerName(''); setBuyerColor('indigo');
     setEditingId(null);
     setModalType(null);
   };
@@ -99,6 +130,11 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
   const handleEditMetal = (m: ScrapMetal) => {
     setMetalType(m.type); setMetalDesc(m.description);
     setEditingId(m.id); setModalType('metal');
+  };
+
+  const handleEditBuyer = (b: ScrapBuyer) => {
+    setBuyerName(b.name); setBuyerColor(b.color);
+    setEditingId(b.id); setModalType('buyer');
   };
 
   const handleBatchBinsSubmit = () => {
@@ -148,7 +184,7 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
           </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
         
         {/* BIN DATABASE */}
         <div className={cardClass}>
@@ -280,6 +316,48 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
           </div>
         </div>
 
+        {/* BUYERS DATABASE */}
+        <div className={cardClass}>
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
+              <span className="w-2 h-6 bg-indigo-500 rounded-full"></span>
+              ODBERATELIA
+            </h3>
+            <button onClick={() => setModalType('buyer')} className="p-2 bg-indigo-600 rounded-lg text-white hover:bg-indigo-500 transition-all shadow-lg active:scale-95">
+              <Icons.Plus />
+            </button>
+          </div>
+
+          <div className="relative mb-4">
+            <input 
+              type="text" 
+              value={buyerQuery} 
+              onChange={e => setBuyerQuery(e.target.value)} 
+              placeholder="HĽADAŤ ODBERATEĽA..." 
+              className={searchInputClass}
+            />
+            <div className="absolute left-3 top-3 text-slate-700"><Icons.Search /></div>
+          </div>
+
+          <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+            {filteredBuyers.map(b => (
+              <div key={b.id} className="bg-slate-950/30 p-4 rounded-xl border border-white/5 flex justify-between items-center group hover:bg-slate-900/50 transition-colors">
+                <div className="min-w-0 pr-2">
+                  <p className="text-sm font-black text-white uppercase tracking-tight truncate">{b.name}</p>
+                  <span className={`inline-block text-[9px] font-black uppercase px-2 py-0.5 rounded border mt-2 ${getBuyerColorClasses(b.color)}`}>
+                    {b.color}
+                  </span>
+                </div>
+                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                  <button onClick={() => handleEditBuyer(b)} className="text-slate-400 hover:text-white p-1.5 hover:bg-slate-800 rounded-md transition-colors"><Icons.Edit /></button>
+                  <button onClick={() => { if(window.confirm('Zmazať odberateľa?')) props.onDeleteBuyer(b.id); }} className="text-slate-400 hover:text-red-500 p-1.5 hover:bg-slate-800 rounded-md transition-colors"><Icons.Trash /></button>
+                </div>
+              </div>
+            ))}
+            {filteredBuyers.length === 0 && <p className="text-center py-8 text-xs text-slate-600 italic font-bold uppercase tracking-widest">{buyerQuery ? 'Nič sa nenašlo' : 'Žiadni odberatelia'}</p>}
+          </div>
+        </div>
+
       </div>
 
       {/* --- MODALS --- */}
@@ -383,6 +461,76 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
                     resetForms();
                   }} className="w-full h-14 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-black uppercase text-xs border-2 border-amber-500 shadow-xl transition-all">
                     {t('scrap_add_price')}
+                  </button>
+                </>
+              )}
+
+              {modalType === 'buyer' && (
+                <>
+                  <div>
+                    <label className={labelClass}>NÁZOV FIRMY / ODBERATEĽA</label>
+                    <input value={buyerName} onChange={e => setBuyerName(e.target.value.toUpperCase())} className={inputClass} autoFocus placeholder="napr. RECYKLA S.R.O." />
+                  </div>
+                  <div>
+                    <label className={labelClass}>FARBA BADGE / LABEL COLOR</label>
+                    <div className="flex flex-wrap gap-3 p-3 bg-slate-950/40 border border-slate-800 rounded-xl">
+                      {['indigo', 'blue', 'cyan', 'teal', 'emerald', 'amber', 'orange', 'rose', 'purple', 'violet'].map(colorKey => (
+                        <button
+                          key={colorKey}
+                          type="button"
+                          onClick={() => setBuyerColor(colorKey)}
+                          className={`w-8 h-8 rounded-full border-2 transition-transform active:scale-95 flex items-center justify-center ${
+                            buyerColor === colorKey ? 'border-white scale-110' : 'border-transparent hover:scale-105'
+                          }`}
+                          style={{
+                            backgroundColor: {
+                              indigo: '#6366f1',
+                              blue: '#3b82f6',
+                              cyan: '#06b6d4',
+                              teal: '#14b8a6',
+                              emerald: '#10b981',
+                              amber: '#f59e0b',
+                              orange: '#f97316',
+                              rose: '#f43f5e',
+                              purple: '#a855f7',
+                              violet: '#8b5cf6'
+                            }[colorKey]
+                          }}
+                          title={colorKey}
+                        >
+                          {buyerColor === colorKey && (
+                            <span className="text-white text-[10px] font-black leading-none">✓</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {buyerName && (
+                    <div className="p-4 bg-slate-950/20 border border-slate-800 rounded-2xl text-center">
+                      <label className={labelClass}>NÁHĽAD OZNAČENIA</label>
+                      <div className="mt-2">
+                        <span className={`inline-block text-xs font-black uppercase px-3 py-1 rounded-lg border tracking-wide shadow-md ${getBuyerColorClasses(buyerColor)}`}>
+                          {buyerName}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <button 
+                    onClick={() => {
+                      if (!buyerName.trim()) return;
+                      if (editingId) {
+                        props.onUpdateBuyer(editingId, { name: buyerName, color: buyerColor });
+                      } else {
+                        props.onAddBuyer(buyerName, buyerColor);
+                      }
+                      resetForms();
+                    }} 
+                    disabled={!buyerName.trim()}
+                    className="w-full h-14 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:border-slate-850 disabled:text-slate-600 text-white rounded-xl font-black uppercase text-xs border-2 border-indigo-500 shadow-xl transition-all"
+                  >
+                    {t('btn_save')}
                   </button>
                 </>
               )}
