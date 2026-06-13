@@ -128,6 +128,12 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
     <div className={`group relative flex flex-col sm:flex-row rounded-lg shadow-md overflow-hidden transition-all duration-200 items-stretch ${bgClass} ${borderClass} ${!task.isDone ? 'hover:shadow-lg' : ''}`}>
       {isUrgent && !isManualBlocked && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#FF8C00] animate-pulse z-50"></div>}
 
+      {isUrgent && (
+        <div className="absolute right-[5%] top-1/2 -translate-y-1/2 pointer-events-none select-none opacity-[0.06] font-black uppercase tracking-[0.25em] italic text-5xl sm:text-6xl md:text-7xl lg:text-8xl text-[#FF8C00]">
+          URGENT
+        </div>
+      )}
+
       {isSearchingMode && !task.isDone && (
         <div className="absolute right-20 top-1/2 -translate-y-1/2 pointer-events-none opacity-10">
           <SearchIcon className="w-32 h-32 text-gray-400" />
