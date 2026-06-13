@@ -160,6 +160,7 @@ export interface Task {
   isLogistics?: boolean; 
   isProduction?: boolean;
   isActivity?: boolean;
+  isInventory?: boolean;
   isAuditInProgress?: boolean;
   auditBy?: string | null;
   auditFinalBadge?: string | null;

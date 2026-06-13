@@ -23,6 +23,7 @@ interface TaskActionsProps {
   handleCopyPart: (id: string, text: string) => void;
   openPriorityModal: (task: Task) => void;
   onAuditPart?: (task: Task) => void;
+  onSwitchTab?: (tabId: string) => void;
 }
 
 const Icons = {
@@ -45,7 +46,7 @@ const TaskActions: React.FC<TaskActionsProps> = ({
   task, isSystemInventoryTask, isSearchingMode, isManualBlocked, isAuditInProgress, 
   isNoteLockedByAudit, copiedId, hasPermission, onSetInProgress, onToggleTask, 
   onToggleBlock, onToggleManualBlock, onExhaustSearch, onMarkAsIncorrect, handleMissingClick, 
-  handleNoteClick, handleDeleteClick, handleCopyPart, openPriorityModal, onAuditPart 
+  handleNoteClick, handleDeleteClick, handleCopyPart, openPriorityModal, onAuditPart, onSwitchTab 
 }) => {
   const { t } = useLanguage();
 
@@ -55,6 +56,30 @@ const TaskActions: React.FC<TaskActionsProps> = ({
         <Icons.Trash />
       </button>
     ) : null;
+  }
+
+  if (task.isInventory && !task.isDone) {
+    return (
+      <div className="flex gap-3">
+        <button 
+          onClick={async () => {
+            if (!task.isInProgress) {
+              await onSetInProgress(task.id);
+            }
+            onSwitchTab?.('inventory');
+          }}
+          className={`h-16 px-6 flex items-center justify-center gap-3 rounded-xl transition-all active:scale-95 shadow-lg font-bold text-white uppercase tracking-wider ${task.isInProgress ? 'bg-indigo-600 hover:bg-indigo-500 border border-indigo-500' : 'bg-indigo-700 hover:bg-indigo-600 border border-indigo-600 animate-pulse'}`}
+        >
+          <Icons.ClipboardCheck />
+          {task.isInProgress ? 'Vstúpiť do inventúry' : 'Spustiť inventúru'}
+        </button>
+        {hasPermission('perm_btn_delete') && (
+          <button onClick={() => handleDeleteClick(task.id)} className="w-16 h-16 flex items-center justify-center rounded-lg bg-red-900/50 text-red-500 hover:bg-red-800 hover:text-white border border-red-800 transition-colors">
+            <Icons.Trash />
+          </button>
+        )}
+      </div>
+    );
   }
 
   if (task.isDone) {

@@ -30,6 +30,7 @@ interface TaskListProps {
   onFinishAudit?: (id: string, result: 'found' | 'missing', note: string) => void;
   hasPermission: (perm: string) => boolean;
   resolveName: (username?: string | null) => string;
+  onSwitchTab?: (tabId: string) => void;
 }
 
 const TaskList: React.FC<TaskListProps> = (props) => {
@@ -242,6 +243,7 @@ const TaskList: React.FC<TaskListProps> = (props) => {
             openPriorityModal={openPriorityModal}
             onAuditPart={() => handleAuditClick(task)}
             resolveName={props.resolveName}
+            onSwitchTab={props.onSwitchTab}
           />
         );
       })}

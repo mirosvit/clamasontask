@@ -25,6 +25,7 @@ interface TaskCardProps {
   openPriorityModal: (task: Task) => void;
   onAuditPart?: (task: Task) => void;
   resolveName: (username?: string | null) => string;
+  onSwitchTab?: (tabId: string) => void;
 }
 
 const SearchIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -237,6 +238,7 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
           handleCopyPart={props.handleCopyPart} 
           openPriorityModal={props.openPriorityModal} 
           onAuditPart={props.onAuditPart} 
+          onSwitchTab={props.onSwitchTab}
         />
       </div>
     </div>

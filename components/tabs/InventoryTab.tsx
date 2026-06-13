@@ -4,6 +4,8 @@ import { createPortal } from 'react-dom';
 import { useLanguage } from '../LanguageContext';
 import PartNumberInput from '../PartNumberInput';
 import { Task, PriorityLevel } from '../../types/appTypes';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 interface ScannedItem {
     id: string;
@@ -65,25 +67,71 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
     });
 
     const activeInventoryTask = useMemo(() => {
-        // Oprava: hľadáme úlohu pomocou technického textu "Počítanie zásob", ktorý nastavuje useTaskData
         return (tasks || []).find(t => 
-            t.partNumber === "Počítanie zásob" && 
+            (t.isInventory || t.partNumber === "Počítanie zásob") && 
             !t.isDone && 
             (t.inProgressBy === currentUser || t.createdBy === currentUser)
         );
     }, [tasks, currentUser]);
 
-    // Okamžitý focus na lokáciu pri detekcii aktívnej relácie
+    // Rozdelenie lokácií na sekvenčný zoznam (ak sú oddelené čiarkou, bodkočiarkou alebo medzerami)
+    const locationsList = useMemo(() => {
+        if (!activeInventoryTask || !activeInventoryTask.workplace || activeInventoryTask.workplace === "Inventúra") {
+            return [];
+        }
+        return activeInventoryTask.workplace
+            .split(/[,\s;]+/)
+            .map(loc => loc.trim().toUpperCase())
+            .filter(loc => loc.length > 0);
+    }, [activeInventoryTask?.workplace]);
+
+    const [selectedLocIndex, setSelectedLocIndex] = useState<number>(0);
+
+    // Načítanie prvého neskenovaného indexu lokácie
+    useEffect(() => {
+        if (locationsList.length > 0) {
+            const index = locationsList.findIndex(loc => {
+                return !scannedItems.some(item => item.location.toUpperCase() === loc.toUpperCase());
+            });
+            setSelectedLocIndex(index === -1 ? 0 : index);
+        }
+    }, [activeInventoryTask?.id, locationsList.length]);
+
+    // Pre-filling location and part number if we have an active inventory task
+    useEffect(() => {
+        if (activeInventoryTask) {
+            if (locationsList.length > 0) {
+                const loc = locationsList[selectedLocIndex];
+                if (loc) {
+                    setLocation(loc);
+                }
+            } else if (activeInventoryTask.workplace && activeInventoryTask.workplace !== "Inventúra") {
+                setLocation(activeInventoryTask.workplace);
+            }
+            if (activeInventoryTask.partNumber && activeInventoryTask.partNumber !== "Počítanie zásob" && activeInventoryTask.partNumber !== "CELÝ REGÁL") {
+                setPartNumber(activeInventoryTask.partNumber);
+            }
+        }
+    }, [activeInventoryTask?.id, locationsList, selectedLocIndex]);
+
+    // Okamžitý focus na lokáciu alebo dávku (batch) pri detekcii aktívnej relácie
     useEffect(() => {
         if (activeInventoryTask) {
             const timer = setTimeout(() => {
-                if (locationRef.current) {
+                const hasLocation = activeInventoryTask.workplace && activeInventoryTask.workplace !== "Inventúra";
+                const hasPart = activeInventoryTask.partNumber && activeInventoryTask.partNumber !== "Počítanie zásob" && activeInventoryTask.partNumber !== "CELÝ REGÁL";
+                
+                if (hasLocation && hasPart && batchRef.current) {
+                    batchRef.current.focus();
+                } else if (hasLocation && !hasPart && partRef.current) {
+                    partRef.current.focus();
+                } else if (locationRef.current) {
                     locationRef.current.focus();
                 }
             }, 150);
             return () => clearTimeout(timer);
         }
-    }, [activeInventoryTask?.id]);
+    }, [activeInventoryTask?.id, selectedLocIndex]);
 
     // Načítanie dát viazané na konkrétne ID úlohy
     useEffect(() => {
@@ -165,15 +213,73 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
         
         setScannedItems(prev => [newItem, ...prev]);
 
-        // Reset všetkých polí pre novú položku
-        setLocation('');
-        setPartNumber(''); 
-        setBatch(''); 
+        // Ak robíme sekvenčnú inventúru (máme zoznam lokácií), ponecháme aktuálnu lokáciu a diel a resetujeme len dávku a množstvo pre zrýchlenie
+        if (locationsList.length > 0) {
+            setBatch(''); 
+            setIsBatchMissing(false);
+            setQuantity('');
+            setTimeout(() => {
+                if (batchRef.current) batchRef.current.focus();
+            }, 50);
+        } else {
+            // Predvolené vyčistenie všetkých polí
+            setLocation('');
+            setPartNumber(''); 
+            setBatch(''); 
+            setIsBatchMissing(false);
+            setQuantity('');
+            setTimeout(() => locationRef.current?.focus(), 50);
+        }
+    };
+
+    const handleMarkLocationEmpty = () => {
+        const activeLoc = location.trim().toUpperCase();
+        if (!activeLoc) return;
+
+        const emptyItem: ScannedItem = {
+            id: crypto.randomUUID(),
+            location: activeLoc,
+            partNumber: partNumber.trim().toUpperCase() || (activeInventoryTask?.partNumber && activeInventoryTask.partNumber !== "Počítanie zásob" ? activeInventoryTask.partNumber : "PRÁZDNY DIEL"),
+            batch: `[${language === 'sk' ? 'PRÁZDNA LOKÁCIA' : 'EMPTY LOCATION'}]`,
+            quantity: '0',
+            timestamp: Date.now(),
+            worker: currentUser
+        };
+
+        setScannedItems(prev => [emptyItem, ...prev]);
+        setBatch('');
         setIsBatchMissing(false);
         setQuantity('');
-        
-        // Vrátenie focusu na Lokáciu pre ďalší sken
-        setTimeout(() => locationRef.current?.focus(), 50);
+
+        // Automatický posun na ďalšiu neobsadenú lokáciu v zozname ak existuje
+        if (locationsList.length > 0) {
+            const nextIdx = locationsList.findIndex((loc, idx) => {
+                if (idx <= selectedLocIndex) return false;
+                return !scannedItems.some(item => item.location.toUpperCase() === loc.toUpperCase());
+            });
+            if (nextIdx !== -1) {
+                setSelectedLocIndex(nextIdx);
+            } else {
+                const firstInc = locationsList.findIndex(loc => {
+                    return !scannedItems.some(item => item.location.toUpperCase() === loc.toUpperCase());
+                });
+                if (firstInc !== -1 && firstInc !== selectedLocIndex) {
+                    setSelectedLocIndex(firstInc);
+                }
+            }
+        }
+    };
+
+    const handleNextLocation = () => {
+        if (selectedLocIndex < locationsList.length - 1) {
+            setSelectedLocIndex(prev => prev + 1);
+        }
+    };
+
+    const handlePrevLocation = () => {
+        if (selectedLocIndex > 0) {
+            setSelectedLocIndex(prev => prev - 1);
+        }
     };
 
     const handleDeleteItem = (id: string) => {
@@ -215,10 +321,28 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
         });
     };
 
-    const handleExportAndFinish = () => {
+    const handleExportAndFinish = async () => {
         if (scannedItems.length === 0) {
             alert(language === 'sk' ? "Nemožno ukončiť prázdnu inventúru." : "Cannot finish empty inventory.");
             return;
+        }
+
+        if (activeInventoryTask) {
+            try {
+                const finalLoc = location.trim().toUpperCase() || activeInventoryTask.workplace || 'Unknown';
+                const finalPart = partNumber.trim().toUpperCase() || activeInventoryTask.partNumber || 'CELÝ REGÁL';
+                await setDoc(doc(db, 'temp_inventories', activeInventoryTask.id), {
+                    taskId: activeInventoryTask.id,
+                    location: finalLoc,
+                    partNumber: finalPart,
+                    completedAt: Date.now(),
+                    completedBy: currentUser,
+                    scannedItems: scannedItems
+                });
+            } catch (err) {
+                console.error("Failed to upload temporary inventory document to Firebase:", err);
+                alert(language === 'sk' ? "Nepodarilo sa uložiť inventúru do Firebase. Bude stiahnutá iba lokálne." : "Failed to store inventory in Firebase. It will be downloaded only locally.");
+            }
         }
         
         handleExport();
@@ -311,6 +435,120 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                             </button>
                         </div>
 
+                        {/* SEQUENTIAL CHECKLIST VISUAL INTERFACE */}
+                        {locationsList.length > 0 && (
+                            <div className="bg-gray-905 border border-gray-700/80 rounded-2xl p-5 mb-8 space-y-4">
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                    <div>
+                                        <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest leading-none">
+                                            {language === 'sk' ? "Postup kontroly lokácií" : "Location checklist"}
+                                        </h3>
+                                        <p className="text-xs text-gray-500 mt-1 uppercase font-semibold">
+                                            {language === 'sk' 
+                                                ? `Aktivovaná sekvenčná inventúra pre diel: ${partNumber || 'CELÝ REGÁL'}`
+                                                : `Sequential inventory active for part: ${partNumber || 'ALL SHELVES'}`
+                                            }
+                                        </p>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={handlePrevLocation}
+                                            disabled={selectedLocIndex === 0}
+                                            className="p-2.5 bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-700 text-white rounded-lg transition-all border border-gray-700 font-extrabold text-xs"
+                                            title={language === 'sk' ? "Predošlá lokácia" : "Previous location"}
+                                        >
+                                            ◀
+                                        </button>
+                                        <span className="text-xs font-mono text-gray-400 bg-gray-950 px-3 py-1.5 rounded-lg border border-gray-800/80 font-bold">
+                                            {selectedLocIndex + 1} / {locationsList.length}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={handleNextLocation}
+                                            disabled={selectedLocIndex === locationsList.length - 1}
+                                            className="p-2.5 bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-700 text-white rounded-lg transition-all border border-gray-700 font-extrabold text-xs"
+                                            title={language === 'sk' ? "Ďalšia lokácia" : "Next location"}
+                                        >
+                                            ▶
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                                    {locationsList.map((loc, index) => {
+                                        const isActive = index === selectedLocIndex;
+                                        const scannedCount = scannedItems.filter(item => item.location.toUpperCase() === loc.toUpperCase()).length;
+                                        const isCompleted = scannedCount > 0;
+                                        
+                                        return (
+                                            <button
+                                                key={index}
+                                                type="button"
+                                                onClick={() => setSelectedLocIndex(index)}
+                                                className={`flex flex-col items-start p-3.5 rounded-xl border-2 transition-all text-left relative overflow-hidden group ${
+                                                    isActive 
+                                                        ? 'bg-blue-950/40 border-[#4169E1] shadow-[0_0_15px_rgba(65,105,225,0.25)]' 
+                                                        : isCompleted 
+                                                            ? 'bg-emerald-950/25 border-emerald-600/60 hover:bg-emerald-950/40' 
+                                                            : 'bg-gray-800/40 border-gray-700/60 hover:bg-gray-800/80'
+                                                }`}
+                                            >
+                                                <div className="flex w-full justify-between items-center mb-1">
+                                                    <span className="text-[10px] font-black uppercase text-gray-500 group-hover:text-gray-300 transition-colors">
+                                                        {language === 'sk' ? `Lokácia ${index + 1}` : `Loc ${index + 1}`}
+                                                    </span>
+                                                    {isCompleted && (
+                                                        <span className="text-emerald-400 text-xs font-black">
+                                                            ✓
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                
+                                                <div className="text-white font-mono font-black text-sm uppercase leading-none tracking-wide">
+                                                    {loc}
+                                                </div>
+                                                
+                                                <div className="mt-1.5 flex items-center justify-between w-full">
+                                                    <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded leading-none ${
+                                                        isCompleted 
+                                                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/25' 
+                                                            : isActive 
+                                                                ? 'bg-blue-500/10 text-blue-400 border border-blue-500/25 animate-pulse'
+                                                                : 'bg-gray-800 text-gray-500'
+                                                    }`}>
+                                                        {isCompleted 
+                                                            ? `${scannedCount} ${language === 'sk' ? 'sken' : 'scan'}${scannedCount > 1 ? 'y' : ''}` 
+                                                            : isActive 
+                                                                ? (language === 'sk' ? 'Aktivovaná' : 'Active') 
+                                                                : (language === 'sk' ? 'Čaká' : 'Pending')
+                                                        }
+                                                    </span>
+                                                </div>
+
+                                                {isActive && (
+                                                    <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#4169E1] animate-pulse"></div>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                {locationsList.every(loc => scannedItems.some(item => item.location.toUpperCase() === loc.toUpperCase())) && (
+                                    <div className="bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 p-3.5 rounded-xl flex items-center gap-2.5 font-bold text-sm tracking-wide animate-bounce mt-4">
+                                        <span>🏆</span>
+                                        <span>
+                                            {language === 'sk' 
+                                                ? "Všetky určené lokácie pre túto úlohu sú úspešne skontrolované!" 
+                                                : "All assigned locations for this task have been checked successfully!"
+                                            }
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div>
                                 <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">{t('inv_loc_label')}</label>
@@ -381,12 +619,25 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                             </div>
                         </div>
 
-                        <button 
-                            onClick={handleAddItem}
-                            className="w-full mt-10 bg-[#4169E1] hover:bg-[#3151b1] text-white font-black py-6 rounded-2xl shadow-xl transition-all active:scale-95 uppercase tracking-widest text-xl border-2 border-[#5a81f3]"
-                        >
-                            {t('inv_add_btn')}
-                        </button>
+                        <div className="mt-10 flex flex-col sm:flex-row gap-4 w-full">
+                            <button 
+                                onClick={handleAddItem}
+                                className="flex-1 bg-[#4169E1] hover:bg-[#3151b1] text-white font-black py-6 rounded-2xl shadow-xl transition-all active:scale-95 uppercase tracking-widest text-xl border-2 border-[#5a81f3]"
+                            >
+                                {t('inv_add_btn')}
+                            </button>
+                            
+                            {locationsList.length > 0 && (
+                                <button 
+                                    type="button"
+                                    onClick={handleMarkLocationEmpty}
+                                    className="sm:w-1/3 bg-amber-600/10 hover:bg-amber-600/20 border-2 border-amber-500/50 text-amber-400 font-extrabold py-6 rounded-2xl shadow-lg transition-all active:scale-95 uppercase tracking-wider text-sm flex items-center justify-center gap-2"
+                                    title={language === 'sk' ? "Označiť aktuálnu lokáciu ako prázdnu (0 ks)" : "Mark current location empty (0 pcs)"}
+                                >
+                                    🕳️ {language === 'sk' ? "Lokácia je prázdna" : "Location is empty"}
+                                </button>
+                            )}
+                        </div>
                     </>
                 )}
             </div>

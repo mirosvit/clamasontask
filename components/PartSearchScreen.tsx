@@ -69,7 +69,7 @@ interface PartSearchScreenProps {
     onLogout: () => void;
 
     // Task Actions
-    onAddTask: (partNumber: string, workplace: string | null, quantity: string | null, quantityUnit: string | null, priority: PriorityLevel, isLogistics?: boolean, noteOrPlate?: string, isProduction?: boolean, sourceSectorId?: string | null, targetSectorId?: string | null, startNow?: boolean) => Promise<void>;
+    onAddTask: (partNumber: string, workplace: string | null, quantity: string | null, quantityUnit: string | null, priority: PriorityLevel, isLogistics?: boolean, noteOrPlate?: string, isProduction?: boolean, sourceSectorId?: string | null, targetSectorId?: string | null, startNow?: boolean, isActivity?: boolean, isInventory?: boolean) => Promise<void>;
     onUpdateTask: (id: string, updates: Partial<Task>) => Promise<void>;
     onDeleteTask: (id: string) => Promise<void>;
     onToggleTask: (id: string, sectorId?: string) => Promise<void>;
@@ -152,7 +152,7 @@ interface PartSearchScreenProps {
 const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
     const { t, language, setLanguage } = useLanguage();
     const [activeTab, setActiveTab] = useState('entry');
-    const [mode, setMode] = useState<'production' | 'logistics'>('production');
+    const [mode, setMode] = useState<'production' | 'logistics' | 'inventory'>('production');
     const [isFullscreen, setIsFullscreen] = useState(false);
 
     // Form states for adding new tasks
@@ -230,6 +230,27 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                 false,
                 '',
                 true
+            );
+            resetEntry();
+        } else if (mode === 'inventory') {
+            if (!selectedWorkplace) {
+                alert(language === 'sk' ? 'Prosím vyberte regál / lokáciu pre inventúru.' : 'Please select shelf / location for inventory.');
+                return;
+            }
+            await props.onAddTask(
+                selectedPart || "CELÝ REGÁL",
+                selectedWorkplace,
+                "0",
+                "pcs",
+                priority,
+                false,
+                '',
+                false,
+                null,
+                null,
+                false,
+                false,
+                true // isInventory
             );
             resetEntry();
         } else {
@@ -352,6 +373,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                             onFinishAudit={props.onFinishAudit}
                             hasPermission={hasPermission}
                             resolveName={resolveName}
+                            onSwitchTab={setActiveTab}
                         />
                     )}
 

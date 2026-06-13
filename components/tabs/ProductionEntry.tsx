@@ -4,8 +4,8 @@ import PartNumberInput from '../PartNumberInput';
 import { DBItem, PriorityLevel, MapSector } from '../../types/appTypes';
 
 interface ProductionEntryProps {
-  mode: 'production' | 'logistics';
-  setMode: (mode: 'production' | 'logistics') => void;
+  mode: 'production' | 'logistics' | 'inventory';
+  setMode: (mode: 'production' | 'logistics' | 'inventory') => void;
   selectedPart: string | null;
   setSelectedPart: (part: string | null) => void;
   selectedWorkplace: string | null;
@@ -104,13 +104,23 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
                 >
                   🚛 {t('mode_logistics')}
                 </button>
+                {hasPermission('perm_tab_inventory') && (
+                  <button 
+                    onClick={() => setMode('inventory')} 
+                    className={`px-5 sm:px-8 rounded-lg font-bold text-base transition-all duration-200 flex items-center gap-2 ${mode === 'inventory' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                  >
+                    📋 {t('mode_inventory')}
+                  </button>
+                )}
               </div>
             </div>
           )}
-          <h1 className={`text-3xl sm:text-4xl font-extrabold text-center mb-3 ${mode === 'production' ? 'text-teal-400' : 'text-sky-400'}`}>
-            {t('search_title')}
+          <h1 className={`text-3xl sm:text-4xl font-extrabold text-center mb-3 ${mode === 'production' ? 'text-teal-400' : (mode === 'inventory' ? 'text-indigo-400' : 'text-sky-400')}`}>
+            {mode === 'inventory' ? (language === 'sk' ? 'Vyžiadať inventúru' : 'Request Inventory') : t('search_title')}
           </h1>
-          <p className="text-gray-400 text-center mb-8 text-base">{t('search_subtitle')}</p>
+          <p className="text-gray-400 text-center mb-8 text-base">
+            {mode === 'inventory' ? (language === 'sk' ? 'Zadajte údaje pre naplánovanie inventúry.' : 'Enter details to schedule an inventory.') : t('search_subtitle')}
+          </p>
           <div className="space-y-6 sm:space-y-8">
             {mode === 'production' ? (
               <>
@@ -127,8 +137,8 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
                   />
                   {packagingLogic.label && (
                     <div className="mt-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-1.5 flex items-center gap-2 animate-fade-in">
-                       <span className="text-amber-500 text-[10px] animate-pulse">🔒</span>
-                       <span className="text-amber-500 text-[10px] font-black uppercase tracking-widest">{packagingLogic.label}</span>
+                        <span className="text-amber-500 text-[10px] animate-pulse">🔒</span>
+                        <span className="text-amber-500 text-[10px] font-black uppercase tracking-widest">{packagingLogic.label}</span>
                     </div>
                   )}
                 </div>
@@ -149,6 +159,33 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
                       <svg className="fill-current h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
                     </div>
                   </div>
+                </div>
+              </>
+            ) : mode === 'inventory' ? (
+              <>
+                <div>
+                  <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">
+                    {t('inv_loc_label_compulsory')} <span className="text-indigo-500">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    value={selectedWorkplace || ''} 
+                    onChange={(e) => setSelectedWorkplace(e.target.value.toUpperCase())} 
+                    placeholder={language === 'sk' ? "Napr. regál MA123" : "e.g. shelf MA123"}
+                    className={`${inputBaseClass} focus:ring-indigo-500 font-mono`} 
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">
+                    {t('inv_part_label_optional')}
+                  </label>
+                  <PartNumberInput 
+                    parts={parts.map(p => p.value)} 
+                    onPartSelect={setSelectedPart} 
+                    placeholder={t('part_placeholder')} 
+                    value={selectedPart} 
+                    onRequestPart={onRequestPart} 
+                  />
                 </div>
               </>
             ) : (
@@ -231,45 +268,47 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
                 </div>
               </>
             )}
-            <div>
-              <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">
-                {t('quantity')} <span className={`${mode === 'production' ? 'text-teal-500' : 'text-sky-500'}`}>*</span>
-              </label>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <input 
-                  type="number" 
-                  inputMode="decimal" 
-                  value={quantity} 
-                  onChange={(e) => setQuantity(e.target.value.slice(0, 7))} 
-                  maxLength={7}
-                  className={`${inputBaseClass} sm:w-1/2 ${mode === 'production' ? 'focus:ring-teal-500' : 'focus:ring-sky-500'}`} 
-                  placeholder={t('pcs_placeholder')} 
-                />
-                <div className="flex w-full sm:w-1/2 h-12 bg-gray-700 rounded-lg p-1.5 border border-gray-600">
-                  <button 
-                    onClick={() => setQuantityUnit('pcs')} 
-                    disabled={mode === 'logistics' || isUnitLocked || (packagingLogic.forceUnit !== null && packagingLogic.forceUnit !== 'pcs')} 
-                    className={`flex-1 rounded-md text-xs font-black uppercase transition-all ${quantityUnit === 'pcs' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'} ${mode === 'logistics' ? 'opacity-10 cursor-not-allowed grayscale' : ''} ${isUnitLocked && quantityUnit !== 'pcs' ? 'opacity-20 cursor-not-allowed' : ''} ${(packagingLogic.forceUnit !== null && packagingLogic.forceUnit !== 'pcs') ? 'opacity-20 cursor-not-allowed' : ''}`}
-                  >
-                    {t('unit_pcs_short')}
-                  </button>
-                  <button 
-                    onClick={() => setQuantityUnit('boxes')} 
-                    disabled={isUnitLocked || (packagingLogic.forceUnit !== null && packagingLogic.forceUnit !== 'boxes')}
-                    className={`flex-1 rounded-md text-xs font-black uppercase transition-all ${quantityUnit === 'boxes' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'} ${isUnitLocked && quantityUnit !== 'boxes' ? 'opacity-20 cursor-not-allowed' : ''} ${(packagingLogic.forceUnit !== null && packagingLogic.forceUnit !== 'boxes') ? 'opacity-20 cursor-not-allowed' : ''}`}
-                  >
-                    {t('unit_boxes_short')}
-                  </button>
-                  <button 
-                    onClick={() => setQuantityUnit('pallet')} 
-                    disabled={isUnitLocked || (packagingLogic.forceUnit !== null && packagingLogic.forceUnit !== 'pallet')}
-                    className={`flex-1 rounded-md text-xs font-black uppercase transition-all ${quantityUnit === 'pallet' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'} ${isUnitLocked && quantityUnit !== 'pallet' ? 'opacity-20 cursor-not-allowed' : ''} ${(packagingLogic.forceUnit !== null && packagingLogic.forceUnit !== 'pallet') ? 'opacity-20 cursor-not-allowed' : ''}`}
-                  >
-                    {t('unit_pallet_short')}
-                  </button>
+            {mode !== 'inventory' && (
+              <div>
+                <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">
+                  {t('quantity')} <span className={`${mode === 'production' ? 'text-teal-500' : 'text-sky-500'}`}>*</span>
+                </label>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <input 
+                    type="number" 
+                    inputMode="decimal" 
+                    value={quantity} 
+                    onChange={(e) => setQuantity(e.target.value.slice(0, 7))} 
+                    maxLength={7}
+                    className={`${inputBaseClass} sm:w-1/2 ${mode === 'production' ? 'focus:ring-teal-500' : 'focus:ring-sky-500'}`} 
+                    placeholder={t('pcs_placeholder')} 
+                  />
+                  <div className="flex w-full sm:w-1/2 h-12 bg-gray-700 rounded-lg p-1.5 border border-gray-600">
+                    <button 
+                      onClick={() => setQuantityUnit('pcs')} 
+                      disabled={mode === 'logistics' || isUnitLocked || (packagingLogic.forceUnit !== null && packagingLogic.forceUnit !== 'pcs')} 
+                      className={`flex-1 rounded-md text-xs font-black uppercase transition-all ${quantityUnit === 'pcs' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'} ${mode === 'logistics' ? 'opacity-10 cursor-not-allowed grayscale' : ''} ${isUnitLocked && quantityUnit !== 'pcs' ? 'opacity-20 cursor-not-allowed' : ''} ${(packagingLogic.forceUnit !== null && packagingLogic.forceUnit !== 'pcs') ? 'opacity-20 cursor-not-allowed' : ''}`}
+                    >
+                      {t('unit_pcs_short')}
+                    </button>
+                    <button 
+                      onClick={() => setQuantityUnit('boxes')} 
+                      disabled={isUnitLocked || (packagingLogic.forceUnit !== null && packagingLogic.forceUnit !== 'boxes')}
+                      className={`flex-1 rounded-md text-xs font-black uppercase transition-all ${quantityUnit === 'boxes' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'} ${isUnitLocked && quantityUnit !== 'boxes' ? 'opacity-20 cursor-not-allowed' : ''} ${(packagingLogic.forceUnit !== null && packagingLogic.forceUnit !== 'boxes') ? 'opacity-20 cursor-not-allowed' : ''}`}
+                    >
+                      {t('unit_boxes_short')}
+                    </button>
+                    <button 
+                      onClick={() => setQuantityUnit('pallet')} 
+                      disabled={isUnitLocked || (packagingLogic.forceUnit !== null && packagingLogic.forceUnit !== 'pallet')}
+                      className={`flex-1 rounded-md text-xs font-black uppercase transition-all ${quantityUnit === 'pallet' ? 'bg-gray-600 text-white shadow-md' : 'text-gray-400 hover:text-white'} ${isUnitLocked && quantityUnit !== 'pallet' ? 'opacity-20 cursor-not-allowed' : ''} ${(packagingLogic.forceUnit !== null && packagingLogic.forceUnit !== 'pallet') ? 'opacity-20 cursor-not-allowed' : ''}`}
+                    >
+                      {t('unit_pallet_short')}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
             <div>
               <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">{t('priority_label')}</label>
               <div className="flex h-12 bg-gray-700 rounded-lg p-1.5 border border-gray-600">
@@ -281,7 +320,7 @@ const ProductionEntry: React.FC<ProductionEntryProps> = ({
             <div className="flex flex-col sm:flex-row gap-4 pt-6">
               <button 
                 onClick={handleAdd} 
-                className={`w-full text-white font-bold py-5 px-6 rounded-xl shadow-lg transform transition-all duration-150 active:scale-95 flex items-center justify-center gap-3 text-lg ${mode === 'production' ? 'bg-teal-600 hover:bg-teal-500 shadow-[0_0_15px_rgba(13,148,136,0.4)]' : 'bg-sky-600 hover:bg-sky-500 shadow-[0_0_15px_rgba(14,165,233,0.4)]'}`}
+                className={`w-full text-white font-bold py-5 px-6 rounded-xl shadow-lg transform transition-all duration-150 active:scale-95 flex items-center justify-center gap-3 text-lg ${mode === 'production' ? 'bg-teal-600 hover:bg-teal-500 shadow-[0_0_15px_rgba(13,148,136,0.4)]' : (mode === 'inventory' ? 'bg-indigo-600 hover:bg-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.4)]' : 'bg-sky-600 hover:bg-sky-500 shadow-[0_0_15px_rgba(14,165,233,0.4)]')}`}
               >
                 <PlusIcon className="w-8 h-8" />
                 {t('send_btn')}
