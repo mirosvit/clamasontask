@@ -51,6 +51,8 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
     const [isBatchMissing, setIsBatchMissing] = useState(false);
     const [quantity, setQuantity] = useState('');
     const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
+    const [completedLocations, setCompletedLocations] = useState<string[]>([]);
+    const [lastLocConfirmed, setLastLocConfirmed] = useState<boolean>(false);
 
     const [confirmModal, setConfirmModal] = useState<{
         isOpen: boolean;
@@ -87,15 +89,20 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
 
     const [selectedLocIndex, setSelectedLocIndex] = useState<number>(0);
 
-    // Načítanie prvého neskenovaného indexu lokácie
+    // Načítanie prvého nedokončeného indexu lokácie
     useEffect(() => {
         if (locationsList.length > 0) {
             const index = locationsList.findIndex(loc => {
-                return !scannedItems.some(item => item.location.toUpperCase() === loc.toUpperCase());
+                return !completedLocations.includes(loc.toUpperCase());
             });
             setSelectedLocIndex(index === -1 ? 0 : index);
         }
     }, [activeInventoryTask?.id, locationsList.length]);
+
+    // Vynulovanie potvrdenia poslednej lokácie pri zmene výberu lokácie
+    useEffect(() => {
+        setLastLocConfirmed(false);
+    }, [selectedLocIndex]);
 
     // Pre-filling location and part number if we have an active inventory task
     useEffect(() => {
@@ -108,7 +115,11 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
             } else if (activeInventoryTask.workplace && activeInventoryTask.workplace !== "Inventúra") {
                 setLocation(activeInventoryTask.workplace);
             }
-            if (activeInventoryTask.partNumber && activeInventoryTask.partNumber !== "Počítanie zásob" && activeInventoryTask.partNumber !== "CELÝ REGÁL") {
+            const isPlaceholderPart = activeInventoryTask.partNumber === "Počítanie zásob" || 
+                                      activeInventoryTask.partNumber === "CELÝ REGÁL" || 
+                                      activeInventoryTask.partNumber === "INVENTÚRA POZÍCIÍ" || 
+                                      activeInventoryTask.partNumber === "INVENTÚRA POZÍCIE";
+            if (activeInventoryTask.partNumber && !isPlaceholderPart) {
                 setPartNumber(activeInventoryTask.partNumber);
             }
         }
@@ -119,7 +130,11 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
         if (activeInventoryTask) {
             const timer = setTimeout(() => {
                 const hasLocation = activeInventoryTask.workplace && activeInventoryTask.workplace !== "Inventúra";
-                const hasPart = activeInventoryTask.partNumber && activeInventoryTask.partNumber !== "Počítanie zásob" && activeInventoryTask.partNumber !== "CELÝ REGÁL";
+                const isPlaceholderPart = activeInventoryTask.partNumber === "Počítanie zásob" || 
+                                          activeInventoryTask.partNumber === "CELÝ REGÁL" || 
+                                          activeInventoryTask.partNumber === "INVENTÚRA POZÍCIÍ" || 
+                                          activeInventoryTask.partNumber === "INVENTÚRA POZÍCIE";
+                const hasPart = activeInventoryTask.partNumber && !isPlaceholderPart;
                 
                 if (hasLocation && hasPart && batchRef.current) {
                     batchRef.current.focus();
@@ -137,6 +152,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
     useEffect(() => {
         if (!activeInventoryTask) {
             setScannedItems([]);
+            setCompletedLocations([]);
             return;
         }
 
@@ -165,6 +181,21 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                 setScannedItems([]);
             }
         }
+
+        const compLocsKey = `inventory_completed_locs_${activeInventoryTask.id}`;
+        const savedComp = localStorage.getItem(compLocsKey);
+        if (savedComp) {
+            try {
+                const parsed = JSON.parse(savedComp);
+                if (Array.isArray(parsed)) {
+                    setCompletedLocations(parsed);
+                }
+            } catch (e) {
+                console.error("Failed to parse completed locations", e);
+            }
+        } else {
+            setCompletedLocations([]);
+        }
     }, [activeInventoryTask?.id]);
 
     // Ukladanie dát pri zmene zoznamu
@@ -174,6 +205,14 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
             localStorage.setItem(storageKey, JSON.stringify(scannedItems));
         }
     }, [scannedItems, activeInventoryTask?.id]);
+
+    // Ukladanie dokončených lokácií pri zmene
+    useEffect(() => {
+        if (activeInventoryTask) {
+            const compLocsKey = `inventory_completed_locs_${activeInventoryTask.id}`;
+            localStorage.setItem(compLocsKey, JSON.stringify(completedLocations));
+        }
+    }, [completedLocations, activeInventoryTask?.id]);
 
     const handleStartInventory = () => {
         onAddTask("Počítanie zásob", "Inventúra", "0", "pallet", "NORMAL", true);
@@ -213,30 +252,24 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
         
         setScannedItems(prev => [newItem, ...prev]);
 
-        // Ak robíme sekvenčnú inventúru (máme zoznam lokácií), automaticky prejdeme na ďalšiu neobsadenú lokáciu a vyčistíme len dávku a množstvo
+        // Ak robíme sekvenčnú inventúru (máme zoznam lokácií), automaticky pridáme lokáciu do dokončených, ale NEPOSÚVAME sa hneď (aby sme mohli skenovať viacero PN/zvitkov)
         if (locationsList.length > 0) {
-            const updatedScanned = [newItem, ...scannedItems];
-            const nextIdx = locationsList.findIndex((loc, idx) => {
-                if (idx <= selectedLocIndex) return false;
-                return !updatedScanned.some(item => item.location.toUpperCase() === loc.toUpperCase());
+            const activeLocUpper = location.trim().toUpperCase();
+            setCompletedLocations(prev => {
+                if (!prev.includes(activeLocUpper)) {
+                    return [...prev, activeLocUpper];
+                }
+                return prev;
             });
 
-            if (nextIdx !== -1) {
-                setSelectedLocIndex(nextIdx);
-            } else {
-                const firstInc = locationsList.findIndex(loc => {
-                    return !updatedScanned.some(item => item.location.toUpperCase() === loc.toUpperCase());
-                });
-                if (firstInc !== -1 && firstInc !== selectedLocIndex) {
-                    setSelectedLocIndex(firstInc);
-                }
-            }
+            setLastLocConfirmed(false);
 
+            setPartNumber('');
             setBatch(''); 
             setIsBatchMissing(false);
             setQuantity('');
             setTimeout(() => {
-                if (batchRef.current) batchRef.current.focus();
+                if (partRef.current) partRef.current.focus();
             }, 50);
         } else {
             // Predvolené vyčistenie všetkých polí
@@ -249,14 +282,60 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
         }
     };
 
+    const handleCompleteAndNext = () => {
+        const activeLoc = location.trim().toUpperCase() || (locationsList.length > 0 ? locationsList[selectedLocIndex] : '');
+        if (!activeLoc) return;
+
+        // Pridať aktuálnu lokáciu do dokončených
+        setCompletedLocations(prev => {
+            if (!prev.includes(activeLoc)) {
+                return [...prev, activeLoc];
+            }
+            return prev;
+        });
+
+        if (locationsList.length > 0 && selectedLocIndex === locationsList.length - 1) {
+            setLastLocConfirmed(true);
+        }
+
+        // Posun na ďalšiu nedokončenú lokáciu
+        if (locationsList.length > 0) {
+            const updatedCompleted = completedLocations.includes(activeLoc) 
+                ? completedLocations 
+                : [...completedLocations, activeLoc];
+
+            const nextIdx = locationsList.findIndex((loc, idx) => {
+                if (idx <= selectedLocIndex) return false;
+                return !updatedCompleted.includes(loc.toUpperCase());
+            });
+
+            if (nextIdx !== -1) {
+                setSelectedLocIndex(nextIdx);
+            } else {
+                const firstInc = locationsList.findIndex(loc => {
+                    return !updatedCompleted.includes(loc.toUpperCase());
+                });
+                if (firstInc !== -1 && firstInc !== selectedLocIndex) {
+                    setSelectedLocIndex(firstInc);
+                }
+            }
+        }
+    };
+
     const handleMarkLocationEmpty = () => {
         const activeLoc = location.trim().toUpperCase();
         if (!activeLoc) return;
 
+        const isPlaceholder = !activeInventoryTask?.partNumber || 
+                              activeInventoryTask.partNumber === "Počítanie zásob" || 
+                              activeInventoryTask.partNumber === "CELÝ REGÁL" || 
+                              activeInventoryTask.partNumber === "INVENTÚRA POZÍCIÍ" || 
+                              activeInventoryTask.partNumber === "INVENTÚRA POZÍCIE";
+
         const emptyItem: ScannedItem = {
             id: crypto.randomUUID(),
             location: activeLoc,
-            partNumber: partNumber.trim().toUpperCase() || (activeInventoryTask?.partNumber && activeInventoryTask.partNumber !== "Počítanie zásob" ? activeInventoryTask.partNumber : "PRÁZDNY DIEL"),
+            partNumber: partNumber.trim().toUpperCase() || (!isPlaceholder ? activeInventoryTask!.partNumber! : "PRÁZDNY DIEL"),
             batch: `[${language === 'sk' ? 'PRÁZDNA LOKÁCIA' : 'EMPTY LOCATION'}]`,
             quantity: '0',
             timestamp: Date.now(),
@@ -268,18 +347,33 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
         setIsBatchMissing(false);
         setQuantity('');
 
+        // Pridať do dokončených
+        setCompletedLocations(prev => {
+            if (!prev.includes(activeLoc)) {
+                return [...prev, activeLoc];
+            }
+            return prev;
+        });
+
+        if (locationsList.length > 0 && selectedLocIndex === locationsList.length - 1) {
+            setLastLocConfirmed(true);
+        }
+
         // Automatický posun na ďalšiu neobsadenú lokáciu v zozname ak existuje
         if (locationsList.length > 0) {
-            const updatedScanned = [emptyItem, ...scannedItems];
+            const updatedCompleted = completedLocations.includes(activeLoc) 
+                ? completedLocations 
+                : [...completedLocations, activeLoc];
+
             const nextIdx = locationsList.findIndex((loc, idx) => {
                 if (idx <= selectedLocIndex) return false;
-                return !updatedScanned.some(item => item.location.toUpperCase() === loc.toUpperCase());
+                return !updatedCompleted.includes(loc.toUpperCase());
             });
             if (nextIdx !== -1) {
                 setSelectedLocIndex(nextIdx);
             } else {
                 const firstInc = locationsList.findIndex(loc => {
-                    return !updatedScanned.some(item => item.location.toUpperCase() === loc.toUpperCase());
+                    return !updatedCompleted.includes(loc.toUpperCase());
                 });
                 if (firstInc !== -1 && firstInc !== selectedLocIndex) {
                     setSelectedLocIndex(firstInc);
@@ -312,8 +406,10 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
             type: 'danger',
             onConfirm: () => {
                 setScannedItems([]);
+                setCompletedLocations([]);
                 if (activeInventoryTask) {
                     localStorage.removeItem(`inventory_scans_${activeInventoryTask.id}`);
+                    localStorage.removeItem(`inventory_completed_locs_${activeInventoryTask.id}`);
                 }
                 setConfirmModal(prev => ({ ...prev, isOpen: false }));
             }
@@ -331,9 +427,21 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
             onConfirm: () => {
                 if (activeInventoryTask) {
                     localStorage.removeItem(`inventory_scans_${activeInventoryTask.id}`);
-                    onDeleteTask(activeInventoryTask.id);
+                    localStorage.removeItem(`inventory_completed_locs_${activeInventoryTask.id}`);
+                    
+                    const isPlannedTask = activeInventoryTask.workplace && activeInventoryTask.workplace !== "Inventúra";
+                    if (isPlannedTask) {
+                        onUpdateTask(activeInventoryTask.id, {
+                            isInProgress: false,
+                            inProgressBy: null,
+                            startedAt: null
+                        });
+                    } else {
+                        onDeleteTask(activeInventoryTask.id);
+                    }
                 }
                 setScannedItems([]);
+                setCompletedLocations([]);
                 setConfirmModal(prev => ({ ...prev, isOpen: false }));
             }
         });
@@ -348,7 +456,13 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
         if (activeInventoryTask) {
             try {
                 const finalLoc = location.trim().toUpperCase() || activeInventoryTask.workplace || 'Unknown';
-                const finalPart = partNumber.trim().toUpperCase() || activeInventoryTask.partNumber || 'CELÝ REGÁL';
+                const defaultPartName = locationsList.length > 1 ? "INVENTÚRA POZÍCIÍ" : "INVENTÚRA POZÍCIE";
+                const isPlaceholder = !activeInventoryTask.partNumber || 
+                                      activeInventoryTask.partNumber === "Počítanie zásob" || 
+                                      activeInventoryTask.partNumber === "CELÝ REGÁL" || 
+                                      activeInventoryTask.partNumber === "INVENTÚRA POZÍCIÍ" || 
+                                      activeInventoryTask.partNumber === "INVENTÚRA POZÍCIE";
+                const finalPart = partNumber.trim().toUpperCase() || (!isPlaceholder ? activeInventoryTask.partNumber : defaultPartName);
                 await setDoc(doc(db, 'temp_inventories', activeInventoryTask.id), {
                     taskId: activeInventoryTask.id,
                     location: finalLoc,
@@ -376,8 +490,10 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                 quantity: scannedItems.length.toString()
             });
             localStorage.removeItem(`inventory_scans_${activeInventoryTask.id}`);
+            localStorage.removeItem(`inventory_completed_locs_${activeInventoryTask.id}`);
         }
         setScannedItems([]);
+        setCompletedLocations([]);
     };
 
     const handleExport = () => {
@@ -463,8 +579,8 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                                         </h3>
                                         <p className="text-xs text-gray-500 mt-1 uppercase font-semibold">
                                             {language === 'sk' 
-                                                ? `Aktivovaná sekvenčná inventúra pre diel: ${partNumber || 'CELÝ REGÁL'}`
-                                                : `Sequential inventory active for part: ${partNumber || 'ALL SHELVES'}`
+                                                ? `Aktivovaná sekvenčná inventúra pre diel: ${partNumber || (locationsList.length > 1 ? "INVENTÚRA POZÍCIÍ" : "INVENTÚRA POZÍCIE")}`
+                                                : `Sequential inventory active for part: ${partNumber || (locationsList.length > 1 ? "INVENTORY OF POSITIONS" : "INVENTORY OF POSITION")}`
                                             }
                                         </p>
                                     </div>
@@ -497,8 +613,8 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                                     {locationsList.map((loc, index) => {
                                         const isActive = index === selectedLocIndex;
+                                        const isCompleted = completedLocations.includes(loc.toUpperCase());
                                         const scannedCount = scannedItems.filter(item => item.location.toUpperCase() === loc.toUpperCase()).length;
-                                        const isCompleted = scannedCount > 0;
                                         
                                         return (
                                             <button
@@ -536,11 +652,13 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                                                                 ? 'bg-blue-500/10 text-blue-400 border border-blue-500/25 animate-pulse'
                                                                 : 'bg-gray-800 text-gray-500'
                                                     }`}>
-                                                        {isCompleted 
+                                                        {scannedCount > 0 
                                                             ? `${scannedCount} ${language === 'sk' ? 'sken' : 'scan'}${scannedCount > 1 ? 'y' : ''}` 
-                                                            : isActive 
-                                                                ? (language === 'sk' ? 'Aktivovaná' : 'Active') 
-                                                                : (language === 'sk' ? 'Čaká' : 'Pending')
+                                                            : isCompleted
+                                                                ? (language === 'sk' ? 'Prázdna' : 'Empty')
+                                                                : isActive 
+                                                                    ? (language === 'sk' ? 'Aktivovaná' : 'Active') 
+                                                                    : (language === 'sk' ? 'Čaká' : 'Pending')
                                                         }
                                                     </span>
                                                 </div>
@@ -553,7 +671,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                                     })}
                                 </div>
 
-                                {locationsList.every(loc => scannedItems.some(item => item.location.toUpperCase() === loc.toUpperCase())) && (
+                                {locationsList.every(loc => completedLocations.includes(loc.toUpperCase())) && (selectedLocIndex !== locationsList.length - 1 || lastLocConfirmed) && (
                                     <div className="bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 p-3.5 rounded-xl flex items-center gap-2.5 font-bold text-sm tracking-wide animate-bounce mt-4">
                                         <span>🏆</span>
                                         <span>
@@ -646,14 +764,24 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                             </button>
                             
                             {locationsList.length > 0 && (
-                                <button 
-                                    type="button"
-                                    onClick={handleMarkLocationEmpty}
-                                    className="sm:w-1/3 bg-amber-600/10 hover:bg-amber-600/20 border-2 border-amber-500/50 text-amber-400 font-extrabold py-6 rounded-2xl shadow-lg transition-all active:scale-95 uppercase tracking-wider text-sm flex items-center justify-center gap-2"
-                                    title={language === 'sk' ? "Označiť aktuálnu lokáciu ako prázdnu (0 ks)" : "Mark current location empty (0 pcs)"}
-                                >
-                                    🕳️ {language === 'sk' ? "Lokácia je prázdna" : "Location is empty"}
-                                </button>
+                                <>
+                                    <button 
+                                        type="button"
+                                        onClick={handleCompleteAndNext}
+                                        className="sm:w-1/3 bg-emerald-600/20 hover:bg-emerald-600/35 border-2 border-emerald-500/50 text-emerald-300 font-extrabold py-6 rounded-2xl shadow-lg transition-all active:scale-95 uppercase tracking-wider text-sm flex items-center justify-center gap-2"
+                                        title={language === 'sk' ? "Označiť túto lokáciu ako dokončenú a prejsť na ďalšiu" : "Mark this location as finished and go to next"}
+                                    >
+                                        ✓ {language === 'sk' ? "Dokončiť lokáciu" : "Finish location"}
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onClick={handleMarkLocationEmpty}
+                                        className="sm:w-1/4 bg-amber-600/10 hover:bg-amber-600/20 border-2 border-amber-500/50 text-amber-400 font-extrabold py-6 rounded-2xl shadow-lg transition-all active:scale-95 uppercase tracking-wider text-xs flex items-center justify-center gap-2"
+                                        title={language === 'sk' ? "Označiť aktuálnu lokáciu ako prázdnu (0 ks)" : "Mark current location empty (0 pcs)"}
+                                    >
+                                        🕳️ {language === 'sk' ? "Lokácia je prázdna" : "Location is empty"}
+                                    </button>
+                                </>
                             )}
                         </div>
                     </>

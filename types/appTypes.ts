@@ -149,7 +149,7 @@ export interface Task {
   inProgressBy?: string | null;
   createdAt?: number; 
   createdBy?: string;
-  startedAt?: number; 
+  startedAt?: number | null; 
   completedAt?: number; 
   note?: string;
   plate?: string;

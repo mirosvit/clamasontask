@@ -140,7 +140,7 @@ const TempInventoriesSection: React.FC<TempInventoriesSectionProps> = ({ resolve
                                         {inv.location || 'N/A'}
                                     </td>
                                     <td className="p-4 font-mono">
-                                        {inv.partNumber || 'CELÝ REGÁL'}
+                                        {inv.partNumber || 'INVENTÚRA POZÍCIE'}
                                     </td>
                                     <td className="p-4">
                                         {resolveName(inv.completedBy)}

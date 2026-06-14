@@ -237,8 +237,15 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                 alert(language === 'sk' ? 'Prosím vyberte regál / lokáciu pre inventúru.' : 'Please select shelf / location for inventory.');
                 return;
             }
+            const targetPartName = selectedPart || (() => {
+                const locations = (selectedWorkplace || "")
+                    .split(/[,\s;]+/)
+                    .map(loc => loc.trim())
+                    .filter(loc => loc.length > 0);
+                return locations.length > 1 ? "INVENTÚRA POZÍCIÍ" : "INVENTÚRA POZÍCIE";
+            })();
             await props.onAddTask(
-                selectedPart || "CELÝ REGÁL",
+                targetPartName,
                 selectedWorkplace,
                 "0",
                 "pcs",
