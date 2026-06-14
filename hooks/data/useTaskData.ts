@@ -30,10 +30,13 @@ export const useTaskData = (
       
       if (!isFirstLoad.current) {
           snapshot.docChanges().forEach((change) => {
-              if (change.type === 'added' && checkPermissionRef.current('perm_play_sound')) {
+              if (change.type === 'added') {
                   const task = change.doc.data() as Task;
                   if (task.createdAt && (Date.now() - task.createdAt < 10000)) {
-                      new Audio('https://codeskulptor-demos.commondatastorage.googleapis.com/pang/pop.mp3').play().catch(() => {});
+                      if (checkPermissionRef.current('perm_play_sound')) {
+                          new Audio('https://codeskulptor-demos.commondatastorage.googleapis.com/pang/pop.mp3').play().catch(() => {});
+                      }
+                      window.dispatchEvent(new CustomEvent('new-task-added', { detail: task }));
                   }
               }
           });

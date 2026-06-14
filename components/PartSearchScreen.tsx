@@ -167,6 +167,60 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
     const [sourceSector, setSourceSector] = useState<string | null>(null);
     const [targetSector, setTargetSector] = useState<string | null>(null);
 
+    // Toast notifications state
+    const [toasts, setToasts] = useState<{ id: string; partNumber: string; workplace?: string; priority?: string; createdBy?: string }[]>([]);
+
+    // Žiadosť o povolenie web notifikácií pri načítaní aplikácie
+    useEffect(() => {
+        if (typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === 'default') {
+            window.Notification.requestPermission();
+        }
+    }, []);
+
+    // Spracovanie prijatých udalostí pre novú úlohu v systéme
+    useEffect(() => {
+        const handleNewTask = (e: Event) => {
+            const task = (e as CustomEvent).detail as Task;
+            if (!task) return;
+
+            const toastId = crypto.randomUUID();
+            setToasts(prev => [
+                ...prev,
+                {
+                    id: toastId,
+                    partNumber: task.partNumber || '',
+                    workplace: task.workplace || undefined,
+                    priority: task.priority || undefined,
+                    createdBy: task.createdBy || undefined
+                }
+            ]);
+
+            setTimeout(() => {
+                setToasts(prev => prev.filter(t => t.id !== toastId));
+            }, 6000);
+
+            // Zobrazenie prehliadačovej (systémovej) notifikácie, ak je povolená
+            if (typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === 'granted') {
+                try {
+                    const title = language === 'sk' ? 'Pridaná nová úloha' : 'New Task Added';
+                    const body = `${task.partNumber} -> ${task.workplace || '-'}\n${language === 'sk' ? 'Vytvoril' : 'Created by'}: ${task.createdBy}`;
+                    new window.Notification(title, {
+                        body,
+                        icon: '/favicon.ico',
+                        silent: true
+                    });
+                } catch (err) {
+                    console.error('Chyba počas odosielania systémovej notifikácie:', err);
+                }
+            }
+        };
+
+        window.addEventListener('new-task-added', handleNewTask);
+        return () => {
+            window.removeEventListener('new-task-added', handleNewTask);
+        };
+    }, [language]);
+
     // --- AUTOMATICKÉ PREDNASTAVENIE JEDNOTKY PODĽA MÓDU ---
     useEffect(() => {
         if (mode === 'logistics') {
@@ -583,6 +637,50 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                     )}
                 </div>
             </main>
+
+            {/* --- SYSTEM TOAST NOTIFICATIONS OVERLAY --- */}
+            <div className="fixed bottom-6 right-6 z-[99999] flex flex-col gap-3 max-w-sm w-full pointer-events-none">
+                {toasts.map(toast => (
+                    <div 
+                        key={toast.id} 
+                        className="pointer-events-auto bg-slate-900 border-2 border-teal-500/30 backdrop-blur-xl p-4 rounded-3xl shadow-[0_10px_40px_rgba(0,0,0,0.6)] flex items-start gap-3.5 animate-slide-in relative overflow-hidden"
+                    >
+                        <div className="absolute top-0 left-0 w-2 h-full bg-teal-500" />
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[10px] uppercase font-black text-teal-400 tracking-wider">
+                                {language === 'sk' ? 'Pridaná nová úloha' : 'New Task Added'}
+                            </p>
+                            <p className="text-base font-mono font-black text-white truncate mt-1">
+                                {toast.partNumber}
+                            </p>
+                            <div className="flex items-center gap-2 mt-2">
+                                <span className="text-[10px] uppercase font-bold text-slate-500">
+                                    {language === 'sk' ? 'Pozícia:' : 'Location:'}
+                                </span>
+                                <span className="text-xs font-black text-slate-200">
+                                    {toast.workplace || '-'}
+                                </span>
+                                {toast.priority && toast.priority !== 'NORMAL' && (
+                                    <span className="text-[9px] font-extrabold bg-red-500/20 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded uppercase">
+                                        {toast.priority}
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-[10px] text-slate-500 mt-1 uppercase font-bold">
+                                {language === 'sk' ? `Vytvoril: ${resolveName(toast.createdBy)}` : `By: ${resolveName(toast.createdBy)}`}
+                            </p>
+                        </div>
+                        <button 
+                            onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))} 
+                            className="text-slate-500 hover:text-white transition-colors p-1"
+                        >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };
