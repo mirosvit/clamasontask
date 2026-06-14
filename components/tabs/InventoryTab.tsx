@@ -72,7 +72,8 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
         return (tasks || []).find(t => 
             (t.isInventory || t.partNumber === "Počítanie zásob") && 
             !t.isDone && 
-            (t.inProgressBy === currentUser || t.createdBy === currentUser)
+            t.isInProgress && 
+            t.inProgressBy === currentUser
         );
     }, [tasks, currentUser]);
 
