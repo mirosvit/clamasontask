@@ -161,6 +161,21 @@ const MaintenanceSection: React.FC<MaintenanceSectionProps> = ({ systemConfig, o
                 <button onClick={() => onUpdateSystemConfig({maintenanceMode: !systemConfig.maintenanceMode})} className={`w-full py-5 rounded-xl font-black uppercase text-xs tracking-[0.2em] transition-all border-2 ${systemConfig.maintenanceMode ? 'bg-white text-red-600 border-white shadow-xl' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
                   {systemConfig.maintenanceMode ? 'DEAKTIVOVAŤ' : 'AKTIVOVAŤ SERVISNÝ MÓD'}
                 </button>
+
+                <div className="h-px bg-slate-800/80 my-6"></div>
+                
+                <button 
+                  onClick={async () => {
+                    if (window.confirm("Naozaj chcete hromadne odhlásiť všetkých prihlásených užívateľov zo všetkých zariadení?")) {
+                      onUpdateSystemConfig({ lastForceLogout: Date.now() });
+                      alert("Všetci užívatelia boli úspešne odhlásení.");
+                    }
+                  }} 
+                  type="button"
+                  className="w-full py-4 rounded-xl font-black uppercase text-xs tracking-[0.15em] transition-all border-2 bg-rose-950/25 hover:bg-rose-900/40 border-rose-500/40 text-rose-400 hover:text-rose-300 shadow-lg active:scale-95"
+                >
+                  🚪 ODHLÁSIŤ VŠETKÝCH UŽÍVATEĽOV
+                </button>
               </div>
 
               <div className="bg-slate-950/40 p-8 rounded-3xl border border-white/5 space-y-4 shadow-inner">

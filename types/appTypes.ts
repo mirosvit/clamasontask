@@ -257,4 +257,5 @@ export interface SystemConfig {
     mapOriginY?: number;
     vzvSpeed?: number;
     tabOrder?: string[];
+    lastForceLogout?: number;
 }

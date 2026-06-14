@@ -31,7 +31,7 @@ const AppContent = ({
   const { users } = useData(); 
   const [unlockKey, setUnlockKey] = useState("");
 
-  // SERVICE MODE WATCHER: Okamžité vyhodenie ne-adminov pri zapnutí údržby
+  // SERVICE MODE WATCHER: Okamžité vyhodenie ne-adminov pri zapnutí údržby alebo hromadnom odhlásení
   useEffect(() => {
     if (isAuthenticated && currentUserRole !== 'ADMIN') {
       const nowMs = Date.now();
@@ -44,9 +44,19 @@ const AppContent = ({
       
       if (systemConfig.maintenanceMode || isScheduled) {
         onLogout();
+        return;
+      }
+
+      // Kontrola hromadného odhlásenia všetkých na aktívnych zariadeniach
+      if (systemConfig.lastForceLogout) {
+        const storedLoginTime = localStorage.getItem('app_login_time');
+        const loginTime = storedLoginTime ? parseInt(storedLoginTime, 10) : 0;
+        if (loginTime < systemConfig.lastForceLogout) {
+          onLogout();
+        }
       }
     }
-  }, [systemConfig.maintenanceMode, systemConfig.maintenanceStart, systemConfig.maintenanceEnd, isAuthenticated, currentUserRole, onLogout]);
+  }, [systemConfig.maintenanceMode, systemConfig.maintenanceStart, systemConfig.maintenanceEnd, systemConfig.lastForceLogout, isAuthenticated, currentUserRole, onLogout]);
 
   if (!isAuthenticated) {
     return (
@@ -148,20 +158,24 @@ const App: React.FC = () => {
       setCurrentUser(storedUser);
       setCurrentUserRole(storedRole as any);
       setIsAuthenticated(true);
+      // Ak obnovujeme reláciu a nemáme nastavený čas prihlásenia, vytvoríme ho
+      if (!localStorage.getItem('app_login_time')) {
+        localStorage.setItem('app_login_time', Date.now().toString());
+      }
     }
   }, []);
 
   const handleLogin = (u: string, r: any) => { 
-    setIsAuthenticated(true); 
-    setCurrentUser(u); 
-    setCurrentUserRole(r); 
     localStorage.setItem('app_user', u); 
     localStorage.setItem('app_role', r); 
+    localStorage.setItem('app_login_time', Date.now().toString());
     
     if (r !== 'ADMIN' || !systemConfig.adminLockEnabled) { 
-        setIsUnlocked(true); 
         sessionStorage.setItem('app_unlocked', 'true'); 
     }
+
+    // Prístup 1: Automatický soft reload pre okamžité stiahnutie najnovšieho kódu / cache
+    window.location.reload();
   };
 
   const handleLogout = useCallback(() => { 
