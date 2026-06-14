@@ -213,8 +213,25 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
         
         setScannedItems(prev => [newItem, ...prev]);
 
-        // Ak robíme sekvenčnú inventúru (máme zoznam lokácií), ponecháme aktuálnu lokáciu a diel a resetujeme len dávku a množstvo pre zrýchlenie
+        // Ak robíme sekvenčnú inventúru (máme zoznam lokácií), automaticky prejdeme na ďalšiu neobsadenú lokáciu a vyčistíme len dávku a množstvo
         if (locationsList.length > 0) {
+            const updatedScanned = [newItem, ...scannedItems];
+            const nextIdx = locationsList.findIndex((loc, idx) => {
+                if (idx <= selectedLocIndex) return false;
+                return !updatedScanned.some(item => item.location.toUpperCase() === loc.toUpperCase());
+            });
+
+            if (nextIdx !== -1) {
+                setSelectedLocIndex(nextIdx);
+            } else {
+                const firstInc = locationsList.findIndex(loc => {
+                    return !updatedScanned.some(item => item.location.toUpperCase() === loc.toUpperCase());
+                });
+                if (firstInc !== -1 && firstInc !== selectedLocIndex) {
+                    setSelectedLocIndex(firstInc);
+                }
+            }
+
             setBatch(''); 
             setIsBatchMissing(false);
             setQuantity('');
@@ -253,15 +270,16 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
 
         // Automatický posun na ďalšiu neobsadenú lokáciu v zozname ak existuje
         if (locationsList.length > 0) {
+            const updatedScanned = [emptyItem, ...scannedItems];
             const nextIdx = locationsList.findIndex((loc, idx) => {
                 if (idx <= selectedLocIndex) return false;
-                return !scannedItems.some(item => item.location.toUpperCase() === loc.toUpperCase());
+                return !updatedScanned.some(item => item.location.toUpperCase() === loc.toUpperCase());
             });
             if (nextIdx !== -1) {
                 setSelectedLocIndex(nextIdx);
             } else {
                 const firstInc = locationsList.findIndex(loc => {
-                    return !scannedItems.some(item => item.location.toUpperCase() === loc.toUpperCase());
+                    return !updatedScanned.some(item => item.location.toUpperCase() === loc.toUpperCase());
                 });
                 if (firstInc !== -1 && firstInc !== selectedLocIndex) {
                     setSelectedLocIndex(firstInc);
