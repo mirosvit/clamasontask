@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ScrapRecord, ScrapBin, ScrapMetal, ScrapPrice, ScrapBuyer } from '../../types/appTypes';
+import { ScrapRecord, ScrapBin, ScrapMetal, ScrapBuyer } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 import { getBuyerColorClasses } from '../settings/ScrapSection';
 
@@ -8,7 +8,6 @@ interface ScrapArchiveTabProps {
     scrapArchives: any[];
     bins: ScrapBin[];
     metals: ScrapMetal[];
-    prices: ScrapPrice[];
     buyers: ScrapBuyer[];
     onUpdateArchivedItem: (sanonId: string, itemId: string, updates: Partial<ScrapRecord>) => Promise<void>;
     onUpdateScrapArchive: (sanonId: string, updates: any) => Promise<void>;
@@ -117,18 +116,6 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
         }
     };
 
-    const calculateSanonValue = (items: ScrapRecord[], dispatchDate: string) => {
-        const dateObj = new Date(dispatchDate);
-        const month = dateObj.getMonth() + 1;
-        const year = dateObj.getFullYear();
-        
-        return items.reduce((acc, item) => {
-            const priceObj = props.prices.find(p => p.metalId === item.metalId && p.month === month && p.year === year);
-            const price = priceObj?.price || 0;
-            return acc + (item.netto * price);
-        }, 0);
-    };
-
     const getProcessedItems = (items: ScrapRecord[]) => {
         let result = [...(items || [])];
 
@@ -225,7 +212,6 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
     const handleSaveExternalValue = async () => {
         if (!targetSanonId) return;
         await props.onUpdateScrapArchive(targetSanonId, {
-            externalValue: parseFloat(externalValInput) || 0,
             externalWeight: parseFloat(externalWeightInput) || 0,
             buyerId: externalBuyerId || ''
         });
@@ -493,8 +479,6 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                         const items = archive.items || [];
                         const processedItems = isExpanded ? getProcessedItems(items) : [];
                         const totalWeight = items.reduce((acc: number, curr: ScrapRecord) => acc + curr.netto, 0);
-                        const totalValue = calculateSanonValue(items, archive.dispatchDate);
-                        const externalValue = archive.externalValue || 0;
                         const displayDate = new Date(archive.dispatchDate).toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric' });
                         
                         const buyer = props.buyers?.find(b => b.id === archive.buyerId);
@@ -522,7 +506,7 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                                         </div>
 
                                         <div className="flex items-center gap-6 xl:gap-8 w-full xl:w-auto flex-grow justify-between xl:justify-end">
-                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-y-4 gap-x-6 lg:gap-x-8 xl:gap-10 w-full flex-grow">
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-y-4 gap-x-6 lg:gap-x-8 xl:gap-10 w-full flex-grow">
                                                 <div className="text-left xl:text-right border-l-2 xl:border-l-0 border-indigo-500/25 pl-3 xl:pl-0">
                                                     <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 leading-none">POLOŽIEK</p>
                                                     <p className="text-xl font-black text-white font-mono leading-none">{items.length}</p>
@@ -534,27 +518,12 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                                                         {totalWeight.toLocaleString('sk-SK')} <span className="text-xs font-normal text-slate-600">kg</span>
                                                     </p>
                                                 </div>
-                                                
-                                                <div className="text-left xl:text-right border-l-2 xl:border-l border-indigo-500/25 xl:border-white/5 pl-3 xl:pl-6 xl:pl-8">
-                                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 leading-none">INTERNÝ ODHAD</p>
-                                                    <p className="text-xl font-black text-amber-500 font-mono leading-none">
-                                                        {totalValue.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-normal text-slate-600">€</span>
-                                                    </p>
-                                                </div>
 
                                                 <div className="text-left xl:text-right border-l-2 xl:border-l border-indigo-500/25 xl:border-white/5 pl-3 xl:pl-6 xl:pl-8">
                                                     <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 leading-none">VÁHA (ODB.)</p>
                                                     <p className={`text-xl font-black font-mono leading-none ${(archive.externalWeight || 0) > 0 ? 'text-teal-400' : 'text-slate-700'}`}>
                                                         {(archive.externalWeight || 0) > 0 ? (archive.externalWeight || 0).toLocaleString('sk-SK') : '---'} 
                                                         {(archive.externalWeight || 0) > 0 && <span className="text-xs font-normal text-slate-600 ml-1">kg</span>}
-                                                    </p>
-                                                </div>
-
-                                                <div className="text-left xl:text-right border-l-2 xl:border-l border-indigo-500/25 xl:border-white/5 pl-3 xl:pl-6 xl:pl-8">
-                                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 leading-none">CENA (ODB.)</p>
-                                                    <p className={`text-xl font-black font-mono leading-none ${externalValue > 0 ? 'text-green-400 font-black' : 'text-slate-700'}`}>
-                                                        {externalValue > 0 ? externalValue.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '---'} 
-                                                        {externalValue > 0 && <span className="text-xs font-normal text-slate-600 ml-1">€</span>}
                                                     </p>
                                                 </div>
                                             </div>
@@ -570,7 +539,7 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                                             <button 
                                                 onClick={() => handleOpenExternalValue(archive)}
                                                 className="p-3 bg-amber-900/20 text-amber-500 hover:bg-amber-500 hover:text-white rounded-xl transition-all shadow-sm"
-                                                title="Zadať cenu od odberateľa"
+                                                title="Zadať údaje od odberateľa"
                                             >
                                                 <Icons.Dollar />
                                             </button>
@@ -761,7 +730,7 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                             <Icons.Dollar />
                         </div>
                         <h3 className="text-3xl font-black text-white uppercase tracking-tighter mb-4">Údaje od odberateľa</h3>
-                        <p className="text-sm text-slate-400 font-bold uppercase leading-relaxed mb-8">Zadajte finálnu vahu a sumu, ktorú za tento vývoz potvrdil odberateľ.</p>
+                        <p className="text-sm text-slate-400 font-bold uppercase leading-relaxed mb-8">Zadajte finálnu váhu, ktorú za tento vývoz potvrdil odberateľ.</p>
                         
                         <div className="space-y-6 mb-10">
                             <div>
@@ -776,20 +745,6 @@ const ScrapArchiveTab: React.FC<ScrapArchiveTabProps> = (props) => {
                                         autoFocus
                                     />
                                     <span className="absolute right-6 bottom-4 text-xl font-black text-slate-700">kg</span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <label className={labelClass}>Cena odberateľa (€)</label>
-                                <div className="relative">
-                                    <input 
-                                        type="number" 
-                                        value={externalValInput} 
-                                        onChange={e => setExternalValInput(e.target.value)} 
-                                        className={`${inputClass} !text-3xl text-amber-400`}
-                                        placeholder="0.00"
-                                    />
-                                    <span className="absolute right-6 bottom-4 text-xl font-black text-slate-700">€</span>
                                 </div>
                             </div>
 

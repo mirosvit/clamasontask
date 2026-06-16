@@ -1,13 +1,12 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { ScrapBin, ScrapMetal, ScrapPrice, ScrapRecord, PriorityLevel, Task } from '../../types/appTypes';
+import { ScrapBin, ScrapMetal, ScrapRecord, PriorityLevel, Task } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 
 interface ScrapWeighingTabProps {
   currentUser: string;
   bins: ScrapBin[];
   metals: ScrapMetal[];
-  prices: ScrapPrice[];
   actualScrap: ScrapRecord[];
   scrapSanons: any[];
   onAddRecord: (record: ScrapRecord) => Promise<void>;

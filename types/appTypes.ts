@@ -55,14 +55,6 @@ export interface ScrapMetal {
   description: string;
 }
 
-export interface ScrapPrice {
-  id: string;
-  metalId: string;
-  month: number;
-  year: number;
-  price: number;
-}
-
 export interface ScrapRecord {
   id: string;
   metalId: string;

@@ -8,12 +8,11 @@ import {
   arrayUnion, 
   getDoc 
 } from 'firebase/firestore';
-import { ScrapBin, ScrapMetal, ScrapPrice, ScrapConfig, ScrapBuyer } from '../../types/appTypes';
+import { ScrapBin, ScrapMetal, ScrapConfig, ScrapBuyer } from '../../types/appTypes';
 
 export const useScrapData = () => {
   const [scrapBins, setScrapBins] = useState<ScrapBin[]>([]);
   const [scrapMetals, setScrapMetals] = useState<ScrapMetal[]>([]);
-  const [scrapPrices, setScrapPrices] = useState<ScrapPrice[]>([]);
   const [scrapConfig, setScrapConfig] = useState<ScrapConfig>({ scrapLogisticsOpId: '' });
   const [scrapBuyers, setScrapBuyers] = useState<ScrapBuyer[]>([]);
 
@@ -24,9 +23,6 @@ export const useScrapData = () => {
     const unsubMetals = onSnapshot(doc(db, 'scrap', 'metals'), (s) => {
       setScrapMetals(s.exists() ? (s.data().items || []) : []);
     });
-    const unsubPrices = onSnapshot(doc(db, 'scrap', 'prices'), (s) => {
-      setScrapPrices(s.exists() ? (s.data().items || []) : []);
-    });
     const unsubConfig = onSnapshot(doc(db, 'scrap', 'config'), (s) => {
       if (s.exists()) setScrapConfig(s.data() as ScrapConfig);
     });
@@ -34,7 +30,7 @@ export const useScrapData = () => {
       setScrapBuyers(s.exists() ? (s.data().items || []) : []);
     });
 
-    return () => { unsubBins(); unsubMetals(); unsubPrices(); unsubConfig(); unsubBuyers(); };
+    return () => { unsubBins(); unsubMetals(); unsubConfig(); unsubBuyers(); };
   }, []);
 
   const onAddScrapBin = async (name: string, tara: number) => {
@@ -106,20 +102,6 @@ export const useScrapData = () => {
     }
   };
 
-  const onAddScrapPrice = async (metalId: string, month: number, year: number, price: number) => {
-    const newPrice: ScrapPrice = { id: crypto.randomUUID(), metalId, month, year, price };
-    await setDoc(doc(db, 'scrap', 'prices'), { items: arrayUnion(newPrice) }, { merge: true });
-  };
-
-  const onDeleteScrapPrice = async (id: string) => {
-    const ref = doc(db, 'scrap', 'prices');
-    const snap = await getDoc(ref);
-    if (snap.exists()) {
-      const items = snap.data().items || [];
-      await updateDoc(ref, { items: items.filter((i: any) => i.id !== id) });
-    }
-  };
-
   const onUpdateScrapConfig = async (config: Partial<ScrapConfig>) => {
     await setDoc(doc(db, 'scrap', 'config'), config, { merge: true });
   };
@@ -149,10 +131,10 @@ export const useScrapData = () => {
   };
 
   return {
-    scrapBins, scrapMetals, scrapPrices, scrapConfig, scrapBuyers,
+    scrapBins, scrapMetals, scrapConfig, scrapBuyers,
     onAddScrapBin, onBatchAddScrapBins, onDeleteScrapBin, onUpdateScrapBin,
     onAddScrapMetal, onDeleteScrapMetal, onUpdateScrapMetal,
-    onAddScrapPrice, onDeleteScrapPrice, onUpdateScrapConfig,
+    onUpdateScrapConfig,
     onAddScrapBuyer, onDeleteScrapBuyer, onUpdateScrapBuyer
   };
 };

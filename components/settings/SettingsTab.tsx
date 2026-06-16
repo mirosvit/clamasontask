@@ -230,7 +230,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
           <ScrapSection 
             bins={data.scrapBins}
             metals={data.scrapMetals}
-            prices={data.scrapPrices}
             scrapConfig={data.scrapConfig}
             logisticsOperations={data.logisticsOperations}
             scrapBuyers={(data as any).scrapBuyers || []}
@@ -241,8 +240,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             onAddMetal={data.onAddScrapMetal}
             onDeleteMetal={data.onDeleteScrapMetal}
             onUpdateMetal={data.onUpdateScrapMetal}
-            onAddPrice={data.onAddScrapPrice}
-            onDeletePrice={data.onDeleteScrapPrice}
             onUpdateScrapConfig={data.onUpdateScrapConfig}
             onAddBuyer={(data as any).onAddScrapBuyer}
             onDeleteBuyer={(data as any).onDeleteScrapBuyer}

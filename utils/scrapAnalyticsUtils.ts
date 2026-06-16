@@ -1,18 +1,15 @@
-import { ScrapRecord, ScrapPrice, ScrapMetal } from '../types/appTypes';
+import { ScrapRecord, ScrapMetal } from '../types/appTypes';
 
 export const processScrapAnalytics = (
     archives: any[],
-    prices: ScrapPrice[],
     metals: ScrapMetal[],
     startTime: number,
     endTime: number
 ) => {
     let totalNetto = 0;
-    let totalValue = 0;
-    let totalExternalValue = 0;
     let totalExternalWeight = 0;
     const metalWeightMap: Record<string, number> = {};
-    const monthlyData: Record<string, { weight: number, value: number, externalValue: number, externalWeight: number, [key: string]: any }> = {};
+    const monthlyData: Record<string, { weight: number, externalWeight: number, [key: string]: any }> = {};
 
     // 1. Získanie zoznamu všetkých mesiacov v rozsahu pre os X
     const start = new Date(startTime);
@@ -25,18 +22,9 @@ export const processScrapAnalytics = (
         current.setMonth(current.getMonth() + 1);
     }
 
-    // Inicializácia mesačných dát aj s cenami (aj keď nebol vývoz)
+    // Inicializácia mesačných dát
     months.forEach(m => {
-        const [year, month] = m.split('-').map(Number);
-        monthlyData[m] = { weight: 0, value: 0, externalValue: 0, externalWeight: 0 };
-        
-        // Pridanie cien pre každý kov v danom mesiaci
-        metals.forEach(metal => {
-            const priceObj = prices.find(p => p.metalId === metal.id && p.month === month && p.year === year);
-            if (priceObj) {
-                monthlyData[m][metal.type] = priceObj.price;
-            }
-        });
+        monthlyData[m] = { weight: 0, externalWeight: 0 };
     });
 
     // 2. Filtrovať archívy podľa času expedície
@@ -46,16 +34,13 @@ export const processScrapAnalytics = (
     });
 
     filteredArchives.forEach(archive => {
-        const sanonExternalValue = archive.externalValue || 0;
         const sanonExternalWeight = archive.externalWeight || 0;
-        totalExternalValue += sanonExternalValue;
         totalExternalWeight += sanonExternalWeight;
 
         const dateObj = new Date(archive.dispatchDate);
         const monthKey = `${dateObj.getFullYear()}-${(dateObj.getMonth() + 1).toString().padStart(2, '0')}`;
         
         if (monthlyData[monthKey]) {
-            monthlyData[monthKey].externalValue += sanonExternalValue;
             monthlyData[monthKey].externalWeight += sanonExternalWeight;
         }
 
@@ -67,20 +52,9 @@ export const processScrapAnalytics = (
             const metalName = metal?.type || 'Iné';
             metalWeightMap[metalName] = (metalWeightMap[metalName] || 0) + record.netto;
 
-            // Výpočet finančnej hodnoty (interný odhad podľa cenníka)
-            const recordDate = new Date(record.timestamp);
-            const month = recordDate.getMonth() + 1;
-            const year = recordDate.getFullYear();
-            
-            const priceObj = prices.find(p => p.metalId === record.metalId && p.month === month && p.year === year);
-            const price = priceObj?.price || 0;
-            const value = record.netto * price;
-            totalValue += value;
-
-            // Mesačné trendy hmotnosti a hodnoty
+            // Mesačné trendy hmotnosti
             if (monthlyData[monthKey]) {
                 monthlyData[monthKey].weight += record.netto;
-                monthlyData[monthKey].value += value;
             }
         });
     });
@@ -96,15 +70,11 @@ export const processScrapAnalytics = (
             month,
             ...data,
             weight: Math.round(data.weight),
-            value: Math.round(data.value),
-            externalValue: Math.round(data.externalValue),
             externalWeight: Math.round(data.externalWeight)
         }));
 
     return {
         totalNetto: Math.round(totalNetto),
-        totalValue: Math.round(totalValue),
-        totalExternalValue: Math.round(totalExternalValue),
         totalExternalWeight: Math.round(totalExternalWeight),
         weightDistribution,
         trendData

@@ -1,12 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { ScrapPrice, ScrapMetal } from '../../types/appTypes';
+import { ScrapMetal } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 import { processScrapAnalytics } from '../../utils/scrapAnalyticsUtils';
 import ScrapAnalyticsSection from './Analytics/ScrapAnalyticsSection';
 
 interface ScrapAnalyticsTabProps {
     scrapSanons: any[];
-    scrapPrices: ScrapPrice[];
     scrapMetals: ScrapMetal[];
     onFetchArchives: (from: string, to: string) => Promise<any[]>;
 }
@@ -22,7 +21,6 @@ const ScrapAnalyticsTab: React.FC<ScrapAnalyticsTabProps> = (props) => {
     const [isLoading, setIsLoading] = useState(false);
     const [hasLoaded, setHasLoaded] = useState(false);
     
-    // Výber roka pre ročné grafy (Výnosy aj Ceny)
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
     // HANDLER: Manuálne načítanie dát pre štatistiky
@@ -39,7 +37,7 @@ const ScrapAnalyticsTab: React.FC<ScrapAnalyticsTabProps> = (props) => {
         }
     };
 
-    // 1. FILTROVANÉ ŠTATISTIKY (Hmotnosť, Hodnota, Koláčový graf podľa výberu obdobia)
+    // 1. FILTROVANÉ ŠTATISTIKY (Hmotnosť, Koláčový graf podľa výberu obdobia)
     const filteredStats = useMemo(() => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -63,26 +61,11 @@ const ScrapAnalyticsTab: React.FC<ScrapAnalyticsTabProps> = (props) => {
 
         return processScrapAnalytics(
             props.scrapSanons,
-            props.scrapPrices,
             props.scrapMetals,
             startTime,
             endTime
         );
-    }, [props.scrapSanons, props.scrapPrices, props.scrapMetals, filterMode, customStart, customEnd]);
-
-    // 2. CELOROČNÉ DÁTA (Nezávislé od horného filtra, riadené vybraným rokom)
-    const yearlyScrapStats = useMemo(() => {
-        const startOfYear = new Date(selectedYear, 0, 1).getTime();
-        const endOfYear = new Date(selectedYear, 11, 31, 23, 59, 59).getTime();
-
-        return processScrapAnalytics(
-            props.scrapSanons, 
-            props.scrapPrices,
-            props.scrapMetals,
-            startOfYear,
-            endOfYear
-        );
-    }, [props.scrapSanons, props.scrapPrices, props.scrapMetals, selectedYear]);
+    }, [props.scrapSanons, props.scrapMetals, filterMode, customStart, customEnd]);
 
     return (
         <div className="max-w-6xl mx-auto space-y-8 pb-20 animate-fade-in text-slate-200">
@@ -155,17 +138,12 @@ const ScrapAnalyticsTab: React.FC<ScrapAnalyticsTabProps> = (props) => {
                         <div className="p-6 bg-slate-800/50 rounded-full text-slate-700">
                             <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                         </div>
-                        <p className="text-slate-600 font-black uppercase tracking-[0.3em] text-sm">Zvoľte rok a vygenerujte štatistické reporty</p>
+                        <p className="text-slate-600 font-black uppercase tracking-[0.3em] text-sm">Zvoľte obdobie a vygenerujte štatistické reporty</p>
                     </div>
                 </div>
             ) : (
                 <ScrapAnalyticsSection 
                     data={filteredStats} 
-                    yearlyData={yearlyScrapStats.trendData}
-                    selectedYear={selectedYear}
-                    onYearChange={setSelectedYear}
-                    prices={props.scrapPrices} 
-                    metals={props.scrapMetals} 
                 />
             )}
         </div>

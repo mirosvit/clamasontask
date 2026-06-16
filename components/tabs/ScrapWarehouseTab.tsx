@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ScrapRecord, ScrapBin, ScrapMetal, ScrapPrice, ScrapBuyer } from '../../types/appTypes';
+import { ScrapRecord, ScrapBin, ScrapMetal, ScrapBuyer } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 
 interface ScrapWarehouseTabProps {
@@ -8,7 +8,6 @@ interface ScrapWarehouseTabProps {
     actualScrap: ScrapRecord[];
     bins: ScrapBin[];
     metals: ScrapMetal[];
-    prices: ScrapPrice[];
     buyers: ScrapBuyer[];
     scrapArchives?: any[];
     onDeleteRecord: (id: string) => Promise<void>;
@@ -166,23 +165,14 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
         }
     };
 
-    // WAREHOUSE STATISTICS (VALUE & WEIGHTS) - Now reacts to filtered data (displayScrap)
+    // WAREHOUSE STATISTICS (WEIGHTS) - Now reacts to filtered data (displayScrap)
     const warehouseStats = useMemo(() => {
-        const now = new Date();
-        const month = now.getMonth() + 1;
-        const year = now.getFullYear();
-
         return displayScrap.reduce((acc, item) => {
-            const priceObj = props.prices.find(p => p.metalId === item.metalId && p.month === month && p.year === year);
-            const price = priceObj?.price || 0;
-            
-            acc.totalValue += (item.netto * price);
             acc.totalGross += item.gross;
             acc.totalNetto += item.netto;
-            
             return acc;
-        }, { totalValue: 0, totalGross: 0, totalNetto: 0 });
-    }, [displayScrap, props.prices]);
+        }, { totalGross: 0, totalNetto: 0 });
+    }, [displayScrap]);
 
     const handleOpenEdit = (item: ScrapRecord) => {
         setEditingItem(item);
@@ -369,8 +359,6 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
                         <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Brutto: <span className="text-white">{warehouseStats.totalGross.toLocaleString()} kg</span></p>
                         <div className="w-1 h-1 rounded-full bg-slate-700 mx-1"></div>
                         <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Netto: <span className="text-teal-400 font-black">{warehouseStats.totalNetto.toLocaleString()} kg</span></p>
-                        <div className="w-1 h-1 rounded-full bg-slate-700 mx-1"></div>
-                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Odhad: <span className="text-amber-400 font-black">{warehouseStats.totalValue.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span></p>
                     </div>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">

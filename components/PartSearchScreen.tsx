@@ -21,7 +21,7 @@ import ScrapWarehouseTab from './tabs/ScrapWarehouseTab';
 import ScrapArchiveTab from './tabs/ScrapArchiveTab';
 import ScrapAnalyticsTab from './tabs/ScrapAnalyticsTab';
 import InstructionsTab from './tabs/InstructionsTab';
-import { Task, PriorityLevel, DBItem, Role, SystemConfig, MapSector, MapObstacle, BOMComponent, PartRequest, BOMRequest, AdminNote, ERPBlockage, ScrapBin, ScrapMetal, ScrapPrice, ScrapRecord, ScrapBuyer } from '../types/appTypes';
+import { Task, PriorityLevel, DBItem, Role, SystemConfig, MapSector, MapObstacle, BOMComponent, PartRequest, BOMRequest, AdminNote, ERPBlockage, ScrapBin, ScrapMetal, ScrapRecord, ScrapBuyer } from '../types/appTypes';
 
 // --- MAIN DASHBOARD COMPONENT ---
 interface PartSearchScreenProps {
@@ -46,7 +46,6 @@ interface PartSearchScreenProps {
     // Scrap Data
     scrapBins: ScrapBin[];
     scrapMetals: ScrapMetal[];
-    scrapPrices: ScrapPrice[];
     scrapBuyers: ScrapBuyer[];
     actualScrap: ScrapRecord[];
     scrapSanons: any[];
@@ -502,7 +501,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                             currentUser={props.currentUser}
                             bins={props.scrapBins}
                             metals={props.scrapMetals}
-                            prices={props.scrapPrices}
                             actualScrap={props.actualScrap}
                             scrapSanons={props.scrapSanons}
                             onAddRecord={props.onAddScrapRecord}
@@ -524,7 +522,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                             actualScrap={props.actualScrap}
                             bins={props.scrapBins}
                             metals={props.scrapMetals}
-                            prices={props.scrapPrices}
                             buyers={props.scrapBuyers || []}
                             scrapArchives={props.scrapSanons}
                             onDeleteRecord={props.onDeleteScrapRecord}
@@ -541,7 +538,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                             scrapArchives={props.scrapSanons}
                             bins={props.scrapBins}
                             metals={props.scrapMetals}
-                            prices={props.scrapPrices}
                             buyers={props.scrapBuyers || []}
                             onUpdateArchivedItem={props.onUpdateArchivedScrapItem}
                             onUpdateScrapArchive={props.onUpdateScrapArchive}
@@ -557,7 +553,6 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                     {activeTab === 'scrap_analytics' && hasPermission('perm_tab_scrap_analytics') && (
                         <ScrapAnalyticsTab 
                             scrapSanons={props.scrapSanons}
-                            scrapPrices={props.scrapPrices}
                             scrapMetals={props.scrapMetals}
                             onFetchArchives={props.onFetchScrapArchives}
                         />

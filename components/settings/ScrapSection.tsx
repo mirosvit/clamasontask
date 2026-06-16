@@ -1,12 +1,11 @@
 import React, { useState, memo, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ScrapBin, ScrapMetal, ScrapPrice, ScrapConfig, DBItem, ScrapBuyer } from '../../types/appTypes';
+import { ScrapBin, ScrapMetal, ScrapConfig, DBItem, ScrapBuyer } from '../../types/appTypes';
 import { useLanguage } from '../LanguageContext';
 
 interface ScrapSectionProps {
   bins: ScrapBin[];
   metals: ScrapMetal[];
-  prices: ScrapPrice[];
   scrapConfig: ScrapConfig;
   logisticsOperations: DBItem[];
   scrapBuyers: ScrapBuyer[];
@@ -17,8 +16,6 @@ interface ScrapSectionProps {
   onAddMetal: (type: string, description: string) => Promise<void>;
   onDeleteMetal: (id: string) => Promise<void>;
   onUpdateMetal: (id: string, updates: Partial<ScrapMetal>) => Promise<void>;
-  onAddPrice: (metalId: string, month: number, year: number, price: number) => Promise<void>;
-  onDeletePrice: (id: string) => Promise<void>;
   onUpdateScrapConfig: (config: Partial<ScrapConfig>) => Promise<void>;
   onAddBuyer: (name: string, color: string) => Promise<void>;
   onDeleteBuyer: (id: string) => Promise<void>;
@@ -59,11 +56,10 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
   // Search States
   const [binQuery, setBinQuery] = useState('');
   const [metalQuery, setMetalQuery] = useState('');
-  const [priceQuery, setPriceQuery] = useState('');
   const [buyerQuery, setBuyerQuery] = useState('');
 
   // Modals
-  const [modalType, setModalType] = useState<'bin' | 'metal' | 'price' | 'import_bins' | 'buyer' | null>(null);
+  const [modalType, setModalType] = useState<'bin' | 'metal' | 'import_bins' | 'buyer' | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Form States
@@ -72,10 +68,6 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
   const [bulkBins, setBulkBins] = useState('');
   const [metalType, setMetalType] = useState('');
   const [metalDesc, setMetalDesc] = useState('');
-  const [priceMetalId, setPriceMetalId] = useState('');
-  const [priceMonth, setPriceMonth] = useState(new Date().getMonth() + 1);
-  const [priceYear, setPriceYear] = useState(new Date().getFullYear());
-  const [priceValue, setPriceValue] = useState('');
   const [buyerName, setBuyerName] = useState('');
   const [buyerColor, setBuyerColor] = useState('indigo');
 
@@ -95,18 +87,6 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
     );
   }, [props.metals, metalQuery]);
 
-  const filteredPrices = useMemo(() => {
-    const q = priceQuery.toLowerCase().trim();
-    const sorted = [...props.prices].sort((a, b) => b.year - a.year || b.month - a.month);
-    if (!q) return sorted;
-    return sorted.filter(p => {
-      const metal = props.metals.find(m => m.id === p.metalId);
-      const metalName = (metal?.type || '').toLowerCase();
-      const dateStr = `${p.month}/${p.year}`;
-      return metalName.includes(q) || dateStr.includes(q);
-    });
-  }, [props.prices, props.metals, priceQuery]);
-
   const filteredBuyers = useMemo(() => {
     const q = buyerQuery.toLowerCase().trim();
     if (!q) return props.scrapBuyers;
@@ -116,7 +96,6 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
   const resetForms = () => {
     setBinName(''); setBinTara(''); setBulkBins('');
     setMetalType(''); setMetalDesc('');
-    setPriceMetalId(''); setPriceValue('');
     setBuyerName(''); setBuyerColor('indigo');
     setEditingId(null);
     setModalType(null);
@@ -184,7 +163,7 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
           </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* BIN DATABASE */}
         <div className={cardClass}>
@@ -218,7 +197,7 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
             {filteredBins.map(bin => (
               <div key={bin.id} className="bg-slate-950/30 p-4 rounded-xl border border-white/5 flex justify-between items-center group hover:bg-slate-900/50 transition-colors">
                 <div>
-                  <p className="text-sm font-black text-white uppercase tracking-tight">{bin.name}</p>
+                   <p className="text-sm font-black text-white uppercase tracking-tight">{bin.name}</p>
                   <p className="text-[10px] font-mono text-slate-500">Tara: <span className="text-blue-400 font-bold">{bin.tara} kg</span></p>
                 </div>
                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -268,51 +247,6 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
               </div>
             ))}
             {filteredMetals.length === 0 && <p className="text-center py-8 text-xs text-slate-600 italic font-bold uppercase tracking-widest">{metalQuery ? 'Nič sa nenašlo' : t('scrap_no_metals')}</p>}
-          </div>
-        </div>
-
-        {/* PRICE MANAGEMENT */}
-        <div className={cardClass}>
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
-              <span className="w-2 h-6 bg-amber-500 rounded-full"></span>
-              {t('scrap_prices')}
-            </h3>
-            <button onClick={() => setModalType('price')} className="p-2 bg-amber-600 rounded-lg text-white hover:bg-amber-500 transition-all shadow-lg active:scale-95">
-              <Icons.Plus />
-            </button>
-          </div>
-
-          <div className="relative mb-4">
-            <input 
-              type="text" 
-              value={priceQuery} 
-              onChange={e => setPriceQuery(e.target.value)} 
-              placeholder="HĽADAŤ KOV / OBDOBIE..." 
-              className={searchInputClass}
-            />
-            <div className="absolute left-3 top-3 text-slate-700"><Icons.Search /></div>
-          </div>
-
-          <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
-            {filteredPrices.map(p => {
-              const metal = props.metals.find(m => m.id === p.metalId);
-              return (
-                <div key={p.id} className="bg-slate-950/30 p-4 rounded-xl border border-white/5 flex justify-between items-center group hover:bg-slate-900/50 transition-colors">
-                  <div>
-                    <p className="text-sm font-black text-white uppercase tracking-tight">{metal?.type || '???'}</p>
-                    <p className="text-[10px] text-slate-500 uppercase font-mono">{p.month.toString().padStart(2, '0')}/{p.year}</p>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-lg font-black text-amber-500 font-mono tracking-tighter">
-                      {p.price.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 5 })} €
-                    </span>
-                    <button onClick={() => { if(window.confirm('Zmazať?')) props.onDeletePrice(p.id); }} className="text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Icons.Trash /></button>
-                  </div>
-                </div>
-              );
-            })}
-            {filteredPrices.length === 0 && <p className="text-center py-8 text-xs text-slate-600 italic font-bold uppercase tracking-widest">{priceQuery ? 'Nič sa nenašlo' : t('scrap_no_prices')}</p>}
           </div>
         </div>
 
@@ -367,7 +301,6 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
             <h3 className="text-2xl font-black text-white uppercase tracking-tighter mb-8 flex items-center gap-3">
               {modalType === 'bin' && <><Icons.Scale /> {editingId ? 'UPRAVIŤ KONTAJNER' : 'NOVÝ KONTAJNER'}</>}
               {modalType === 'metal' && <><Icons.Scale /> {editingId ? 'UPRAVIŤ KOV' : 'NOVÝ KOV'}</>}
-              {modalType === 'price' && <><Icons.Money /> {t('scrap_add_price')}</>}
               {modalType === 'import_bins' && <><Icons.Import /> HROMADNÝ IMPORT</>}
             </h3>
 
@@ -427,40 +360,6 @@ const ScrapSection: React.FC<ScrapSectionProps> = memo((props) => {
                     resetForms();
                   }} className="w-full h-14 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-black uppercase text-xs border-2 border-teal-500 shadow-xl transition-all">
                     {t('btn_save')}
-                  </button>
-                </>
-              )}
-
-              {modalType === 'price' && (
-                <>
-                  <div>
-                    <label className={labelClass}>KOV</label>
-                    <select value={priceMetalId} onChange={e => setPriceMetalId(e.target.value)} className={inputClass}>
-                      <option value="">-- VÝBER --</option>
-                      {props.metals.map(m => <option key={m.id} value={m.id}>{m.type}</option>)}
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelClass}>{t('scrap_month')}</label>
-                      <select value={priceMonth} onChange={e => setPriceMonth(parseInt(e.target.value))} className={inputClass}>
-                        {Array.from({ length: 12 }, (_, i) => <option key={i+1} value={i+1}>{i+1}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelClass}>{t('scrap_year')}</label>
-                      <input type="number" value={priceYear} onChange={e => setPriceYear(parseInt(e.target.value))} className={inputClass} />
-                    </div>
-                  </div>
-                  <div>
-                    <label className={labelClass}>{t('scrap_price_val')}</label>
-                    <input type="number" step="0.00001" value={priceValue} onChange={e => setPriceValue(e.target.value)} className={inputClass} placeholder="0.00000" />
-                  </div>
-                  <button onClick={() => {
-                    if (priceMetalId && priceValue) props.onAddPrice(priceMetalId, priceMonth, priceYear, parseFloat(priceValue));
-                    resetForms();
-                  }} className="w-full h-14 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-black uppercase text-xs border-2 border-amber-500 shadow-xl transition-all">
-                    {t('scrap_add_price')}
                   </button>
                 </>
               )}
