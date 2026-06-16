@@ -150,29 +150,39 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
     };
 
     const selectedItems = useMemo(() => {
-        return props.actualScrap.filter(s => selectedIds.includes(s.id));
-    }, [props.actualScrap, selectedIds]);
+        return displayScrap.filter(s => selectedIds.includes(s.id));
+    }, [displayScrap, selectedIds]);
 
     const handleToggleSelection = (id: string) => {
         setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
     };
 
     const handleToggleAll = () => {
-        if (selectedIds.length === props.actualScrap.length) {
-            setSelectedIds([]);
+        const visibleIds = displayScrap.map(s => s.id);
+        const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.includes(id));
+        if (allVisibleSelected) {
+            setSelectedIds(prev => prev.filter(id => !visibleIds.includes(id)));
         } else {
-            setSelectedIds(props.actualScrap.map(s => s.id));
+            setSelectedIds(prev => {
+                const newSelection = [...prev];
+                visibleIds.forEach(id => {
+                    if (!newSelection.includes(id)) {
+                        newSelection.push(id);
+                    }
+                });
+                return newSelection;
+            });
         }
     };
 
-    // WAREHOUSE STATISTICS (WEIGHTS) - Now reacts to filtered data (displayScrap)
+    // WAREHOUSE STATISTICS (WEIGHTS) - Represent selected items in the current view
     const warehouseStats = useMemo(() => {
-        return displayScrap.reduce((acc, item) => {
+        return selectedItems.reduce((acc, item) => {
             acc.totalGross += item.gross;
             acc.totalNetto += item.netto;
             return acc;
         }, { totalGross: 0, totalNetto: 0 });
-    }, [displayScrap]);
+    }, [selectedItems]);
 
     const handleOpenEdit = (item: ScrapRecord) => {
         setEditingItem(item);
@@ -292,10 +302,11 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
 
     const handleExpediteConfirm = async () => {
         if (!dispatchDate) { alert(language === 'sk' ? "Vyberte dátum expedície." : "Select dispatch date."); return; }
-        if (selectedIds.length === 0) { alert(language === 'sk' ? "Vyberte položky na expedíciu." : "Select items to expedite."); return; }
+        const targetIds = selectedItems.map(s => s.id);
+        if (targetIds.length === 0) { alert(language === 'sk' ? "Vyberte položky na expedíciu." : "Select items to expedite."); return; }
         setIsSubmitting(true);
         try {
-            const sanonId = await props.onExpedite(props.currentUser, dispatchDate, selectedIds, selectedBuyerId);
+            const sanonId = await props.onExpedite(props.currentUser, dispatchDate, targetIds, selectedBuyerId);
             if (sanonId) {
                 alert(language === 'sk' ? `Expedícia úspešná. Archív: ${sanonId}` : `Expedition successful. Archive: ${sanonId}`);
                 setIsExpediteModalOpen(false);
@@ -311,13 +322,14 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
             alert(language === 'sk' ? "Vyberte archívny šanón." : "Please select an archive folder.");
             return;
         }
-        if (selectedIds.length === 0) {
+        const targetIds = selectedItems.map(s => s.id);
+        if (targetIds.length === 0) {
             alert(language === 'sk' ? "Vyberte položky z tabuľky." : "Please select items from the table.");
             return;
         }
         setIsSubmitting(true);
         try {
-            await props.onAppendWarehouseItemsToArchive(selectedArchiveId, selectedIds);
+            await props.onAppendWarehouseItemsToArchive(selectedArchiveId, targetIds);
             alert(language === 'sk' ? "Zvolené kontajnery boli priradené do archívu." : "Selected containers were successfully assigned to the archive.");
             setIsAppendModalOpen(false);
             setSelectedIds([]);
@@ -352,24 +364,43 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 no-print">
                 <div>
                     <h1 className="text-3xl font-black text-white uppercase tracking-tighter leading-none">{t('scrap_warehouse_title')}</h1>
-                    <div className="flex flex-wrap items-center gap-3 mt-3">
-                        <span className="bg-indigo-500/20 text-indigo-400 text-[9px] font-black px-3 py-1 rounded-full border border-indigo-500/30 uppercase tracking-widest">{searchQuery ? 'FILTROVANÝ STAV' : 'STAV SKLADU'}</span>
-                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Položiek: <span className="text-white">{displayScrap.length}</span></p>
+                    <div className="flex flex-wrap items-center gap-3 mt-3 font-semibold text-slate-400">
+                        <span className={`text-[9px] font-black px-3 py-1 rounded-full border uppercase tracking-widest transition-all ${
+                            selectedItems.length < displayScrap.length 
+                                ? "bg-amber-500/25 text-amber-400 border-amber-500/40" 
+                                : searchQuery 
+                                    ? "bg-indigo-500/25 text-indigo-400 border-indigo-500/40" 
+                                    : "bg-teal-500/25 text-teal-400 border-teal-500/40"
+                        }`}>
+                            {selectedItems.length < displayScrap.length 
+                                ? 'OZNAČENÝ VÝBER' 
+                                : searchQuery 
+                                    ? 'FILTROVANÝ STAV' 
+                                    : 'STAV SKLADU'
+                            }
+                        </span>
+                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">
+                            Položiek: <span className="text-white">{selectedItems.length < displayScrap.length ? `${selectedItems.length} z ${displayScrap.length}` : displayScrap.length}</span>
+                        </p>
                         <div className="w-1 h-1 rounded-full bg-slate-700 mx-1"></div>
-                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Brutto: <span className="text-white">{warehouseStats.totalGross.toLocaleString()} kg</span></p>
+                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">
+                            Brutto: <span className="text-white">{warehouseStats.totalGross.toLocaleString()} kg</span>
+                        </p>
                         <div className="w-1 h-1 rounded-full bg-slate-700 mx-1"></div>
-                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Netto: <span className="text-teal-400 font-black">{warehouseStats.totalNetto.toLocaleString()} kg</span></p>
+                        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">
+                            Netto: <span className="text-teal-400 font-black">{warehouseStats.totalNetto.toLocaleString()} kg</span>
+                        </p>
                     </div>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-                    <button disabled={selectedIds.length === 0} onClick={() => setIsAppendModalOpen(true)} className="w-full sm:w-auto h-14 px-8 bg-amber-600 hover:bg-amber-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-2xl font-black text-xs uppercase tracking-widest border-b-4 border-amber-900 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2">
+                    <button disabled={selectedItems.length === 0} onClick={() => setIsAppendModalOpen(true)} className="w-full sm:w-auto h-14 px-8 bg-amber-600 hover:bg-amber-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-2xl font-black text-xs uppercase tracking-widest border-b-4 border-amber-900 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
                         PRIRADIŤ K ARCHÍVU
                     </button>
-                    <button disabled={selectedIds.length === 0} onClick={() => setIsDeliveryNoteModalOpen(true)} className="w-full sm:w-auto h-14 px-8 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-2xl font-black text-xs uppercase tracking-widest border-b-4 border-emerald-900 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2">
+                    <button disabled={selectedItems.length === 0} onClick={() => setIsDeliveryNoteModalOpen(true)} className="w-full sm:w-auto h-14 px-8 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-2xl font-black text-xs uppercase tracking-widest border-b-4 border-emerald-900 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2">
                         <Icons.FileText /> {t('scrap_btn_delivery_note')}
                     </button>
-                    <button disabled={selectedIds.length === 0 || !isDeliveryNoteGenerated} onClick={() => setIsExpediteModalOpen(true)} className={`w-full sm:w-auto h-14 px-8 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-2xl font-black text-xs uppercase tracking-widest border-b-4 border-indigo-900 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 ${!isDeliveryNoteGenerated && selectedIds.length > 0 ? 'ring-2 ring-indigo-500 ring-offset-4 ring-offset-gray-900 animate-pulse' : ''}`}>
+                    <button disabled={selectedItems.length === 0 || !isDeliveryNoteGenerated} onClick={() => setIsExpediteModalOpen(true)} className={`w-full sm:w-auto h-14 px-8 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-2xl font-black text-xs uppercase tracking-widest border-b-4 border-indigo-900 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 ${!isDeliveryNoteGenerated && selectedItems.length > 0 ? 'ring-2 ring-indigo-500 ring-offset-4 ring-offset-gray-900 animate-pulse' : ''}`}>
                         <Icons.Dispatch /> {t('scrap_btn_dispatch')}
                     </button>
                 </div>
@@ -405,7 +436,7 @@ const ScrapWarehouseTab: React.FC<ScrapWarehouseTabProps> = (props) => {
                                         <input 
                                             type="checkbox" 
                                             className="w-5 h-5 rounded border-slate-700 bg-slate-900 text-teal-500 focus:ring-teal-500/50"
-                                            checked={selectedIds.length === props.actualScrap.length && props.actualScrap.length > 0}
+                                            checked={displayScrap.length > 0 && displayScrap.every(s => selectedIds.includes(s.id))}
                                             onChange={handleToggleAll}
                                         />
                                     </div>
