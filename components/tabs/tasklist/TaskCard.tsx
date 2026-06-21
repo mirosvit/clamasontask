@@ -126,11 +126,11 @@ const TaskCard: React.FC<TaskCardProps> = (props) => {
   const additionalMessage = workplaceObj?.additionalMessage;
 
   return (
-    <div className={`group relative flex flex-col sm:flex-row rounded-lg shadow-md overflow-hidden transition-all duration-200 items-stretch ${bgClass} ${borderClass} ${!task.isDone ? 'hover:shadow-lg' : ''}`}>
-      {isUrgent && !isManualBlocked && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#FF8C00] animate-pulse z-50"></div>}
+    <div className={`group relative flex flex-col sm:flex-row rounded-lg shadow-md overflow-hidden transition-all duration-200 items-stretch ${bgClass} ${borderClass} ${!task.isDone ? 'hover:shadow-lg' : ''} ${isUrgent ? 'border border-red-500/25 animate-border-pulse' : ''}`}>
+      {isUrgent && !isManualBlocked && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#FF8C00] animate-pulse z-20"></div>}
 
       {isUrgent && (
-        <div className="absolute right-[5%] top-1/2 -translate-y-1/2 pointer-events-none select-none opacity-[0.06] font-black uppercase tracking-[0.25em] italic text-5xl sm:text-6xl md:text-7xl lg:text-8xl text-[#FF8C00]">
+        <div className="absolute left-[3%] right-[3%] top-1/2 -translate-y-1/2 pointer-events-none select-none opacity-[0.05] font-black uppercase tracking-[0.45em] italic text-7xl sm:text-8xl md:text-9xl lg:text-[11rem] xl:text-[13rem] text-red-500 leading-none text-center whitespace-nowrap z-0">
           URGENT
         </div>
       )}
