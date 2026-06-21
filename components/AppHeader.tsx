@@ -43,6 +43,22 @@ const LogoutIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
+const RefreshIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    className={className} 
+    fill="none" 
+    viewBox="0 0 24 24" 
+    stroke="currentColor" 
+    strokeWidth={2.5} 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+  >
+    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+    <path d="M21 3v5h-5" />
+  </svg>
+);
+
 const AppHeader: React.FC<AppHeaderProps> = ({
   currentUser, currentUserRole, onLogout, language, setLanguage, t,
   isFullscreen, onToggleFullscreen, installPrompt, onInstallApp, hasPermission, resolveName,
@@ -96,12 +112,23 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             <div className="bg-gray-900 shadow-2xl z-40 p-3 border-b border-gray-800 relative">
                 <div className="max-w-7xl mx-auto w-full flex items-center justify-between relative">
                     <div className="flex items-center gap-4 z-10">
-                        <div className="flex bg-gray-800 rounded-lg p-1 border border-gray-700 shadow-inner">
-                            <button onClick={() => setLanguage('sk')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all duration-200 ${language === 'sk' ? 'bg-teal-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>SK</button>
-                            <button onClick={() => setLanguage('en')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all duration-200 ${language === 'en' ? 'bg-teal-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>EN</button>
+                        <div className="flex bg-gray-800 rounded-lg p-1 border border-gray-700 shadow-inner h-9 items-center">
+                            <button onClick={() => setLanguage('sk')} className={`h-full px-3 rounded-md text-xs font-bold transition-all duration-200 flex items-center ${language === 'sk' ? 'bg-teal-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>SK</button>
+                            <button onClick={() => setLanguage('en')} className={`h-full px-3 rounded-md text-xs font-bold transition-all duration-200 flex items-center ${language === 'en' ? 'bg-teal-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>EN</button>
                         </div>
+                        
+                        {/* Reload Button */}
+                        <button 
+                            onClick={() => window.location.reload()} 
+                            className="group bg-gray-800 hover:bg-gray-700 active:scale-95 text-amber-500 hover:text-amber-400 px-3 rounded-lg transition-all shadow-md border border-gray-700 flex items-center gap-1.5 cursor-pointer h-9 animate-fade-in"
+                            title={language === 'sk' ? "Aktualizovať (vymazať cache)" : "Reload page (clear cache)"}
+                        >
+                            <RefreshIcon className="h-4 w-4 text-amber-500 transition-transform duration-500 ease-out group-hover:rotate-180" />
+                            <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-wider text-amber-500">RELOAD</span>
+                        </button>
+
                         {/* Network Status Badge */}
-                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md border ${isOnline ? 'border-green-500/30 bg-green-500/10' : 'border-red-500/30 bg-red-500/10 animate-pulse'}`}>
+                        <div className={`flex items-center gap-1.5 px-3 rounded-lg border h-9 ${isOnline ? 'border-green-500/30 bg-green-500/10' : 'border-red-500/30 bg-red-500/10 animate-pulse'}`}>
                             <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`}></div>
                             <span className={`text-[10px] font-black uppercase tracking-widest ${isOnline ? 'text-green-500' : 'text-red-500'}`}>
                                 {isOnline ? 'ONLINE' : 'OFFLINE REŽIM'}
