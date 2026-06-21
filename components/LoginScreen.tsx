@@ -72,6 +72,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, users, system
   const [password, setPassword] = useState<string>('');
   const [error, setError] = useState<string>('');
   const { t } = useLanguage();
+  const [showLicense, setShowLicense] = useState<boolean>(false);
 
   // IP Check State
   const [clientIP, setClientIP] = useState<string | null>(null);
@@ -251,11 +252,45 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, users, system
       </div>
       
       {/* Footer - Updated with custom string as requested */}
-      <div className="mt-10 text-center">
+      <div className="mt-10 text-center space-y-2 flex flex-col items-center">
           <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em]">
             created by: Miroslav Svítok © 2026
           </p>
+          <p className="text-[10px] font-semibold text-slate-400 tracking-wider">
+            Licencované pre Clamason Slovakia, s.r.o. <span className="text-slate-500 font-medium">(Iba na interné použitie)</span>
+          </p>
+          <button 
+            type="button" 
+            onClick={() => setShowLicense(true)}
+            className="text-[10px] font-bold text-teal-500 hover:text-teal-400 transition-all duration-200 uppercase tracking-widest cursor-pointer mt-0.5 hover:underline"
+          >
+            Viac o licencii
+          </button>
       </div>
+
+      {/* License Modal */}
+      {showLicense && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl max-w-md w-full relative transform transition-all scale-100 border-t-4 border-t-teal-500">
+            <h3 className="text-sm font-black text-white uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+              <span className="w-1.5 h-3 bg-teal-500 rounded-sm"></span>
+              Licenčné dojednanie
+            </h3>
+            <p className="text-slate-300 text-xs leading-relaxed font-semibold text-justify">
+              Tento softvér je autorským dielom autora (Miroslav Svítok). Autor udeľuje spoločnosti Clamason Slovakia, s.r.o. (so sídlom Rastislavova 12 949 01 Nitra) nevýhradné, neprevoditeľné a odvolateľné právo (licenciu) na používanie tejto aplikácie pre interné potreby. Používateľ Clamason Slovakia nesmie softvér upravovať, šíriť, predávať ani poskytovať tretím stranám bez písomného súhlasu autora.
+            </p>
+            <div className="mt-6 flex justify-end">
+              <button 
+                type="button"
+                onClick={() => setShowLicense(false)}
+                className="bg-slate-800 hover:bg-slate-700 active:scale-95 text-teal-400 hover:text-teal-300 px-5 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all border border-slate-700 cursor-pointer"
+              >
+                Zavrieť
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
