@@ -168,24 +168,90 @@ const SetupView: React.FC<SetupViewProps> = (props) => {
             {language === 'sk' ? 'LICENČNÉ PODMIENKY A VLASTNÍCTVO' : 'LICENSE AGREEMENT & OWNERSHIP'}
           </h4>
         </div>
-        <div className="bg-slate-950/40 p-5 rounded-xl border border-white/5 space-y-4">
-          <p className="text-xs text-slate-300 leading-relaxed text-justify">
-            {language === 'sk' ? (
-              <>
-                Tento softvér je autorským dielom autora <strong className="text-teal-400 font-extrabold">Miroslav Svítok</strong>. 
-                Autor udeľuje spoločnosti <strong className="text-white font-extrabold">Clamason Slovakia, s.r.o.</strong> (so sídlom Rastislavova 12, 949 01 Nitra) 
-                nevýhradné, neprevoditeľné a odvolateľné právo (licenciu) na používanie tejto aplikácie pre interné potreby. 
-                Používateľ Clamason Slovakia nesmie softvér upravovať, šíriť, predávať ani poskytovať tretím stranám bez písomného súhlasu autora.
-              </>
-            ) : (
-              <>
-                This software is the copyrighted work of the author <strong className="text-teal-400 font-extrabold">Miroslav Svítok</strong>. 
-                The author grants <strong className="text-white font-extrabold">Clamason Slovakia, s.r.o.</strong> (with registered office at Rastislavova 12, 949 01 Nitra) 
-                a non-exclusive, non-transferable, and revocable right (license) to use this application for internal needs. 
-                The Clamason Slovakia user shall not modify, distribute, sell, or provide the software to third parties without the written consent of the author.
-              </>
-            )}
-          </p>
+        <div className="bg-slate-950/40 p-5 rounded-xl border border-white/5 space-y-5">
+          {language === 'sk' ? (
+            <div className="text-xs text-slate-300 leading-relaxed text-justify space-y-4">
+              <h5 className="font-extrabold text-teal-400 text-center uppercase tracking-wider text-[11px]">
+                LICENČNÉ PODMIENKY POUŽÍVANIA SOFTVÉRU
+              </h5>
+              
+              <div className="space-y-1">
+                <strong className="text-white block font-black border-b border-white/5 pb-0.5 mb-1 text-[11px]">1. Úvodné ustanovenia</strong>
+                <p>
+                  Tento softvér (ďalej len „Aplikácia“) je autorským dielom v zmysle Autorského zákona. Výhradným vlastníkom všetkých majetkových a osobnostných autorských práv k Aplikácii je autor: <strong className="text-teal-400 font-extrabold">Miroslav Svítok</strong> (ďalej len „Poskytovateľ“).
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <strong className="text-white block font-black border-b border-white/5 pb-0.5 mb-1 text-[11px]">2. Udelenie licencie</strong>
+                <p>
+                  Poskytovateľ udeľuje používateľovi (spoločnosti <strong className="text-white font-extrabold">Clamason Slovakia, s.r.o.</strong>) bezodplatnú, nevýhradnú a neprenosnú licenciu na používanie Aplikácie, a to výhradne pre interné prevádzkové potreby spoločnosti. Táto licencia oprávňuje spoločnosť iba na spustenie a užívanie Aplikácie v stave, v akom sa nachádza.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <strong className="text-white block font-black border-b border-white/5 pb-0.5 mb-1 text-[11px]">3. Obmedzenie práv a zákaz úprav</strong>
+                <p>
+                  Používateľ nesmie Aplikáciu ani žiadnu jej časť kopírovať, upravovať, prekladať, vykonávať spätnú analýzu (reverse engineering), dekompilovať, predávať, prenajímať, sublicencovať ani inak distribuovať tretím stranám bez predchádzajúceho písomného súhlasu Poskytovateľa.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <strong className="text-white block font-black border-b border-white/5 pb-0.5 mb-1 text-[11px]">4. Odvolateľnosť licencie a ukončenie</strong>
+                <p>
+                  Licencia sa udeľuje na dobu neurčitú. Poskytovateľ si vyhradzuje výslovné právo kedykoľvek, bez udania dôvodu a s okamžitou platnosťou túto licenciu odvolať a ukončiť tak právo spoločnosti Aplikáciu používať. V prípade odvolania licencie alebo zániku oprávnenia je spoločnosť povinná okamžite prestať Aplikáciu používať a na výzvu Poskytovateľa ju odstrániť zo svojich zariadení a serverov.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <strong className="text-white block font-black border-b border-white/5 pb-0.5 mb-1 text-[11px]">5. Vylúčenie zodpovednosti</strong>
+                <p>
+                  Aplikácia je poskytovaná „tak, ako stojí a leží“ (as is). Poskytovateľ nezodpovedá za žiadne priame, nepriame ani následné škody, ušlý zisk, stratu dát alebo prerušenie prevádzky, ktoré by spoločnosti vznikli v dôsledku používania alebo nemožnosti používania Aplikácie. Spoločnosť používa Aplikáciu výhradne na vlastné riziko.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs text-slate-300 leading-relaxed text-justify space-y-4">
+              <h5 className="font-extrabold text-teal-400 text-center uppercase tracking-wider text-[11px]">
+                LICENSE AGREEMENT FOR SOFTWARE USE
+              </h5>
+              
+              <div className="space-y-1">
+                <strong className="text-white block font-black border-b border-white/5 pb-0.5 mb-1 text-[11px]">1. Introductory Provisions</strong>
+                <p>
+                  This software (hereafter "Application") is a copyrighted work. The sole owner of all proprietary and personal copyrights to the Application is the author: <strong className="text-teal-400 font-extrabold">Miroslav Svítok</strong> (hereafter "Provider").
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <strong className="text-white block font-black border-b border-white/5 pb-0.5 mb-1 text-[11px]">2. License Grant</strong>
+                <p>
+                  The Provider grants the user (company <strong className="text-white font-extrabold">Clamason Slovakia, s.r.o.</strong>) a free, non-exclusive, and non-transferable license to use the Application, solely for the company's internal operational needs. This license only entitles the company to run and use the Application in the state in which it is located.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <strong className="text-white block font-black border-b border-white/5 pb-0.5 mb-1 text-[11px]">3. Restrictions & Prohibition of Modifications</strong>
+                <p>
+                  The user shall not copy, modify, translate, reverse engineer, decompile, sell, rent, sublicense, or otherwise distribute the Application or any part thereof to third parties without the prior written consent of the Provider.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <strong className="text-white block font-black border-b border-white/5 pb-0.5 mb-1 text-[11px]">4. Revocability & Termination</strong>
+                <p>
+                  The license is granted for an indefinite period. The Provider reserves the explicit right to revoke this license at any time, without giving any reason, and with immediate effect, thereby terminating the company's right to use the Application. In the event of license revocation or termination of authorization, the company is obliged to immediately stop using the Application and, upon request from the Provider, remove it from its devices and servers.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <strong className="text-white block font-black border-b border-white/5 pb-0.5 mb-1 text-[11px]">5. Disclaimer of Liability</strong>
+                <p>
+                  The Application is provided "as is". The Provider is not liable for any direct, indirect, or consequential damages, lost profits, data loss, or business interruption incurred by the company as a result of using or being unable to use the Application. The company uses the Application solely at its own risk.
+                </p>
+              </div>
+            </div>
+          )}
           <div className="flex flex-wrap items-center justify-between text-[9px] font-black text-slate-500 tracking-widest uppercase gap-2 border-t border-slate-800/60 pt-3">
             <span>© 2026 MIROSLAV SVÍTOK</span>
             <span className="text-teal-500/85">LICENSED FOR CLAMASON SLOVAKIA (INTERNAL USE ONLY)</span>

@@ -271,14 +271,53 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, users, system
       {/* License Modal */}
       {showLicense && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl max-w-md w-full relative transform transition-all scale-100 border-t-4 border-t-teal-500">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl max-w-lg w-full relative transform transition-all scale-100 border-t-4 border-t-teal-500">
             <h3 className="text-sm font-black text-white uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
               <span className="w-1.5 h-3 bg-teal-500 rounded-sm"></span>
-              Licenčné dojednanie
+              Licenčné podmienky
             </h3>
-            <p className="text-slate-300 text-xs leading-relaxed font-semibold text-justify">
-              Tento softvér je autorským dielom autora (Miroslav Svítok). Autor udeľuje spoločnosti Clamason Slovakia, s.r.o. (so sídlom Rastislavova 12 949 01 Nitra) nevýhradné, neprevoditeľné a odvolateľné právo (licenciu) na používanie tejto aplikácie pre interné potreby. Používateľ Clamason Slovakia nesmie softvér upravovať, šíriť, predávať ani poskytovať tretím stranám bez písomného súhlasu autora.
-            </p>
+            
+            <div className="max-h-[60vh] overflow-y-auto pr-2 space-y-4 text-slate-300 text-xs leading-relaxed text-justify styled-scrollbar">
+              <h4 className="font-extrabold text-teal-400 text-center uppercase tracking-wider text-[11px] mb-2">
+                LICENČNÉ PODMIENKY POUŽÍVANIA SOFTVÉRU
+              </h4>
+              
+              <div className="space-y-1">
+                <h5 className="font-bold text-white text-[11px]">1. Úvodné ustanovenia</h5>
+                <p className="text-slate-300">
+                  Tento softvér (ďalej len „Aplikácia“) je autorským dielom v zmysle Autorského zákona. Výhradným vlastníkom všetkých majetkových a osobnostných autorských práv k Aplikácii je autor: <span className="text-white font-semibold">Miroslav Svítok</span> (ďalej len „Poskytovateľ“).
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <h5 className="font-bold text-white text-[11px]">2. Udelenie licencie</h5>
+                <p className="text-slate-300">
+                  Poskytovateľ udeľuje používateľovi (spoločnosti <span className="text-white font-semibold">Clamason Slovakia, s.r.o.</span>) bezodplatnú, nevýhradnú a neprenosnú licenciu na používanie Aplikácie, a to výhradne pre interné prevádzkové potreby spoločnosti. Táto licencia oprávňuje spoločnosť iba na spustenie a užívanie Aplikácie v stave, v akom sa nachádza.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <h5 className="font-bold text-white text-[11px]">3. Obmedzenie práv a zákaz úprav</h5>
+                <p className="text-slate-300">
+                  Používateľ nesmie Aplikáciu ani žiadnu jej časť kopírovať, upravovať, prekladať, vykonávať spätnú analýzu (reverse engineering), dekompilovať, predávať, prenajímať, sublicencovať ani inak distribuovať tretím stranám bez predchádzajúceho písomného súhlasu Poskytovateľa.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <h5 className="font-bold text-white text-[11px]">4. Odvolateľnosť licencie a ukončenie</h5>
+                <p className="text-slate-300">
+                  Licencia sa udeľuje na dobu neurčitú. Poskytovateľ si vyhradzuje výslovné právo kedykoľvek, bez udania dôvodu a s okamžitou platnosťou túto licenciu odvolať a ukončiť tak právo spoločnosti Aplikáciu používať. V prípade odvolania licencie alebo zániku oprávnenia je spoločnosť povinná okamžite prestať Aplikáciu používať a na výzvu Poskytovateľa ju odstrániť zo svojich zariadení a serverov.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <h5 className="font-bold text-white text-[11px]">5. Vylúčenie zodpovednosti</h5>
+                <p className="text-slate-300">
+                  Aplikácia je poskytovaná „tak, ako stojí a leží“ (as is). Poskytovateľ nezodpovedá za žiadne priame, nepriame ani následné škody, ušlý zisk, stratu dát alebo prerušenie prevádzky, ktoré by spoločnosti vznikli v dôsledku používania alebo nemožnosti používanja Aplikácie. Spoločnosť používa Aplikáciu výhradne na vlastné riziko.
+                </p>
+              </div>
+            </div>
+
             <div className="mt-6 flex justify-end">
               <button 
                 type="button"
