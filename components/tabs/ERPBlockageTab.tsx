@@ -22,7 +22,8 @@ const Icons = {
     Warning: () => <svg className="w-8 h-8 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
     Check: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>,
     Trash: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
-    Excel: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+    Excel: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>,
+    Copy: () => <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" /><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" /></svg>
 };
 
 const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUserRole, parts, blockages, resolveName, hasPermission }) => {
@@ -32,6 +33,7 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
     // State
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [timer, setTimer] = useState(Date.now());
+    const [copiedId, setCopiedId] = useState<string | null>(null);
 
     // Form State
     const [partNumber, setPartNumber] = useState('');
@@ -54,6 +56,38 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
             return b.timestamp - a.timestamp;
         });
     }, [blockages]);
+
+    const fallbackCopy = (id: string, text: string) => {
+        try {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-999999px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            setCopiedId(id);
+            setTimeout(() => setCopiedId(null), 1500);
+        } catch (err) {
+            console.error('Copy failed', err);
+        }
+    };
+
+    const handleCopyPart = (id: string, text: string) => {
+        if (!text) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                setCopiedId(id);
+                setTimeout(() => setCopiedId(null), 1500);
+            }).catch(() => {
+                fallbackCopy(id, text);
+            });
+        } else {
+            fallbackCopy(id, text);
+        }
+    };
 
     // HANDLERS
     const handleAdd = async () => {
@@ -270,7 +304,22 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
                         return (
                             <div key={item.id} className={`group relative flex flex-col md:flex-row items-stretch rounded-[2rem] border-2 transition-all duration-300 p-6 gap-6 ${statusColors}`}>
                                 <div className="md:w-64 flex-shrink-0 flex flex-col justify-center">
-                                    <h4 className="text-2xl font-black text-white font-mono tracking-tight break-all leading-tight">{item.partNumber}</h4>
+                                    <h4 
+                                        onClick={() => handleCopyPart(item.id, item.partNumber)}
+                                        className="text-2xl font-black text-white font-mono tracking-tight break-all leading-tight cursor-copy hover:text-teal-400 active:scale-[0.98] transition-all flex items-center flex-wrap gap-2 group/copy"
+                                        title={language === 'sk' ? "Kliknite pre kopírovanie" : "Click to copy"}
+                                    >
+                                        <span>{item.partNumber}</span>
+                                        {copiedId === item.id ? (
+                                            <span className="text-xs bg-green-600 text-white px-2 py-0.5 rounded-full animate-bounce inline-block font-sans lowercase align-middle">
+                                                {t('copied_msg')}
+                                            </span>
+                                        ) : (
+                                            <span className="text-slate-500 group-hover/copy:text-teal-400 transition-colors opacity-60 group-hover/copy:opacity-100 inline-flex items-center">
+                                                <Icons.Copy />
+                                            </span>
+                                        )}
+                                    </h4>
                                     <div className="mt-3 bg-slate-950 rounded-xl p-3 border border-slate-800 flex items-center justify-between">
                                         <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Množstvo:</span>
                                         <span className="text-xl font-black text-teal-400 font-mono">{item.quantity}</span>
