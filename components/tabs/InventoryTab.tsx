@@ -45,6 +45,12 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
     const batchRef = useRef<HTMLInputElement>(null);
     const quantityRef = useRef<HTMLInputElement>(null);
 
+    // Wizard Input Refs
+    const wizardLocRef = useRef<HTMLInputElement>(null);
+    const wizardPartRef = useRef<HTMLInputElement>(null);
+    const wizardBatchRef = useRef<HTMLInputElement>(null);
+    const wizardQtyRef = useRef<HTMLInputElement>(null);
+
     const [location, setLocation] = useState('');
     const [partNumber, setPartNumber] = useState('');
     const [batch, setBatch] = useState('');
@@ -53,6 +59,23 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
     const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
     const [completedLocations, setCompletedLocations] = useState<string[]>([]);
     const [lastLocConfirmed, setLastLocConfirmed] = useState<boolean>(false);
+
+    // Step-by-Step Tablet Wizard State
+    const [wizardOpen, setWizardOpen] = useState(false);
+    const [wizardStep, setWizardStep] = useState<1 | 2 | 3 | 4>(1); // 1: Loc, 2: Part, 3: Batch, 4: Qty
+    const [wizardData, setWizardData] = useState<{
+        location: string;
+        partNumber: string;
+        batch: string;
+        isBatchMissing: boolean;
+        quantity: string;
+    }>({
+        location: '',
+        partNumber: '',
+        batch: '',
+        isBatchMissing: false,
+        quantity: ''
+    });
 
     const [confirmModal, setConfirmModal] = useState<{
         isOpen: boolean;
@@ -87,6 +110,11 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
             .map(loc => loc.trim().toUpperCase())
             .filter(loc => loc.length > 0);
     }, [activeInventoryTask?.workplace]);
+
+    const isAllLocationsCompleted = useMemo(() => {
+        if (locationsList.length === 0) return false;
+        return locationsList.every(loc => completedLocations.includes(loc.toUpperCase()));
+    }, [locationsList, completedLocations]);
 
     const [selectedLocIndex, setSelectedLocIndex] = useState<number>(0);
 
@@ -217,6 +245,108 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
 
     const handleStartInventory = () => {
         onAddTask("Počítanie zásob", "Inventúra", "0", "pallet", "NORMAL", true);
+    };
+
+    // --- WIZARD HANDLERS (TABLET STEP-BY-STEP MODAL) ---
+    const openWizard = () => {
+        const curLoc = location || (locationsList.length > 0 ? locationsList[selectedLocIndex] : '');
+        const isPlaceholderPart = !activeInventoryTask?.partNumber || 
+                                  activeInventoryTask.partNumber === "Počítanie zásob" || 
+                                  activeInventoryTask.partNumber === "CELÝ REGÁL" || 
+                                  activeInventoryTask.partNumber === "INVENTÚRA POZÍCIÍ" || 
+                                  activeInventoryTask.partNumber === "INVENTÚRA POZÍCIE";
+        const curPart = partNumber || (!isPlaceholderPart ? (activeInventoryTask?.partNumber || '') : '');
+
+        setWizardData({
+            location: curLoc,
+            partNumber: curPart,
+            batch: '',
+            isBatchMissing: false,
+            quantity: ''
+        });
+
+        // Ak už máme lokáciu z úlohy, skočíme priamo na krok 2 (diel) alebo krok 3 (šarža ak je aj diel známy)
+        if (curLoc && curPart) {
+            setWizardStep(3);
+        } else if (curLoc) {
+            setWizardStep(2);
+        } else {
+            setWizardStep(1);
+        }
+
+        setWizardOpen(true);
+    };
+
+    // Auto-focus wizard inputs on step change
+    useEffect(() => {
+        if (!wizardOpen) return;
+        const timer = setTimeout(() => {
+            if (wizardStep === 1) wizardLocRef.current?.focus();
+            else if (wizardStep === 2) wizardPartRef.current?.focus();
+            else if (wizardStep === 3) wizardBatchRef.current?.focus();
+            else if (wizardStep === 4) wizardQtyRef.current?.focus();
+        }, 100);
+        return () => clearTimeout(timer);
+    }, [wizardOpen, wizardStep]);
+
+    const handleWizardSaveItem = (stayOnLocation = true) => {
+        const normalizedQty = wizardData.quantity.replace(',', '.').trim();
+        const isLocEmpty = !wizardData.location.trim();
+        const isPartEmpty = !wizardData.partNumber.trim();
+        const isQtyEmpty = !normalizedQty || isNaN(Number(normalizedQty));
+        const isBatchRequiredAndEmpty = !wizardData.isBatchMissing && !wizardData.batch.trim();
+
+        if (isLocEmpty || isPartEmpty || isQtyEmpty || isBatchRequiredAndEmpty) {
+            alert(language === 'sk' ? "Vyplňte prosím všetky požadované údaje položky." : "Please fill all required item details.");
+            return;
+        }
+
+        const activeLocUpper = wizardData.location.trim().toUpperCase();
+
+        const newItem: ScannedItem = {
+            id: crypto.randomUUID(),
+            location: activeLocUpper,
+            partNumber: wizardData.partNumber.trim().toUpperCase(),
+            batch: wizardData.isBatchMissing ? `[${t('inv_missing_label').toUpperCase()}]` : wizardData.batch.trim(),
+            quantity: normalizedQty,
+            timestamp: Date.now(),
+            worker: currentUser
+        };
+
+        setScannedItems(prev => [newItem, ...prev]);
+
+        // Pridať do dokončených lokácií
+        setCompletedLocations(prev => {
+            if (!prev.includes(activeLocUpper)) {
+                return [...prev, activeLocUpper];
+            }
+            return prev;
+        });
+
+        setLastLocConfirmed(false);
+
+        if (stayOnLocation) {
+            // Zostávame na tej istej lokácii pre ďalší diel / zvitok / šaržu
+            const isPlaceholderPart = !activeInventoryTask?.partNumber || 
+                                      activeInventoryTask.partNumber === "Počítanie zásob" || 
+                                      activeInventoryTask.partNumber === "CELÝ REGÁL" || 
+                                      activeInventoryTask.partNumber === "INVENTÚRA POZÍCIÍ" || 
+                                      activeInventoryTask.partNumber === "INVENTÚRA POZÍCIE";
+            const resetPart = !isPlaceholderPart ? (activeInventoryTask?.partNumber || '') : '';
+            
+            setWizardData(prev => ({
+                ...prev,
+                partNumber: resetPart,
+                batch: '',
+                isBatchMissing: false,
+                quantity: ''
+            }));
+            setWizardStep(resetPart ? 3 : 2);
+        } else {
+            // Zavrieť a posunúť na ďalšiu lokáciu
+            setWizardOpen(false);
+            handleCompleteAndNext();
+        }
     };
 
     const handleAddItem = () => {
@@ -686,105 +816,180 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div>
-                                <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">{t('inv_loc_label')}</label>
-                                <input 
-                                    ref={locationRef}
-                                    autoFocus
-                                    type="text"
-                                    value={location}
-                                    onChange={(e) => setLocation(e.target.value.toUpperCase())}
-                                    onKeyDown={(e) => e.key === 'Enter' && partRef.current?.focus()}
-                                    placeholder="NAPR. MA123"
-                                    className={inputBaseClass}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">{t('inv_th_part')}</label>
-                                <PartNumberInput 
-                                    inputRef={partRef}
-                                    parts={parts}
-                                    onPartSelect={(p) => { if(p) { setPartNumber(p); setTimeout(() => batchRef.current?.focus(), 50); } }}
-                                    onInputChange={(val) => setPartNumber(val.toUpperCase())}
-                                    onKeyDown={(e) => e.key === 'Enter' && batchRef.current?.focus()}
-                                    placeholder={t('part_placeholder')}
-                                    value={partNumber}
-                                    onRequestPart={onRequestPart}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">{t('inv_batch_label')}</label>
-                                <div className="flex gap-3">
-                                    <input 
-                                        ref={batchRef}
-                                        type="text"
-                                        inputMode="numeric"
-                                        readOnly={isBatchMissing}
-                                        value={batch}
-                                        onChange={(e) => {
-                                            if (!isBatchMissing) {
-                                                const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
-                                                setBatch(val);
-                                            }
-                                        }}
-                                        onKeyDown={(e) => e.key === 'Enter' && quantityRef.current?.focus()}
-                                        placeholder={isBatchMissing ? '' : "BATCH / LOT"}
-                                        className={`${inputBaseClass.replace('w-full', 'w-1/2')} ${isBatchMissing ? 'text-red-500 border-red-900/50 bg-red-900/10' : ''}`}
-                                    />
+                        {/* IF ALL LOCATIONS COMPLETED: SHOW FINISH CELEBRATION CARD INSTEAD OF ENTRY FORMS */}
+                        {isAllLocationsCompleted ? (
+                            <div className="bg-gradient-to-r from-emerald-950/60 via-slate-900/80 to-emerald-950/60 border-2 border-emerald-500/60 rounded-3xl p-8 mb-8 shadow-2xl text-center space-y-6 animate-fade-in">
+                                <div className="w-20 h-20 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto text-4xl border border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.3)]">
+                                    🏆
+                                </div>
+                                <div className="space-y-2">
+                                    <h2 className="text-3xl font-black text-white uppercase tracking-tight">
+                                        {language === 'sk' ? "Všetky lokácie sú skontrolované!" : "All locations checked!"}
+                                    </h2>
+                                    <p className="text-slate-400 text-sm max-w-xl mx-auto">
+                                        {language === 'sk' 
+                                            ? "Inventúra pre túto úlohu je kompletná. Skontrolujte súhrnnú tabuľku nižšie a kliknite na tlačidlo ukončiť inventúru." 
+                                            : "Inventory for this task is complete. Review summary below and click finish inventory."}
+                                    </p>
+                                </div>
+                                <div className="flex flex-col sm:flex-row justify-center gap-4 pt-2">
                                     <button 
                                         type="button"
-                                        onClick={toggleBatchMissing}
-                                        className={`w-1/2 h-12 rounded-lg border-2 font-black uppercase text-xs text-white transition-all flex items-center justify-center gap-2 ${isBatchMissing ? 'bg-red-600 border-red-500 shadow-lg' : 'bg-[#4169E1]/20 border-[#4169E1] hover:bg-[#4169E1]/40'}`}
+                                        onClick={handleExportAndFinish}
+                                        className="h-16 px-10 bg-green-600 hover:bg-green-500 text-white font-black rounded-2xl uppercase tracking-widest text-base shadow-[0_0_30px_rgba(34,197,94,0.4)] border-2 border-green-400 transition-all active:scale-95 flex items-center justify-center gap-3"
                                     >
-                                        🏷️ {t('inv_missing_label')}
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                        </svg>
+                                        <span>{t('inv_finish_btn')}</span>
                                     </button>
                                 </div>
                             </div>
-                            <div>
-                                <label className="block text-gray-300 text-base font-bold mb-2 uppercase tracking-wide">{t('inv_qty_label')}</label>
-                                <input 
-                                    ref={quantityRef}
-                                    type="text"
-                                    inputMode="decimal"
-                                    value={quantity}
-                                    onChange={(e) => setQuantity(e.target.value.replace(/[^0-9.,]/g, '').slice(0, 10))}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
-                                    placeholder="0"
-                                    className={`${inputBaseClass} font-black text-lg`}
-                                />
-                            </div>
-                        </div>
+                        ) : (
+                            <>
+                                {/* TABLET FAST-ACTION HERO BAR */}
+                                <div className="bg-gradient-to-r from-blue-900/40 via-indigo-950/40 to-slate-900/40 border-2 border-blue-500/50 rounded-3xl p-6 sm:p-8 mb-8 shadow-2xl relative overflow-hidden">
+                                    <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
+                                        <div className="space-y-1 text-center lg:text-left">
+                                            <div className="flex items-center justify-center lg:justify-start gap-2 text-xs font-black text-blue-400 uppercase tracking-widest">
+                                                <span>📱</span>
+                                                <span>{language === 'sk' ? "Dotykový režim pre tablety" : "Tablet touch mode"}</span>
+                                            </div>
+                                            <h2 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">
+                                                {locationsList.length > 0 ? (
+                                                    <>Aktuálna lokácia: <span className="text-[#4169E1] font-mono">{locationsList[selectedLocIndex] || location || '-'}</span></>
+                                                ) : (
+                                                    <>{language === 'sk' ? "Rýchle zaznamenanie položky" : "Quick item record"}</>
+                                                )}
+                                            </h2>
+                                            <p className="text-xs text-slate-400 font-medium">
+                                                {language === 'sk' 
+                                                    ? "Zadanie v krokoch po jednom poli – klávesnica nezakrýva ovládacie prvky." 
+                                                    : "Step-by-step entry – on-screen keyboard will not cover controls."}
+                                            </p>
+                                        </div>
 
-                        <div className="mt-10 flex flex-col sm:flex-row gap-4 w-full">
-                            <button 
-                                onClick={handleAddItem}
-                                className="flex-1 bg-[#4169E1] hover:bg-[#3151b1] text-white font-black py-6 rounded-2xl shadow-xl transition-all active:scale-95 uppercase tracking-widest text-xl border-2 border-[#5a81f3]"
-                            >
-                                {t('inv_add_btn')}
-                            </button>
-                            
-                            {locationsList.length > 0 && (
-                                <>
-                                    <button 
-                                        type="button"
-                                        onClick={handleCompleteAndNext}
-                                        className="sm:w-1/3 bg-emerald-600/20 hover:bg-emerald-600/35 border-2 border-emerald-500/50 text-emerald-300 font-extrabold py-6 rounded-2xl shadow-lg transition-all active:scale-95 uppercase tracking-wider text-sm flex items-center justify-center gap-2"
-                                        title={language === 'sk' ? "Označiť túto lokáciu ako dokončenú a prejsť na ďalšiu" : "Mark this location as finished and go to next"}
-                                    >
-                                        ✓ {language === 'sk' ? "Dokončiť lokáciu" : "Finish location"}
-                                    </button>
-                                    <button 
-                                        type="button"
-                                        onClick={handleMarkLocationEmpty}
-                                        className="sm:w-1/4 bg-amber-600/10 hover:bg-amber-600/20 border-2 border-amber-500/50 text-amber-400 font-extrabold py-6 rounded-2xl shadow-lg transition-all active:scale-95 uppercase tracking-wider text-xs flex items-center justify-center gap-2"
-                                        title={language === 'sk' ? "Označiť aktuálnu lokáciu ako prázdnu (0 ks)" : "Mark current location empty (0 pcs)"}
-                                    >
-                                        🕳️ {language === 'sk' ? "Lokácia je prázdna" : "Location is empty"}
-                                    </button>
-                                </>
-                            )}
-                        </div>
+                                        <div className="flex flex-col sm:flex-row items-stretch gap-3 w-full lg:w-auto">
+                                            <button
+                                                type="button"
+                                                onClick={openWizard}
+                                                className="h-20 sm:h-20 px-8 sm:px-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-2xl font-black uppercase text-base sm:text-lg tracking-widest shadow-[0_0_30px_rgba(65,105,225,0.4)] border-2 border-blue-400 transition-all active:scale-95 flex items-center justify-center gap-4"
+                                            >
+                                                <span className="text-2xl sm:text-3xl">➕</span>
+                                                <span>{language === 'sk' ? "ZAPÍSAŤ POLOŽKU" : "RECORD ITEM"}</span>
+                                            </button>
+
+                                            {locationsList.length > 0 && (
+                                                <button 
+                                                    type="button"
+                                                    onClick={handleMarkLocationEmpty}
+                                                    className="h-20 sm:h-20 px-6 bg-amber-600/15 hover:bg-amber-600/30 border-2 border-amber-500/50 text-amber-300 font-black rounded-2xl uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-95"
+                                                    title={language === 'sk' ? "Označiť aktuálnu lokáciu ako prázdnu (0 ks)" : "Mark location empty"}
+                                                >
+                                                    <span className="text-xl">🕳️</span>
+                                                    <span>{language === 'sk' ? "LOKÁCIA JE PRÁZDNA" : "EMPTY LOCATION"}</span>
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* DESKTOP / QUICK DIRECT FORM (COLLAPSIBLE / OPTIONAL) */}
+                                <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <span className="text-xs font-black uppercase tracking-widest text-slate-500">
+                                            {language === 'sk' ? "Priamy zápis (pre PC s myšou)" : "Direct entry (Desktop)"}
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                        <div>
+                                            <label className="block text-gray-400 text-xs font-bold mb-1.5 uppercase tracking-wide">{t('inv_loc_label')}</label>
+                                            <input 
+                                                ref={locationRef}
+                                                type="text"
+                                                value={location}
+                                                onChange={(e) => setLocation(e.target.value.toUpperCase())}
+                                                onKeyDown={(e) => e.key === 'Enter' && partRef.current?.focus()}
+                                                placeholder="NAPR. MA123"
+                                                className={inputBaseClass}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-gray-400 text-xs font-bold mb-1.5 uppercase tracking-wide">{t('inv_th_part')}</label>
+                                            <PartNumberInput 
+                                                inputRef={partRef}
+                                                parts={parts}
+                                                onPartSelect={(p) => { if(p) { setPartNumber(p); setTimeout(() => batchRef.current?.focus(), 50); } }}
+                                                onInputChange={(val) => setPartNumber(val.toUpperCase())}
+                                                onKeyDown={(e) => e.key === 'Enter' && batchRef.current?.focus()}
+                                                placeholder={t('part_placeholder')}
+                                                value={partNumber}
+                                                onRequestPart={onRequestPart}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-gray-400 text-xs font-bold mb-1.5 uppercase tracking-wide">{t('inv_batch_label')}</label>
+                                            <div className="flex gap-2">
+                                                <input 
+                                                    ref={batchRef}
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    readOnly={isBatchMissing}
+                                                    value={batch}
+                                                    onChange={(e) => {
+                                                        if (!isBatchMissing) {
+                                                            const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                                                            setBatch(val);
+                                                        }
+                                                    }}
+                                                    onKeyDown={(e) => e.key === 'Enter' && quantityRef.current?.focus()}
+                                                    placeholder={isBatchMissing ? '' : "BATCH / LOT"}
+                                                    className={`${inputBaseClass.replace('w-full', 'w-1/2')} ${isBatchMissing ? 'text-red-500 border-red-900/50 bg-red-900/10' : ''}`}
+                                                />
+                                                <button 
+                                                    type="button"
+                                                    onClick={toggleBatchMissing}
+                                                    className={`w-1/2 h-12 rounded-lg border-2 font-black uppercase text-xs text-white transition-all flex items-center justify-center gap-1.5 ${isBatchMissing ? 'bg-red-600 border-red-500 shadow-lg' : 'bg-[#4169E1]/20 border-[#4169E1] hover:bg-[#4169E1]/40'}`}
+                                                >
+                                                    🏷️ {t('inv_missing_label')}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-gray-400 text-xs font-bold mb-1.5 uppercase tracking-wide">{t('inv_qty_label')}</label>
+                                            <input 
+                                                ref={quantityRef}
+                                                type="text"
+                                                inputMode="decimal"
+                                                value={quantity}
+                                                onChange={(e) => setQuantity(e.target.value.replace(/[^0-9.,]/g, '').slice(0, 10))}
+                                                onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
+                                                placeholder="0"
+                                                className={`${inputBaseClass} font-black text-lg`}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-4 flex flex-col sm:flex-row gap-3">
+                                        <button 
+                                            onClick={handleAddItem}
+                                            className="flex-1 bg-[#4169E1] hover:bg-[#3151b1] text-white font-black py-3.5 rounded-xl transition-all uppercase tracking-wider text-sm border border-[#5a81f3]"
+                                        >
+                                            {t('inv_add_btn')}
+                                        </button>
+                                        {locationsList.length > 0 && (
+                                            <button 
+                                                type="button"
+                                                onClick={handleCompleteAndNext}
+                                                className="sm:w-1/3 bg-emerald-600/20 hover:bg-emerald-600/35 border border-emerald-500/50 text-emerald-300 font-extrabold py-3.5 rounded-xl transition-all uppercase tracking-wider text-xs flex items-center justify-center gap-2"
+                                            >
+                                                ✓ {language === 'sk' ? "Dokončiť lokáciu" : "Finish location"}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </>
                 )}
             </div>
@@ -879,6 +1084,379 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ currentUser, tasks, onAddTa
                             <button onClick={confirmModal.onConfirm} className={`flex-1 py-4 text-white rounded-xl font-black transition-all shadow-xl uppercase text-xs border-2 ${confirmModal.type === 'danger' ? 'bg-red-600 hover:bg-red-700 border-red-500' : 'bg-amber-600 hover:bg-amber-700 border-amber-500'}`}>
                                 {t('btn_confirm')}
                             </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* TABLET STEP-BY-STEP WIZARD MODAL */}
+            {wizardOpen && createPortal(
+                <div className="fixed inset-0 z-[11000] flex items-center justify-center bg-black/90 backdrop-blur-md p-3 sm:p-6 animate-fade-in">
+                    <div 
+                        className="bg-slate-900 border-2 border-blue-500/60 rounded-[2.5rem] shadow-[0_0_80px_rgba(37,99,235,0.35)] w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh]" 
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {/* WIZARD HEADER */}
+                        <div className="p-6 sm:p-8 bg-slate-950/80 border-b border-slate-800 flex justify-between items-center">
+                            <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-xs font-black uppercase tracking-widest text-blue-400">
+                                        {language === 'sk' ? "INVENTÚRA • KROK ZA KROKOM" : "INVENTORY • STEP BY STEP"}
+                                    </span>
+                                    <span className="text-[10px] bg-blue-500/20 text-blue-300 font-mono px-2 py-0.5 rounded-full border border-blue-500/30">
+                                        KROK {wizardStep} / 4
+                                    </span>
+                                </div>
+                                <h3 className="text-2xl font-black text-white uppercase tracking-tight">
+                                    {wizardStep === 1 && (language === 'sk' ? "1. Kde sa nachádzate?" : "1. What is the location?")}
+                                    {wizardStep === 2 && (language === 'sk' ? "2. Číslo dielu" : "2. Part Number")}
+                                    {wizardStep === 3 && (language === 'sk' ? "3. Šarža / BATCH" : "3. Batch / Lot Number")}
+                                    {wizardStep === 4 && (language === 'sk' ? "4. Spočítané množstvo" : "4. Counted Quantity")}
+                                </h3>
+                            </div>
+                            <button 
+                                type="button"
+                                onClick={() => setWizardOpen(false)}
+                                className="w-12 h-12 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-xl font-bold transition-all"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {/* WIZARD STEP INDICATOR BAR */}
+                        <div className="grid grid-cols-4 gap-1 p-2 bg-slate-950 border-b border-slate-800 text-[10px] font-black uppercase text-center">
+                            <div className={`py-1.5 rounded-lg transition-all ${wizardStep === 1 ? 'bg-blue-600 text-white shadow' : wizardData.location ? 'text-blue-400 bg-blue-950/40' : 'text-slate-600'}`}>
+                                1. {t('inv_th_loc')}
+                            </div>
+                            <div className={`py-1.5 rounded-lg transition-all ${wizardStep === 2 ? 'bg-blue-600 text-white shadow' : wizardData.partNumber ? 'text-blue-400 bg-blue-950/40' : 'text-slate-600'}`}>
+                                2. {t('inv_th_part')}
+                            </div>
+                            <div className={`py-1.5 rounded-lg transition-all ${wizardStep === 3 ? 'bg-blue-600 text-white shadow' : (wizardData.batch || wizardData.isBatchMissing) ? 'text-blue-400 bg-blue-950/40' : 'text-slate-600'}`}>
+                                3. {t('inv_th_batch')}
+                            </div>
+                            <div className={`py-1.5 rounded-lg transition-all ${wizardStep === 4 ? 'bg-blue-600 text-white shadow' : wizardData.quantity ? 'text-blue-400 bg-blue-950/40' : 'text-slate-600'}`}>
+                                4. {t('inv_th_qty')}
+                            </div>
+                        </div>
+
+                        {/* WIZARD STEP BODY */}
+                        <div className="p-6 sm:p-8 flex-1 overflow-y-auto custom-scrollbar">
+                            
+                            {/* KROK 1: LOKÁCIA */}
+                            {wizardStep === 1 && (
+                                <div className="space-y-6 animate-fade-in">
+                                    <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-2xl">
+                                        <p className="text-xs text-blue-300 font-medium">
+                                            {language === 'sk' 
+                                                ? "Zadajte alebo naskenujte regál / skladovú pozíciu." 
+                                                : "Scan or enter shelf / warehouse position."}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-2">
+                                            {t('inv_loc_label')} *
+                                        </label>
+                                        <input 
+                                            ref={wizardLocRef}
+                                            type="text"
+                                            value={wizardData.location}
+                                            onChange={e => setWizardData(p => ({ ...p, location: e.target.value.toUpperCase() }))}
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter' && wizardData.location.trim()) {
+                                                    setWizardStep(2);
+                                                }
+                                            }}
+                                            placeholder="NAPR. MA123"
+                                            className="w-full h-16 sm:h-20 bg-slate-950 border-2 border-slate-700 focus:border-blue-500 rounded-2xl px-6 text-white font-mono text-2xl font-black outline-none transition-all tracking-wider uppercase"
+                                            autoFocus
+                                        />
+                                    </div>
+
+                                    {/* Prednastavené zoznamové lokácie ak existujú */}
+                                    {locationsList.length > 0 && (
+                                        <div>
+                                            <span className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                                                Alebo vyberte z plánu inventúry:
+                                            </span>
+                                            <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto custom-scrollbar p-1">
+                                                {locationsList.map((loc, idx) => (
+                                                    <button
+                                                        key={idx}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setWizardData(p => ({ ...p, location: loc }));
+                                                            setSelectedLocIndex(idx);
+                                                            setWizardStep(2);
+                                                        }}
+                                                        className={`px-4 py-2.5 rounded-xl text-xs font-mono font-black border transition-all ${
+                                                            wizardData.location === loc 
+                                                                ? 'bg-blue-600 border-blue-400 text-white shadow' 
+                                                                : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-600'
+                                                        }`}
+                                                    >
+                                                        {loc}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* KROK 2: ČÍSLO DIELU */}
+                            {wizardStep === 2 && (
+                                <div className="space-y-6 animate-fade-in">
+                                    <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex items-center justify-between">
+                                        <span className="text-xs text-slate-500 font-black uppercase tracking-widest">Lokácia:</span>
+                                        <span className="text-lg font-mono font-black text-blue-400">{wizardData.location}</span>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-2">
+                                            {t('inv_th_part')} *
+                                        </label>
+                                        <div className="relative">
+                                            <PartNumberInput 
+                                                inputRef={wizardPartRef}
+                                                parts={parts}
+                                                onPartSelect={(p) => {
+                                                    if (p) {
+                                                        setWizardData(prev => ({ ...prev, partNumber: p }));
+                                                        setTimeout(() => setWizardStep(3), 50);
+                                                    }
+                                                }}
+                                                onInputChange={(val) => setWizardData(p => ({ ...p, partNumber: val.toUpperCase() }))}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' && wizardData.partNumber.trim()) {
+                                                        setWizardStep(3);
+                                                    }
+                                                }}
+                                                placeholder={t('part_placeholder')}
+                                                value={wizardData.partNumber}
+                                                onRequestPart={onRequestPart}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Rýchle potvrdenie ak je diel z úlohy */}
+                                    {activeInventoryTask?.partNumber && 
+                                     activeInventoryTask.partNumber !== "Počítanie zásob" && 
+                                     activeInventoryTask.partNumber !== "CELÝ REGÁL" && 
+                                     activeInventoryTask.partNumber !== "INVENTÚRA POZÍCIÍ" && 
+                                     activeInventoryTask.partNumber !== "INVENTÚRA POZÍCIE" && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setWizardData(p => ({ ...p, partNumber: activeInventoryTask.partNumber! }));
+                                                setWizardStep(3);
+                                            }}
+                                            className="w-full py-4 bg-blue-950/40 border border-blue-500/40 text-blue-300 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-blue-900/50 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <span>🎯</span>
+                                            <span>Zadať určený diel z úlohy: {activeInventoryTask.partNumber}</span>
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* KROK 3: ŠARŽA / BATCH */}
+                            {wizardStep === 3 && (
+                                <div className="space-y-6 animate-fade-in">
+                                    <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-wrap gap-4 items-center justify-between">
+                                        <div>
+                                            <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest block">Lokácia:</span>
+                                            <span className="text-base font-mono font-black text-blue-400">{wizardData.location}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest block">Diel:</span>
+                                            <span className="text-base font-mono font-black text-white">{wizardData.partNumber}</span>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-2">
+                                            {t('inv_batch_label')}
+                                        </label>
+                                        <input 
+                                            ref={wizardBatchRef}
+                                            type="text"
+                                            inputMode="numeric"
+                                            readOnly={wizardData.isBatchMissing}
+                                            value={wizardData.batch}
+                                            onChange={(e) => {
+                                                if (!wizardData.isBatchMissing) {
+                                                    const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                                                    setWizardData(p => ({ ...p, batch: val }));
+                                                }
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    if (wizardData.batch.trim() || wizardData.isBatchMissing) {
+                                                        setWizardStep(4);
+                                                    }
+                                                }
+                                            }}
+                                            placeholder={wizardData.isBatchMissing ? '' : "ZADAJTE ČÍSLO ŠARŽE"}
+                                            className={`w-full h-16 sm:h-20 bg-slate-950 border-2 rounded-2xl px-6 text-white font-mono text-2xl font-black outline-none transition-all tracking-wider uppercase ${wizardData.isBatchMissing ? 'border-red-500/60 text-red-400 bg-red-950/20' : 'border-slate-700 focus:border-blue-500'}`}
+                                            autoFocus
+                                        />
+                                    </div>
+
+                                    <div className="pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const nextMissing = !wizardData.isBatchMissing;
+                                                setWizardData(p => ({ 
+                                                    ...p, 
+                                                    isBatchMissing: nextMissing,
+                                                    batch: nextMissing ? `[${t('inv_missing_label').toUpperCase()}]` : ''
+                                                }));
+                                                if (nextMissing) {
+                                                    setTimeout(() => setWizardStep(4), 100);
+                                                }
+                                            }}
+                                            className={`w-full h-16 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-3 border-2 shadow-lg active:scale-95 ${
+                                                wizardData.isBatchMissing 
+                                                    ? 'bg-red-600 border-red-400 text-white' 
+                                                    : 'bg-slate-950 hover:bg-slate-800 border-slate-700 text-slate-300'
+                                            }`}
+                                        >
+                                            <span className="text-xl">🏷️</span>
+                                            <span>
+                                                {wizardData.isBatchMissing 
+                                                    ? "ŠARŽA JE OZNAČENÁ AKO CHÝBAJÚCA" 
+                                                    : "DIEL NEMÁ ŠARŽU / ŠARŽA CHÝBA"}
+                                            </span>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* KROK 4: MNOŽSTVO */}
+                            {wizardStep === 4 && (
+                                <div className="space-y-6 animate-fade-in">
+                                    <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 grid grid-cols-3 gap-2 text-center">
+                                        <div>
+                                            <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest block">Lokácia</span>
+                                            <span className="text-sm font-mono font-black text-blue-400 truncate block">{wizardData.location}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest block">Diel</span>
+                                            <span className="text-sm font-mono font-black text-white truncate block">{wizardData.partNumber}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest block">Šarža</span>
+                                            <span className="text-sm font-mono font-black text-amber-400 truncate block">
+                                                {wizardData.isBatchMissing ? 'CHÝBA' : wizardData.batch || '-'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-2">
+                                            {t('inv_qty_label')} *
+                                        </label>
+                                        <input 
+                                            ref={wizardQtyRef}
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={wizardData.quantity}
+                                            onChange={(e) => setWizardData(p => ({ ...p, quantity: e.target.value.replace(/[^0-9.,]/g, '').slice(0, 10) }))}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && wizardData.quantity.trim()) {
+                                                    handleWizardSaveItem(true);
+                                                }
+                                            }}
+                                            placeholder="0"
+                                            className="w-full h-20 sm:h-24 bg-slate-950 border-2 border-slate-700 focus:border-green-500 rounded-3xl px-8 text-white font-mono text-4xl font-black outline-none transition-all tracking-wider text-center"
+                                            autoFocus
+                                        />
+                                    </div>
+
+                                    {/* Rýchle dotykové tlačidlá pre množstvo na tablete */}
+                                    <div className="grid grid-cols-5 gap-2">
+                                        {[1, 10, 50, 100].map(addVal => (
+                                            <button
+                                                key={addVal}
+                                                type="button"
+                                                onClick={() => {
+                                                    const cur = parseFloat(wizardData.quantity.replace(',', '.') || '0');
+                                                    setWizardData(p => ({ ...p, quantity: String(cur + addVal) }));
+                                                }}
+                                                className="py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-mono font-black text-sm transition-all active:scale-95 border border-slate-700"
+                                            >
+                                                +{addVal}
+                                            </button>
+                                        ))}
+                                        <button
+                                            type="button"
+                                            onClick={() => setWizardData(p => ({ ...p, quantity: '' }))}
+                                            className="py-3 bg-red-950/40 text-red-400 hover:bg-red-900/60 rounded-xl font-mono font-black text-xs transition-all active:scale-95 border border-red-800/40"
+                                        >
+                                            ZMAZAŤ
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                        </div>
+
+                        {/* WIZARD FOOTER NAVIGATION */}
+                        <div className="p-6 bg-slate-950 border-t border-slate-800 flex flex-col sm:flex-row gap-3">
+                            {wizardStep > 1 && (
+                                <button
+                                    type="button"
+                                    onClick={() => setWizardStep(prev => (prev - 1) as any)}
+                                    className="h-14 sm:h-16 px-6 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl font-black uppercase text-xs tracking-widest transition-all active:scale-95"
+                                >
+                                    ◀ SPÄŤ
+                                </button>
+                            )}
+
+                            {wizardStep < 4 ? (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (wizardStep === 1 && !wizardData.location.trim()) {
+                                            alert(language === 'sk' ? "Vyplňte prosím lokáciu." : "Please enter location.");
+                                            return;
+                                        }
+                                        if (wizardStep === 2 && !wizardData.partNumber.trim()) {
+                                            alert(language === 'sk' ? "Vyplňte prosím číslo dielu." : "Please enter part number.");
+                                            return;
+                                        }
+                                        if (wizardStep === 3 && !wizardData.batch.trim() && !wizardData.isBatchMissing) {
+                                            alert(language === 'sk' ? "Vyplňte šaržu alebo označte, že chýba." : "Enter batch or mark as missing.");
+                                            return;
+                                        }
+                                        setWizardStep(prev => (prev + 1) as any);
+                                    }}
+                                    className="flex-1 h-14 sm:h-16 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black uppercase text-sm tracking-widest transition-all active:scale-95 border-b-4 border-blue-800 shadow-xl"
+                                >
+                                    ĎALEJ ▶
+                                </button>
+                            ) : (
+                                <div className="flex-1 flex flex-col sm:flex-row gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleWizardSaveItem(true)}
+                                        disabled={!wizardData.quantity.trim()}
+                                        className="flex-1 h-16 bg-green-600 hover:bg-green-500 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-2xl font-black uppercase text-xs sm:text-sm tracking-widest transition-all active:scale-95 border-b-4 border-green-800 shadow-xl flex items-center justify-center gap-2"
+                                    >
+                                        <span>💾 ULOŽIŤ &amp; ĎALŠÍ DIEL NA POZÍCII</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleWizardSaveItem(false)}
+                                        disabled={!wizardData.quantity.trim()}
+                                        className="h-16 px-6 bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest transition-all active:scale-95 border-b-4 border-emerald-900 shadow-xl"
+                                    >
+                                        ✓ ULOŽIŤ &amp; HOTOVO
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>,
