@@ -252,9 +252,12 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
         {activeSubTab === 'system' && (
           <SystemSection 
             missingReasons={data.missingReasons} 
+            erpReasons={data.erpReasons}
             breakSchedules={data.breakSchedules} 
             onAddMissingReason={data.onAddMissingReason} 
             onDeleteMissingReason={data.onDeleteMissingReason} 
+            onAddERPReason={data.onAddERPReason}
+            onDeleteERPReason={data.onDeleteERPReason}
             onAddBreakSchedule={data.onAddBreakSchedule}
             onDeleteBreakSchedule={data.onDeleteBreakSchedule} 
             onUpdateAdminKey={props.onUpdateAdminKey}

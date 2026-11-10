@@ -114,6 +114,7 @@ export interface ERPBlockage {
     quantity: string;
     userNote: string;
     adminNote?: string;
+    errorReason?: string;
     status: 'waiting' | 'resolving' | 'ready';
     createdBy: string;
     timestamp: number;

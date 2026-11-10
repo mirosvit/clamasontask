@@ -16,6 +16,7 @@ import {
 import { DBItem, BreakSchedule, SystemBreak, ERPBlockage } from '../../types/appTypes';
 
 export const useOperationsData = () => {
+  const [erpReasons, setErpReasons] = useState<DBItem[]>([]);
   const [missingReasons, setMissingReasons] = useState<DBItem[]>([]);
   const [breakSchedules, setBreakSchedules] = useState<BreakSchedule[]>([]);
   const [systemBreaks, setSystemBreaks] = useState<SystemBreak[]>([]);
@@ -24,6 +25,7 @@ export const useOperationsData = () => {
 
   useEffect(() => {
     const unsubReasons = onSnapshot(query(collection(db, 'missing_reasons'), orderBy('value')), s => setMissingReasons(s.docs.map(d => ({id:d.id, value:d.data().value} as DBItem))));
+    const unsubErpReasons = onSnapshot(query(collection(db, 'erp_error_reasons'), orderBy('value')), s => setErpReasons(s.docs.map(d => ({id:d.id, value:d.data().value} as DBItem))));
     const unsubSysBreaks = onSnapshot(collection(db, 'system_breaks'), s => setSystemBreaks(s.docs.map(d => ({id:d.id, ...d.data()} as SystemBreak))));
     
     const unsubBreaks = onSnapshot(doc(db, 'settings', 'breaks'), (s) => {
@@ -35,7 +37,7 @@ export const useOperationsData = () => {
         else setErpBlockages([]);
     });
 
-    return () => { unsubReasons(); unsubSysBreaks(); unsubBreaks(); unsubERP(); };
+    return () => { unsubReasons(); unsubErpReasons(); unsubSysBreaks(); unsubBreaks(); unsubERP(); };
   }, []);
 
   const checkBreakStatus = useCallback(() => {
@@ -59,6 +61,9 @@ export const useOperationsData = () => {
 
   const onAddMissingReason = async (val: string) => { await addDoc(collection(db, 'missing_reasons'), { value: val }); };
   const onDeleteMissingReason = async (id: string) => { await deleteDoc(doc(db, 'missing_reasons', id)); };
+
+  const onAddERPReason = async (val: string) => { await addDoc(collection(db, 'erp_error_reasons'), { value: val }); };
+  const onDeleteERPReason = async (id: string) => { await deleteDoc(doc(db, 'erp_error_reasons', id)); };
 
   const onAddBreakSchedule = async (start: string, end: string) => {
       try {
@@ -92,8 +97,9 @@ export const useOperationsData = () => {
   };
 
   return {
-    missingReasons, breakSchedules, systemBreaks, erpBlockages, isBreakActive,
+    missingReasons, erpReasons, breakSchedules, systemBreaks, erpBlockages, isBreakActive,
     onAddMissingReason, onDeleteMissingReason,
+    onAddERPReason, onDeleteERPReason,
     onAddBreakSchedule, onDeleteBreakSchedule
   };
 };

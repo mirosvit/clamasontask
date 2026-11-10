@@ -6,9 +6,12 @@ import { TAB_CONFIG, DEFAULT_TAB_ORDER } from '../../constants/uiConstants';
 
 interface SystemSectionProps {
   missingReasons: DBItem[];
+  erpReasons?: DBItem[];
   breakSchedules: BreakSchedule[];
   onAddMissingReason: (val: string) => void;
   onDeleteMissingReason: (id: string) => void;
+  onAddERPReason?: (val: string) => void;
+  onDeleteERPReason?: (id: string) => void;
   onAddBreakSchedule: (start: string, end: string) => void;
   onDeleteBreakSchedule: (id: string) => void;
   onUpdateAdminKey: (oldK: string, newK: string) => Promise<void>;
@@ -26,17 +29,20 @@ const Icons = {
   ArrowDown: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>,
   Layout: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>,
   Eye: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>,
-  EyeOff: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" /></svg>
+  EyeOff: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" /></svg>,
+  Exclamation: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
 };
 
 const SystemSection: React.FC<SystemSectionProps> = ({ 
-  missingReasons, breakSchedules, onAddMissingReason, onDeleteMissingReason, onAddBreakSchedule, onDeleteBreakSchedule, onUpdateAdminKey,
+  missingReasons, erpReasons = [], breakSchedules, onAddMissingReason, onDeleteMissingReason,
+  onAddERPReason, onDeleteERPReason, onAddBreakSchedule, onDeleteBreakSchedule, onUpdateAdminKey,
   isAdminLockEnabled, onToggleAdminLock, systemConfig, onUpdateSystemConfig
 }) => {
   const { t, language } = useLanguage();
   const { onBroadcastNotification, users } = useData();
   
   const [newMissingReason, setNewMissingReason] = useState('');
+  const [newERPReason, setNewERPReason] = useState('');
   const [newBreakStart, setNewBreakStart] = useState('');
   const [newBreakEnd, setNewBreakEnd] = useState('');
 
@@ -291,7 +297,7 @@ const SystemSection: React.FC<SystemSectionProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {/* REASONS */}
         <div className={cardClass}>
           <h3 className="text-xl font-black text-white mb-6 uppercase tracking-tighter">DÔVODY CHÝBANIA</h3>
@@ -305,7 +311,37 @@ const SystemSection: React.FC<SystemSectionProps> = ({
           </div>
           <div className="flex gap-2">
             <input value={newMissingReason} onChange={e=>setNewMissingReason(e.target.value)} placeholder="NOVÝ DÔVOD" className={inputClass} />
-            <button onClick={()=>{if(newMissingReason){onAddMissingReason(newMissingReason); setNewMissingReason('');}}} className="bg-teal-600 hover:bg-teal-500 text-white px-6 rounded-xl font-black text-xs uppercase tracking-widest border-2 border-teal-500 shadow-lg">PRIDAŤ</button>
+            <button onClick={()=>{if(newMissingReason.trim()){onAddMissingReason(newMissingReason.trim()); setNewMissingReason('');}}} className="bg-teal-600 hover:bg-teal-500 text-white px-6 rounded-xl font-black text-xs uppercase tracking-widest border-2 border-teal-500 shadow-lg">PRIDAŤ</button>
+          </div>
+        </div>
+
+        {/* ERP BLOCKAGE REASONS */}
+        <div className={cardClass}>
+          <div className="flex items-center gap-2 mb-6">
+            <div className="p-1.5 bg-orange-500/20 text-orange-400 rounded-lg">
+              <Icons.Exclamation />
+            </div>
+            <h3 className="text-xl font-black text-white uppercase tracking-tighter">DÔVODY CHÝB ODVODU</h3>
+          </div>
+          <div className="space-y-4 max-h-60 overflow-y-auto custom-scrollbar pr-2 mb-6">
+            {erpReasons.length > 0 ? (
+              erpReasons.map(r => (
+                <div key={r.id} className="flex justify-between items-center bg-slate-950/30 p-3 rounded-xl border border-white/5 group">
+                  <span className="text-sm font-bold text-orange-200 uppercase">{r.value}</span>
+                  {onDeleteERPReason && (
+                    <button onClick={() => onDeleteERPReason(r.id)} className="text-slate-600 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"><Icons.Trash /></button>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="py-8 text-center text-slate-600 text-xs font-bold uppercase tracking-wider">
+                ŽIADNE DÔVODY CHÝB ODVODU
+              </div>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <input value={newERPReason} onChange={e=>setNewERPReason(e.target.value)} placeholder="NOVÝ DÔVOD CHYBY" className={inputClass} />
+            <button onClick={()=>{if(newERPReason.trim() && onAddERPReason){onAddERPReason(newERPReason.trim()); setNewERPReason('');}}} className="bg-orange-600 hover:bg-orange-500 text-white px-6 rounded-xl font-black text-xs uppercase tracking-widest border-2 border-orange-500 shadow-lg">PRIDAŤ</button>
           </div>
         </div>
 

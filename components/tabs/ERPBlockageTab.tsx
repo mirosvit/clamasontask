@@ -28,7 +28,7 @@ const Icons = {
 
 const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUserRole, parts, blockages, resolveName, hasPermission }) => {
     const { t, language } = useLanguage();
-    const { onAddNotification } = useData();
+    const { onAddNotification, erpReasons = [] } = useData();
 
     // State
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,7 +41,12 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
     const [userNote, setUserNote] = useState('');
 
     // Modal State
-    const [finishModal, setFinishModal] = useState<{ isOpen: boolean; id: string | null; note: string }>({ isOpen: false, id: null, note: '' });
+    const [finishModal, setFinishModal] = useState<{ isOpen: boolean; id: string | null; note: string; errorReason: string }>({ 
+        isOpen: false, 
+        id: null, 
+        note: '', 
+        errorReason: '' 
+    });
     const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; title: string; desc: string; onConfirm: () => void; type: 'danger' | 'warning' }>({ isOpen: false, title: '', desc: '', onConfirm: () => {}, type: 'danger' });
 
     useEffect(() => {
@@ -127,17 +132,18 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
     };
 
     const openFinishModal = (id: string) => {
-        setFinishModal({ isOpen: true, id, note: '' });
+        setFinishModal({ isOpen: true, id, note: '', errorReason: '' });
     };
 
     const handleConfirmFinish = async () => {
-        if (!finishModal.id || !finishModal.note.trim()) return;
+        if (!finishModal.id || !finishModal.note.trim() || !finishModal.errorReason.trim()) return;
         const item = blockages.find(b => b.id === finishModal.id);
         if (!item) return;
 
         const updates: Partial<ERPBlockage> = {
             status: 'ready',
-            adminNote: finishModal.note,
+            adminNote: finishModal.note.trim(),
+            errorReason: finishModal.errorReason.trim(),
             resolvedAt: Date.now(),
             resolvedBy: currentUser
         };
@@ -146,13 +152,13 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
 
         onAddNotification({
             partNumber: item.partNumber,
-            reason: finishModal.note,
+            reason: `${finishModal.errorReason}: ${finishModal.note}`,
             reportedBy: currentUser,
             targetUser: item.createdBy,
             timestamp: Date.now()
         });
 
-        setFinishModal({ isOpen: false, id: null, note: '' });
+        setFinishModal({ isOpen: false, id: null, note: '', errorReason: '' });
     };
 
     const handleDelete = (id: string) => {
@@ -191,9 +197,10 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
             "Diel": b.partNumber,
             "Množstvo": b.quantity,
             "Nahlásil": resolveName(b.createdBy),
-            "Dôvod (User)": b.userNote,
+            "Dôvod nahlásenia (User)": b.userNote,
             "Stav": b.status.toUpperCase(),
             "Riešiteľ": resolveName(b.resolvedBy),
+            "Príčina chyby (Kategória)": b.errorReason || "-",
             "Spätná väzba (Admin)": b.adminNote || ""
         }));
         const ws = XLSX.utils.json_to_sheet(data);
@@ -339,6 +346,14 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
                                     <div className="bg-slate-950/40 p-4 rounded-2xl border-l-4 border-slate-700 italic text-slate-300 text-sm leading-relaxed">
                                         "{item.userNote}"
                                     </div>
+                                    {item.errorReason && (
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-orange-400 bg-orange-500/10 border border-orange-500/30 px-3 py-1 rounded-xl flex items-center gap-1.5">
+                                                <span>⚠️</span>
+                                                <span>Príčina: {item.errorReason}</span>
+                                            </span>
+                                        </div>
+                                    )}
                                     {item.adminNote && (
                                         <div className="bg-teal-500/5 p-4 rounded-2xl border border-teal-500/20 text-teal-400 text-sm font-bold flex gap-3 items-start animate-fade-in">
                                             <span className="mt-0.5 text-lg">✅</span>
@@ -393,19 +408,61 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
                     <div className="bg-slate-900 border-2 border-teal-500/50 rounded-[2.5rem] shadow-[0_0_100px_rgba(20,184,166,0.2)] w-full max-w-lg p-10 relative overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
                         <h3 className="text-3xl font-black text-white uppercase tracking-tighter mb-4">{t('erp_finish_modal_title')}</h3>
-                        <p className="text-slate-500 text-sm font-bold uppercase tracking-widest mb-8 leading-relaxed">{t('erp_finish_modal_desc')}</p>
+                        <p className="text-slate-500 text-sm font-bold uppercase tracking-widest mb-6 leading-relaxed">{t('erp_finish_modal_desc')}</p>
                         
-                        <textarea 
-                            value={finishModal.note}
-                            onChange={e => setFinishModal(p => ({ ...p, note: e.target.value }))}
-                            className="w-full h-40 bg-slate-950 border-2 border-slate-800 rounded-2xl px-6 py-4 text-white focus:border-teal-500 outline-none transition-all resize-none mb-8 font-medium shadow-inner"
-                            placeholder="NAPR. CHYBA OPRAVENÁ V EFACS..."
-                            autoFocus
-                        />
+                        {/* SELECT DÔVODU CHYBY ODVODU (POVINNÝ) */}
+                        <div className="mb-5 space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400 flex items-center justify-between">
+                                <span>PRÍČINA CHYBY ODVODU *</span>
+                                <span className="text-[9px] text-slate-500 font-bold lowercase font-sans">(povinné pole)</span>
+                            </label>
+                            <select
+                                value={finishModal.errorReason}
+                                onChange={e => setFinishModal(p => ({ ...p, errorReason: e.target.value }))}
+                                className="w-full h-14 bg-slate-950 border-2 border-slate-800 rounded-2xl px-5 text-white text-sm font-bold focus:border-teal-500 focus:outline-none transition-all cursor-pointer"
+                            >
+                                <option value="" className="text-slate-500">-- VYBERTE DÔVOD CHYBY --</option>
+                                {erpReasons.map(r => (
+                                    <option key={r.id} value={r.value} className="text-white bg-slate-900 py-2">
+                                        {r.value}
+                                    </option>
+                                ))}
+                            </select>
+                            {erpReasons.length === 0 && (
+                                <p className="text-xs text-amber-500/90 font-medium italic mt-1">
+                                    V systéme zatiaľ nie sú definované žiadne dôvody. Môžete ich pridať v Administrácii &gt; Systém, alebo zadajte dôvod v správe.
+                                </p>
+                            )}
+                        </div>
+
+                        {/* SPÄTNÁ VÄZBA / POZNÁMKA */}
+                        <div className="mb-8 space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                                SPÄTNÁ VÄZBA / RIEŠENIE *
+                            </label>
+                            <textarea 
+                                value={finishModal.note}
+                                onChange={e => setFinishModal(p => ({ ...p, note: e.target.value }))}
+                                className="w-full h-32 bg-slate-950 border-2 border-slate-800 rounded-2xl px-6 py-4 text-white focus:border-teal-500 outline-none transition-all resize-none font-medium shadow-inner"
+                                placeholder="NAPR. CHYBA OPRAVENÁ V EFACS, DÁVKA UVOĽNENÁ..."
+                                autoFocus
+                            />
+                        </div>
 
                         <div className="grid grid-cols-2 gap-4">
-                            <button onClick={() => setFinishModal({ isOpen: false, id: null, note: '' })} className="h-14 bg-slate-800 text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:text-white transition-all">ZRUŠIŤ</button>
-                            <button onClick={handleConfirmFinish} className="h-14 bg-teal-600 hover:bg-teal-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest border-b-4 border-teal-800 shadow-xl transition-all active:scale-95">POTVRDIŤ</button>
+                            <button 
+                                onClick={() => setFinishModal({ isOpen: false, id: null, note: '', errorReason: '' })} 
+                                className="h-14 bg-slate-800 text-slate-400 rounded-2xl font-black uppercase text-xs tracking-widest hover:text-white transition-all"
+                            >
+                                ZRUŠIŤ
+                            </button>
+                            <button 
+                                onClick={handleConfirmFinish} 
+                                disabled={!finishModal.note.trim() || !finishModal.errorReason.trim()}
+                                className="h-14 bg-teal-600 hover:bg-teal-500 disabled:bg-slate-800 disabled:text-slate-600 disabled:border-slate-800 disabled:cursor-not-allowed text-white rounded-2xl font-black uppercase text-xs tracking-widest border-b-4 border-teal-800 shadow-xl transition-all active:scale-95"
+                            >
+                                POTVRDIŤ
+                            </button>
                         </div>
                     </div>
                 </div>,
