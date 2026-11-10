@@ -293,6 +293,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
           <AdminNotesSection 
             notes={data.adminNotes}
             onAddNote={data.onAddAdminNote}
+            onUpdateNote={data.onUpdateAdminNote}
             onDeleteNote={data.onDeleteAdminNote}
             onClearNotes={data.onClearAdminNotes}
             currentUser={props.currentUser}

@@ -6,6 +6,7 @@ import { useLanguage } from '../LanguageContext';
 interface AdminNotesSectionProps {
   notes: AdminNote[];
   onAddNote: (text: string, author: string) => void;
+  onUpdateNote?: (id: string, text: string, updatedBy?: string) => void;
   onDeleteNote: (id: string) => void;
   onClearNotes: () => void;
   currentUser: string;
@@ -14,17 +15,41 @@ interface AdminNotesSectionProps {
 
 const Icons = {
   Trash: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
-  Plus: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+  Plus: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>,
+  Edit: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>,
+  Check: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>,
+  Close: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
 };
 
-const AdminNotesSection: React.FC<AdminNotesSectionProps> = ({ notes, onAddNote, onDeleteNote, onClearNotes, currentUser, resolveName }) => {
-  const { t } = useLanguage();
+const AdminNotesSection: React.FC<AdminNotesSectionProps> = ({ notes, onAddNote, onUpdateNote, onDeleteNote, onClearNotes, currentUser, resolveName }) => {
+  const { t, language } = useLanguage();
   const [newNoteText, setNewNoteText] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
 
   const handleAdd = () => {
     if (!newNoteText.trim()) return;
     onAddNote(newNoteText, currentUser);
     setNewNoteText('');
+  };
+
+  const startEdit = (note: AdminNote) => {
+    setEditingId(note.id);
+    setEditingText(note.text);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditingText('');
+  };
+
+  const handleSaveEdit = (id: string) => {
+    if (!editingText.trim()) return;
+    if (onUpdateNote) {
+      onUpdateNote(id, editingText.trim(), currentUser);
+    }
+    setEditingId(null);
+    setEditingText('');
   };
 
   const formatDate = (ts: number) => new Date(ts).toLocaleDateString() + ' ' + new Date(ts).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
@@ -60,34 +85,93 @@ const AdminNotesSection: React.FC<AdminNotesSectionProps> = ({ notes, onAddNote,
                 <button 
                     onClick={handleAdd}
                     className="w-20 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-black shadow-lg transition-all active:scale-95 flex items-center justify-center border-2 border-amber-500"
+                    title={language === 'sk' ? "Pridať poznámku" : "Add note"}
                 >
                     <Icons.Plus />
                 </button>
             </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2 relative z-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-[460px] overflow-y-auto custom-scrollbar pr-2 relative z-10">
             {notes.length > 0 ? (
                 // Zoradenie od najnovšej
-                [...notes].sort((a,b) => b.createdAt - a.createdAt).map(note => (
-                    <div key={note.id} className="group relative bg-amber-100/10 border border-amber-500/20 p-4 rounded-xl shadow-sm hover:bg-amber-100/15 transition-all">
-                        <p className="text-sm font-medium text-amber-100 whitespace-pre-wrap mb-6">{note.text}</p>
-                        
-                        <div className="absolute bottom-3 left-4 right-4 flex justify-between items-end border-t border-amber-500/10 pt-2">
-                            <div className="flex flex-col">
-                                <span className="text-[9px] font-black text-amber-500/70 uppercase tracking-widest">{resolveName(note.author)}</span>
-                                <span className="text-[8px] font-mono text-slate-500">{formatDate(note.createdAt)}</span>
-                            </div>
-                        </div>
+                [...notes].sort((a,b) => b.createdAt - a.createdAt).map(note => {
+                    const isEditing = editingId === note.id;
 
-                        <button 
-                            onClick={() => onDeleteNote(note.id)}
-                            className="absolute top-2 right-2 text-slate-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all bg-slate-900/50 rounded p-1"
-                        >
-                            <Icons.Trash />
-                        </button>
-                    </div>
-                ))
+                    return (
+                        <div key={note.id} className={`group relative bg-amber-100/10 border p-4 rounded-xl shadow-sm transition-all flex flex-col justify-between ${isEditing ? 'border-amber-500 bg-amber-950/40 ring-2 ring-amber-500/30' : 'border-amber-500/20 hover:bg-amber-100/15'}`}>
+                            {isEditing ? (
+                                <div className="space-y-3 mb-3">
+                                    <textarea 
+                                        value={editingText}
+                                        onChange={(e) => setEditingText(e.target.value)}
+                                        className="w-full bg-slate-950 border-2 border-amber-500 rounded-lg p-3 text-white text-sm focus:outline-none transition-all font-medium resize-none h-28"
+                                        autoFocus
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                                e.preventDefault();
+                                                handleSaveEdit(note.id);
+                                            } else if (e.key === 'Escape') {
+                                                cancelEdit();
+                                            }
+                                        }}
+                                    />
+                                    <div className="flex justify-end gap-2">
+                                        <button 
+                                            onClick={cancelEdit}
+                                            className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1"
+                                        >
+                                            <Icons.Close /> ZRUŠIŤ
+                                        </button>
+                                        <button 
+                                            onClick={() => handleSaveEdit(note.id)}
+                                            disabled={!editingText.trim()}
+                                            className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 shadow-md border border-amber-400"
+                                        >
+                                            <Icons.Check /> ULOŽIŤ
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <p className="text-sm font-medium text-amber-100 whitespace-pre-wrap mb-6 leading-relaxed">
+                                        {note.text}
+                                    </p>
+                                    
+                                    <div className="flex justify-between items-end border-t border-amber-500/10 pt-2 mt-auto">
+                                        <div className="flex flex-col">
+                                            <span className="text-[9px] font-black text-amber-500/70 uppercase tracking-widest">{resolveName(note.author)}</span>
+                                            <span className="text-[8px] font-mono text-slate-500">{formatDate(note.createdAt)}</span>
+                                            {note.updatedAt && (
+                                                <span className="text-[7.5px] font-mono text-amber-500/60 italic">
+                                                    upravené {formatDate(note.updatedAt)}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Action Buttons on hover */}
+                                    <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                        <button 
+                                            onClick={() => startEdit(note)}
+                                            className="text-slate-400 hover:text-amber-400 transition-all bg-slate-900/80 hover:bg-slate-900 rounded p-1.5 shadow"
+                                            title="Upraviť poznámku"
+                                        >
+                                            <Icons.Edit />
+                                        </button>
+                                        <button 
+                                            onClick={() => onDeleteNote(note.id)}
+                                            className="text-slate-400 hover:text-red-500 transition-all bg-slate-900/80 hover:bg-slate-900 rounded p-1.5 shadow"
+                                            title="Vymazať poznámku"
+                                        >
+                                            <Icons.Trash />
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    );
+                })
             ) : (
                 <div className="col-span-full py-12 text-center border-2 border-dashed border-amber-500/20 rounded-xl bg-amber-500/5">
                     <p className="text-amber-500/50 font-black uppercase tracking-widest text-xs">{t('admin_notes_empty')}</p>

@@ -188,6 +188,8 @@ export interface AdminNote {
     author: string;
     createdAt: number;
     color?: string;
+    updatedAt?: number;
+    updatedBy?: string;
 }
 
 export interface PartRequest {

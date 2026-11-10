@@ -171,6 +171,23 @@ export const useSystemData = () => {
       } catch (e) { console.error("Error deleting admin note", e); }
   };
 
+  const onUpdateAdminNote = async (id: string, text: string, updatedBy?: string) => {
+      try {
+          const ref = doc(db, 'settings', 'notes');
+          const snap = await getDoc(ref);
+          if (snap.exists()) {
+              const currentItems = (snap.data().items || []) as AdminNote[];
+              const newItems = currentItems.map(i => i.id === id ? { 
+                  ...i, 
+                  text, 
+                  updatedAt: Date.now(), 
+                  updatedBy: updatedBy || i.author 
+              } : i);
+              await updateDoc(ref, { items: newItems });
+          }
+      } catch (e) { console.error("Error updating admin note", e); }
+  };
+
   const onClearAdminNotes = async () => {
       try {
           await updateDoc(doc(db, 'settings', 'notes'), { items: [] });
@@ -182,6 +199,6 @@ export const useSystemData = () => {
     onAddUser, onUpdatePassword, onUpdateNickname, onUpdateUserRole, onUpdateExportPermission, onDeleteUser,
     onAddRole, onDeleteRole, onUpdatePermission,
     onAddNotification, onClearNotification, onBroadcastNotification,
-    onAddAdminNote, onDeleteAdminNote, onClearAdminNotes
+    onAddAdminNote, onUpdateAdminNote, onDeleteAdminNote, onClearAdminNotes
   };
 };
