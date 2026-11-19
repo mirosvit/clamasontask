@@ -34,6 +34,7 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [timer, setTimer] = useState(Date.now());
     const [copiedId, setCopiedId] = useState<string | null>(null);
+    const [readySearch, setReadySearch] = useState('');
 
     // Form State
     const [partNumber, setPartNumber] = useState('');
@@ -61,6 +62,33 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
             return b.timestamp - a.timestamp;
         });
     }, [blockages]);
+
+    const activeBlockages = useMemo(() => {
+        return sortedList.filter(item => item.status !== 'ready');
+    }, [sortedList]);
+
+    const readyBlockages = useMemo(() => {
+        return [...blockages]
+            .filter(item => item.status === 'ready')
+            .sort((a, b) => (b.resolvedAt || b.timestamp) - (a.resolvedAt || a.timestamp));
+    }, [blockages]);
+
+    const filteredReadyBlockages = useMemo(() => {
+        const q = readySearch.trim().toLowerCase();
+        if (!q) return readyBlockages;
+        return readyBlockages.filter(item => {
+            const creator = resolveName(item.createdBy).toLowerCase();
+            const resolver = resolveName(item.resolvedBy).toLowerCase();
+            return (
+                item.partNumber.toLowerCase().includes(q) ||
+                (item.userNote || '').toLowerCase().includes(q) ||
+                (item.adminNote || '').toLowerCase().includes(q) ||
+                (item.errorReason || '').toLowerCase().includes(q) ||
+                creator.includes(q) ||
+                resolver.includes(q)
+            );
+        });
+    }, [readyBlockages, readySearch, resolveName]);
 
     const fallbackCopy = (id: string, text: string) => {
         try {
@@ -200,6 +228,8 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
             "Dôvod nahlásenia (User)": b.userNote,
             "Stav": b.status.toUpperCase(),
             "Riešiteľ": resolveName(b.resolvedBy),
+            "Dátum vyriešenia": b.resolvedAt ? new Date(b.resolvedAt).toLocaleDateString() : "",
+            "Čas vyriešenia": b.resolvedAt ? new Date(b.resolvedAt).toLocaleTimeString() : "",
             "Príčina chyby (Kategória)": b.errorReason || "-",
             "Spätná väzba (Admin)": b.adminNote || ""
         }));
@@ -289,24 +319,20 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
                 </div>
             </div>
 
+            {/* AKTÍVNE CHYBY ODVODU (WAITING / RESOLVING) */}
             <div className="space-y-4">
-                {sortedList.length > 0 ? (
-                    sortedList.map((item) => {
+                {activeBlockages.length > 0 ? (
+                    activeBlockages.map((item) => {
                         const isWaiting = item.status === 'waiting';
                         const isResolving = item.status === 'resolving';
-                        const isReady = item.status === 'ready';
                         
                         const statusColors = isWaiting 
                             ? "border-red-500/20 bg-slate-900/40" 
-                            : isResolving 
-                                ? "border-orange-500/30 bg-slate-900/80 shadow-[0_0_40px_rgba(245,158,11,0.1)]" 
-                                : "opacity-50 grayscale-[0.5] border-teal-500/10 bg-slate-900/20";
+                            : "border-orange-500/30 bg-slate-900/80 shadow-[0_0_40px_rgba(245,158,11,0.1)]";
 
                         const badgeColors = isWaiting 
                             ? "bg-red-500/10 text-red-500 border-red-500/30 animate-pulse" 
-                            : isResolving 
-                                ? "bg-orange-500 text-white border-orange-400" 
-                                : "bg-teal-500/10 text-teal-500 border-teal-500/30";
+                            : "bg-orange-500 text-white border-orange-400";
 
                         return (
                             <div key={item.id} className={`group relative flex flex-col md:flex-row items-stretch rounded-[2rem] border-2 transition-all duration-300 p-6 gap-6 ${statusColors}`}>
@@ -338,7 +364,14 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
                                         <span className={`px-4 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border-2 ${badgeColors}`}>
                                             {t(`erp_status_${item.status}` as any)}
                                         </span>
-                                        <span className="text-slate-500 text-[10px] font-black uppercase tracking-widest">Nahlásil: <span className="text-slate-300 ml-1">{resolveName(item.createdBy)}</span></span>
+                                        <span className="text-slate-500 text-[10px] font-black uppercase tracking-widest">
+                                            Nahlásil: <span className="text-slate-300 ml-1">{resolveName(item.createdBy)}</span>
+                                        </span>
+                                        {isResolving && item.resolvedBy && (
+                                            <span className="text-orange-400 text-[10px] font-black uppercase tracking-widest bg-orange-500/10 border border-orange-500/20 px-3 py-1 rounded-lg">
+                                                Rieši: <span className="text-white ml-1">{resolveName(item.resolvedBy)}</span>
+                                            </span>
+                                        )}
                                         <span className="bg-rose-500/10 text-rose-500 border border-rose-500/20 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest">
                                             {getAgeingText(item.timestamp)}
                                         </span>
@@ -363,7 +396,7 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
                                 </div>
 
                                 <div className="md:w-48 flex-shrink-0 flex md:flex-col items-center justify-center gap-3">
-                                    {canManage && !isReady && (
+                                    {canManage && (
                                         <>
                                             {isWaiting && (
                                                 <button 
@@ -395,13 +428,213 @@ const ERPBlockageTab: React.FC<ERPBlockageTabProps> = ({ currentUser, currentUse
                             </div>
                         );
                     })
-                ) : (
+                ) : readyBlockages.length === 0 ? (
                     <div className="py-32 text-center bg-slate-900/20 rounded-[3rem] border-2 border-dashed border-slate-800">
                         <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6 opacity-20"><Icons.Check /></div>
                         <p className="text-slate-600 font-black uppercase tracking-[0.3em] text-lg">{t('erp_empty_list')}</p>
                     </div>
+                ) : (
+                    <div className="py-8 px-6 text-center bg-teal-950/15 rounded-3xl border border-teal-500/20 flex items-center justify-center gap-3">
+                        <span className="w-8 h-8 rounded-full bg-teal-500/20 text-teal-400 flex items-center justify-center">
+                            <Icons.Check />
+                        </span>
+                        <p className="text-teal-400/80 font-black uppercase tracking-[0.2em] text-xs">
+                            {language === 'sk' ? 'Žiadne aktívne chyby odvodu na riešenie' : 'No active ERP blockages pending'}
+                        </p>
+                    </div>
                 )}
             </div>
+
+            {/* VYRIEŠENÉ CHYBY ODVODU - PREHĽADNÁ TABUĽKA */}
+            {readyBlockages.length > 0 && (
+                <div className="bg-slate-900/60 border-2 border-slate-800 rounded-[2rem] shadow-2xl overflow-hidden">
+                    <div className="p-6 border-b border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-950/40">
+                        <div className="flex items-center gap-3">
+                            <span className="w-9 h-9 rounded-xl bg-teal-500/15 border border-teal-500/30 text-teal-400 flex items-center justify-center">
+                                <Icons.Check />
+                            </span>
+                            <div>
+                                <h3 className="text-lg font-black text-white uppercase tracking-tight flex items-center gap-2.5">
+                                    <span>{language === 'sk' ? 'Vyriešené chyby odvodu' : 'Resolved ERP Blockages'}</span>
+                                    <span className="text-xs font-mono bg-teal-500/20 text-teal-400 border border-teal-500/30 px-2.5 py-0.5 rounded-full">
+                                        {readyBlockages.length}
+                                    </span>
+                                </h3>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">
+                                    {language === 'sk' ? 'Archív ukončených hlásení s riešiteľom a príčinou' : 'Archive of resolved reports with solver and cause'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="relative w-full sm:w-72">
+                            <input
+                                type="text"
+                                value={readySearch}
+                                onChange={(e) => setReadySearch(e.target.value)}
+                                placeholder={language === 'sk' ? 'Hľadať diel, riešiteľa, príčinu...' : 'Search part, solver, cause...'}
+                                className="w-full h-11 bg-slate-950 border border-slate-700 focus:border-teal-500 rounded-xl pl-4 pr-9 text-xs font-bold text-white placeholder-slate-600 outline-none transition-all"
+                            />
+                            {readySearch && (
+                                <button
+                                    type="button"
+                                    onClick={() => setReadySearch('')}
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-xs font-black px-1.5 py-0.5"
+                                    title={language === 'sk' ? 'Vymazať filter' : 'Clear filter'}
+                                >
+                                    ✕
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="overflow-x-auto custom-scrollbar">
+                        <table className="w-full text-left border-collapse min-w-[980px]">
+                            <thead>
+                                <tr className="bg-slate-950/70 border-b border-slate-800 text-[10px] font-black uppercase tracking-[0.15em] text-slate-500">
+                                    <th className="py-4 px-5">{language === 'sk' ? 'Čas (Nahlás. / Vyrieš.)' : 'Time (Rep. / Res.)'}</th>
+                                    <th className="py-4 px-5">{language === 'sk' ? 'Diel & Množstvo' : 'Part & Qty'}</th>
+                                    <th className="py-4 px-5">{language === 'sk' ? 'Nahlásil & Popis chyby' : 'Reported by & Note'}</th>
+                                    <th className="py-4 px-5">{language === 'sk' ? 'Príčina chyby' : 'Cause'}</th>
+                                    <th className="py-4 px-5">{language === 'sk' ? 'Vyriešil' : 'Resolved by'}</th>
+                                    <th className="py-4 px-5">{language === 'sk' ? 'Spätná väzba & Stav' : 'Feedback & Status'}</th>
+                                    {canDelete && <th className="py-4 px-4 text-center">{language === 'sk' ? 'Akcia' : 'Action'}</th>}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/70 text-sm">
+                                {filteredReadyBlockages.length > 0 ? (
+                                    filteredReadyBlockages.map((item) => {
+                                        const resolutionMinutes = item.resolvedAt && item.timestamp
+                                            ? Math.max(0, Math.round((item.resolvedAt - item.timestamp) / 60000))
+                                            : null;
+
+                                        return (
+                                            <tr key={item.id} className="hover:bg-slate-800/30 transition-colors align-top">
+                                                {/* Čas */}
+                                                <td className="py-4 px-5 whitespace-nowrap">
+                                                    <div className="space-y-1 font-mono text-xs">
+                                                        <div className="text-slate-300 font-bold">
+                                                            {new Date(item.timestamp).toLocaleDateString('sk-SK')}{' '}
+                                                            <span className="text-slate-500">{new Date(item.timestamp).toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' })}</span>
+                                                        </div>
+                                                        {item.resolvedAt && (
+                                                            <div className="text-[11px] text-teal-400/90 flex items-center gap-1.5">
+                                                                <span>✓</span>
+                                                                <span>
+                                                                    {new Date(item.resolvedAt).toLocaleDateString('sk-SK')}{' '}
+                                                                    {new Date(item.resolvedAt).toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' })}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        {resolutionMinutes !== null && (
+                                                            <span className="inline-block text-[9px] font-black uppercase tracking-wider text-slate-400 bg-slate-950 border border-slate-800 px-2 py-0.5 rounded">
+                                                                ⏱ {resolutionMinutes} min
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+
+                                                {/* Diel & Množstvo */}
+                                                <td className="py-4 px-5">
+                                                    <div className="space-y-2">
+                                                        <div
+                                                            onClick={() => handleCopyPart(item.id, item.partNumber)}
+                                                            className="font-mono font-black text-base text-white cursor-copy hover:text-teal-400 active:scale-[0.98] transition-all inline-flex items-center gap-1.5 group/copy"
+                                                            title={language === 'sk' ? "Kliknite pre kopírovanie" : "Click to copy"}
+                                                        >
+                                                            <span>{item.partNumber}</span>
+                                                            {copiedId === item.id ? (
+                                                                <span className="text-[10px] bg-green-600 text-white px-2 py-0.5 rounded-full animate-bounce font-sans lowercase">
+                                                                    {t('copied_msg')}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-slate-500 group-hover/copy:text-teal-400 opacity-60 group-hover/copy:opacity-100 transition-opacity">
+                                                                    <Icons.Copy />
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Množstvo:</span>
+                                                            <span className="text-sm font-black font-mono text-teal-400 bg-slate-950 border border-slate-800 px-2.5 py-0.5 rounded-lg">
+                                                                {item.quantity}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+
+                                                {/* Nahlásil & Popis */}
+                                                <td className="py-4 px-5 max-w-xs">
+                                                    <div className="space-y-1.5">
+                                                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                                            {resolveName(item.createdBy)}
+                                                        </div>
+                                                        <p className="text-xs italic text-slate-300 bg-slate-950/50 border-l-2 border-slate-700 pl-3 py-1.5 rounded-r-lg whitespace-pre-wrap break-words leading-relaxed">
+                                                            "{item.userNote}"
+                                                        </p>
+                                                    </div>
+                                                </td>
+
+                                                {/* Príčina chyby */}
+                                                <td className="py-4 px-5">
+                                                    {item.errorReason ? (
+                                                        <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-orange-400 bg-orange-500/10 border border-orange-500/30 px-3 py-1.5 rounded-xl">
+                                                            <span>⚠️</span>
+                                                            <span>{item.errorReason}</span>
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-slate-600 font-mono text-xs">-</span>
+                                                    )}
+                                                </td>
+
+                                                {/* Vyriešil */}
+                                                <td className="py-4 px-5 whitespace-nowrap">
+                                                    <span className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-sky-300 bg-sky-500/10 border border-sky-500/30 px-3 py-1.5 rounded-xl">
+                                                        <span>👤</span>
+                                                        <span>{resolveName(item.resolvedBy)}</span>
+                                                    </span>
+                                                </td>
+
+                                                {/* Spätná väzba & Stav */}
+                                                <td className="py-4 px-5 max-w-xs">
+                                                    <div className="space-y-2">
+                                                        <span className="inline-block px-3 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest border bg-teal-500/10 text-teal-400 border-teal-500/30">
+                                                            {t('erp_status_ready')}
+                                                        </span>
+                                                        {item.adminNote && (
+                                                            <div className="bg-teal-500/5 border border-teal-500/20 rounded-xl px-3 py-2 text-teal-300 text-xs font-semibold flex items-start gap-2 whitespace-pre-wrap break-words">
+                                                                <span className="mt-0.5">✅</span>
+                                                                <span>{item.adminNote}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+
+                                                {/* Akcia */}
+                                                {canDelete && (
+                                                    <td className="py-4 px-4 text-center">
+                                                        <button
+                                                            onClick={() => handleDelete(item.id)}
+                                                            className="w-10 h-10 inline-flex items-center justify-center rounded-xl bg-slate-950 border border-slate-800 text-slate-500 hover:text-red-500 hover:border-red-500/40 transition-all active:scale-95"
+                                                            title={language === 'sk' ? 'Vymazať záznam' : 'Delete record'}
+                                                        >
+                                                            <Icons.Trash />
+                                                        </button>
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        );
+                                    })
+                                ) : (
+                                    <tr>
+                                        <td colSpan={canDelete ? 7 : 6} className="py-12 text-center text-slate-500 text-xs font-bold uppercase tracking-widest">
+                                            {language === 'sk' ? 'Žiadne vyriešené chyby nezodpovedajú hľadaniu.' : 'No resolved errors match your search.'}
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
 
             {finishModal.isOpen && createPortal(
                 <div className="fixed inset-0 z-[12000] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 animate-fade-in">

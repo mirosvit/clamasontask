@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { db } from '../../firebase';
 import { 
   collection, 
@@ -23,6 +23,9 @@ export const useOperationsData = () => {
   const [erpBlockages, setErpBlockages] = useState<ERPBlockage[]>([]);
   const [isBreakActive, setIsBreakActive] = useState(false);
 
+  const isInitialErpLoad = useRef(true);
+  const knownErpIdsRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     const unsubReasons = onSnapshot(query(collection(db, 'missing_reasons'), orderBy('value')), s => setMissingReasons(s.docs.map(d => ({id:d.id, value:d.data().value} as DBItem))));
     const unsubErpReasons = onSnapshot(query(collection(db, 'erp_error_reasons'), orderBy('value')), s => setErpReasons(s.docs.map(d => ({id:d.id, value:d.data().value} as DBItem))));
@@ -33,8 +36,28 @@ export const useOperationsData = () => {
     });
 
     const unsubERP = onSnapshot(doc(db, 'settings', 'erp_blockages'), (s) => {
-        if (s.exists()) setErpBlockages(s.data().items || []);
-        else setErpBlockages([]);
+        const items: ERPBlockage[] = s.exists() ? (s.data().items || []) : [];
+
+        if (isInitialErpLoad.current) {
+            knownErpIdsRef.current = new Set(items.map(i => i.id));
+            isInitialErpLoad.current = false;
+        } else {
+            const newlyAdded = items.filter(
+                item =>
+                    item.id &&
+                    !knownErpIdsRef.current.has(item.id) &&
+                    item.status === 'waiting' &&
+                    (!item.timestamp || Date.now() - item.timestamp < 30000)
+            );
+
+            knownErpIdsRef.current = new Set(items.map(i => i.id));
+
+            newlyAdded.forEach(item => {
+                window.dispatchEvent(new CustomEvent('new-erp-blockage', { detail: item }));
+            });
+        }
+
+        setErpBlockages(items);
     });
 
     return () => { unsubReasons(); unsubErpReasons(); unsubSysBreaks(); unsubBreaks(); unsubERP(); };

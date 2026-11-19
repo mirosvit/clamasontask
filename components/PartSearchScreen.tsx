@@ -21,6 +21,7 @@ import ScrapWarehouseTab from './tabs/ScrapWarehouseTab';
 import ScrapArchiveTab from './tabs/ScrapArchiveTab';
 import ScrapAnalyticsTab from './tabs/ScrapAnalyticsTab';
 import InstructionsTab from './tabs/InstructionsTab';
+import ERPBlockageAlertModal from './modals/ERPBlockageAlertModal';
 import { Task, PriorityLevel, DBItem, Role, SystemConfig, MapSector, MapObstacle, BOMComponent, PartRequest, BOMRequest, AdminNote, ERPBlockage, ScrapBin, ScrapMetal, ScrapRecord, ScrapBuyer } from '../types/appTypes';
 
 // --- MAIN DASHBOARD COMPONENT ---
@@ -168,6 +169,7 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
 
     // Toast notifications state
     const [toasts, setToasts] = useState<{ id: string; partNumber: string; workplace?: string; priority?: string; createdBy?: string }[]>([]);
+    const [erpAlertQueue, setErpAlertQueue] = useState<ERPBlockage[]>([]);
 
     // Žiadosť o povolenie web notifikácií pri načítaní aplikácie
     useEffect(() => {
@@ -242,11 +244,31 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
 
     // Permission check memoized for children
     const hasPermission = useCallback((permName: string) => {
-        if (props.currentUserRole === 'ADMIN') return true;
+        if (props.currentUserRole === 'ADMIN' && permName !== 'ERP_Blockage_Notification') return true;
         const roleObj = props.roles.find(r => r.name === props.currentUserRole);
         if (!roleObj) return false;
         return roleObj.permissions ? roleObj.permissions.includes(permName) : false;
     }, [props.roles, props.currentUserRole]);
+
+    // Real-time upozornenie na novú chybu odvodu (iba pre používateľov s permisiou ERP_Blockage_Notification)
+    useEffect(() => {
+        const handleNewERPBlockage = (e: Event) => {
+            const item = (e as CustomEvent).detail as ERPBlockage;
+            if (!item || !item.id) return;
+            if (!hasPermission('ERP_Blockage_Notification')) return;
+
+            if (hasPermission('perm_play_sound')) {
+                new Audio('https://codeskulptor-demos.commondatastorage.googleapis.com/pang/pop.mp3').play().catch(() => {});
+            }
+
+            setErpAlertQueue(prev => (prev.some(x => x.id === item.id) ? prev : [...prev, item]));
+        };
+
+        window.addEventListener('new-erp-blockage', handleNewERPBlockage);
+        return () => {
+            window.removeEventListener('new-erp-blockage', handleNewERPBlockage);
+        };
+    }, [hasPermission]);
 
     // Name resolution memoized for performance
     const resolveName = useCallback((username?: string | null) => {
@@ -676,6 +698,20 @@ const PartSearchScreen: React.FC<PartSearchScreenProps> = (props) => {
                     </div>
                 ))}
             </div>
+
+            {erpAlertQueue.length > 0 && hasPermission('ERP_Blockage_Notification') && (
+                <ERPBlockageAlertModal
+                    blockage={erpAlertQueue[0]}
+                    queueCount={erpAlertQueue.length}
+                    canOpenErpTab={hasPermission('perm_tab_erp')}
+                    onAcknowledge={() => setErpAlertQueue(prev => prev.slice(1))}
+                    onOpenErpTab={() => {
+                        setActiveTab('erp');
+                        setErpAlertQueue(prev => prev.slice(1));
+                    }}
+                    resolveName={resolveName}
+                />
+            )}
         </div>
     );
 };

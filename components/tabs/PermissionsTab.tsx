@@ -59,6 +59,7 @@ const PermissionsTab: React.FC<PermissionsTabProps> = ({ roles, onAddRole, onDel
               'perm_btn_audit', 
               'perm_erp_manage', 
               'perm_erp_delete', 
+              'ERP_Blockage_Notification',
               'perm_view_fullscreen', 
               'perm_play_sound', 
               'perm_push_notification', 
